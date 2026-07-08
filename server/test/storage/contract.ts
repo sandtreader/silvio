@@ -3,8 +3,8 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { Storage } from '../../src/storage/interface.js';
-import type { Account, Currency, Group, NewTransaction } from '../../src/storage/types.js';
-import { StorageError } from '../../src/storage/types.js';
+import type { Account, Currency, Group, NewTransaction } from '../../src/types.js';
+import { StorageError } from '../../src/storage/errors.js';
 import { txHash } from '../../src/ledger/hash.js';
 
 export interface Fixture {

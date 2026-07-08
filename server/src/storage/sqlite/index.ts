@@ -27,8 +27,8 @@ import type {
   TxState,
   TxType,
   VerifyReport,
-} from '../types.js';
-import { StorageError } from '../types.js';
+} from '../../types.js';
+import { StorageError } from '../errors.js';
 import { HASH_VERSION, txHash } from '../../ledger/hash.js';
 import { migrate } from './migrations.js';
 

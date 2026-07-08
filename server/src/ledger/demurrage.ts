@@ -4,8 +4,8 @@
 // re-processes only accounts not yet charged.
 
 import type { Storage } from '../storage/interface.js';
-import type { DemurrageBand, Id } from '../storage/types.js';
-import { StorageError } from '../storage/types.js';
+import type { DemurrageBand, Id } from '../types.js';
+import { StorageError } from '../storage/errors.js';
 
 /**
  * Marginal band calculation, like income tax: each slice of the balance

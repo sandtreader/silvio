@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { demurrageCharge, runDemurrage } from '../../src/ledger/demurrage.js';
 import { SqliteStorage } from '../../src/storage/sqlite/index.js';
-import type { Account, Currency, Group } from '../../src/storage/types.js';
+import type { Account, Currency, Group } from '../../src/types.js';
 
 // Bands used throughout: free below 100.00, 1%/mo to 500.00, 2%/mo above
 // (scale-2 currency, amounts in minor units).

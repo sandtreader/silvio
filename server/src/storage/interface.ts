@@ -16,7 +16,7 @@ import type {
   Transaction,
   TxState,
   VerifyReport,
-} from './types.js';
+} from '../types.js';
 
 export interface CreateGroupInput {
   slug: string;

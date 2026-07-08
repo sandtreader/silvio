@@ -6,7 +6,7 @@
 // chain.
 
 import { createHash } from 'node:crypto';
-import type { Id, TxType } from '../storage/types.js';
+import type { Id, TxType } from '../types.js';
 
 export const HASH_VERSION = 1;
 
