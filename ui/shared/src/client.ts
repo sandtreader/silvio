@@ -1,0 +1,308 @@
+// Typed HTTP client over global fetch for the Silvio REST API, shared by the
+// member and admin UIs. Same-origin cookie sessions (credentials: 'include');
+// tenancy follows the server (decision #2): hostname mode by default, with
+// the /api/v1/g/{slug} path prefix as the host-independent fallback. Every
+// failure — HTTP, network, malformed body — surfaces as ApiError, never
+// anything else.
+
+import type {
+  Category,
+  Currency,
+  DemurrageBand,
+  DirectoryMember,
+  Flag,
+  Group,
+  Listing,
+  ListingType,
+  Me,
+  Member,
+  MemberRole,
+  MemberStatus,
+  PendingItem,
+  Policy,
+  Restriction,
+  StatementLine,
+  TradeStats,
+  Transaction,
+} from './types.js';
+import type { CreditPolicyConfig, CreditPolicyType } from './types.js';
+
+/** The server's {error: {code, message}} shape, plus the HTTP status. */
+export class ApiError extends Error {
+  readonly code: string;
+  readonly status: number;
+
+  constructor(code: string, message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+export interface ApiClientOptions {
+  /** Origin prefix, e.g. 'http://localhost:1862'. Default '' (same origin). */
+  baseUrl?: string;
+  /** Group slug for /g/{slug} path mode; omit for hostname (custom domain) mode. */
+  group?: string;
+}
+
+export type TxAction = 'accept' | 'decline' | 'cancel';
+export type MemberAction = 'approve' | 'suspend' | 'reinstate' | 'remove';
+
+export interface PayInput {
+  payeeMemberId: string;
+  currencyId: string;
+  amount: number; // minor units
+  description?: string;
+}
+
+export interface InvoiceInput {
+  payerMemberId: string;
+  currencyId: string;
+  amount: number; // minor units
+  description?: string;
+}
+
+export interface ListingInput {
+  type: ListingType;
+  title: string;
+  description: string;
+  categoryId: string;
+  priceAmount?: number;
+  priceCurrencyId?: string;
+  rateText?: string;
+  expiresAt?: string;
+}
+
+export interface ApplicationInput {
+  displayName: string;
+  personName: string;
+  email: string;
+  password: string;
+}
+
+export interface PolicyInput {
+  currencyId: string;
+  type: CreditPolicyType;
+  config: CreditPolicyConfig;
+}
+
+export interface CreateGroupInput {
+  slug: string;
+  name: string;
+  hostname?: string;
+  currency: { code: string; name: string; scale?: number; demurrageDay?: number };
+  admin?: { displayName: string; personName: string; email: string; password?: string };
+}
+
+export class ApiClient {
+  private readonly baseUrl: string;
+  private readonly group: string | undefined;
+
+  constructor(options: ApiClientOptions = {}) {
+    this.baseUrl = (options.baseUrl ?? '').replace(/\/+$/, '');
+    this.group = options.group;
+  }
+
+  /** Group-scoped API prefix: hostname mode or the /g/{slug} fallback. */
+  groupPath(): string {
+    return this.group === undefined ? '/api/v1' : `/api/v1/g/${this.group}`;
+  }
+
+  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const init: RequestInit = { method, credentials: 'include' };
+    if (body !== undefined) {
+      init.headers = { 'content-type': 'application/json' };
+      init.body = JSON.stringify(body);
+    }
+    let response: Response;
+    try {
+      response = await fetch(this.baseUrl + path, init);
+    } catch (cause) {
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      throw new ApiError('NETWORK', `cannot reach ${path}: ${detail}`, 0);
+    }
+    let parsed: unknown;
+    try {
+      const text = await response.text();
+      parsed = text === '' ? undefined : JSON.parse(text);
+    } catch {
+      parsed = undefined;
+    }
+    if (!response.ok) {
+      const error = (parsed as { error?: { code?: unknown; message?: unknown } } | undefined)
+        ?.error;
+      const code = typeof error?.code === 'string' ? error.code : 'UNKNOWN';
+      const message =
+        typeof error?.message === 'string'
+          ? error.message
+          : `${response.status} ${response.statusText}`;
+      throw new ApiError(code, message, response.status);
+    }
+    return parsed as T;
+  }
+
+  private tenant<T>(method: string, path: string, body?: unknown): Promise<T> {
+    return this.request<T>(method, this.groupPath() + path, body);
+  }
+
+  private operator<T>(method: string, path: string, body?: unknown): Promise<T> {
+    return this.request<T>(method, `/api/v1/operator${path}`, body);
+  }
+
+  // --- Auth and profile ------------------------------------------------------
+
+  login(email: string, password: string): Promise<{ ok: boolean }> {
+    return this.tenant('POST', '/auth/login', { email, password });
+  }
+
+  logout(): Promise<{ ok: boolean }> {
+    return this.tenant('POST', '/auth/logout');
+  }
+
+  me(): Promise<Me> {
+    return this.tenant('GET', '/me');
+  }
+
+  updateMe(patch: {
+    confirmIncoming?: boolean;
+    displayName?: string;
+  }): Promise<{ member: Member }> {
+    return this.tenant('PATCH', '/me', patch);
+  }
+
+  statement(currencyId: string): Promise<{ lines: StatementLine[] }> {
+    return this.tenant('GET', `/me/statement?${new URLSearchParams({ currencyId })}`);
+  }
+
+  pending(): Promise<{ pending: PendingItem[] }> {
+    return this.tenant('GET', '/me/pending');
+  }
+
+  // --- Directory and trading --------------------------------------------------
+
+  members(): Promise<{ members: DirectoryMember[] }> {
+    return this.tenant('GET', '/members');
+  }
+
+  member(id: string): Promise<{ member: DirectoryMember; stats: TradeStats }> {
+    return this.tenant('GET', `/members/${encodeURIComponent(id)}`);
+  }
+
+  pay(input: PayInput): Promise<{ transaction: Transaction }> {
+    return this.tenant('POST', '/payments', input);
+  }
+
+  invoice(input: InvoiceInput): Promise<{ transaction: Transaction }> {
+    return this.tenant('POST', '/invoices', input);
+  }
+
+  txAction(id: string, action: TxAction): Promise<{ transaction: Transaction }> {
+    return this.tenant('POST', `/transactions/${encodeURIComponent(id)}/${action}`);
+  }
+
+  // --- Marketplace and applications --------------------------------------------
+
+  browse(filter: { type?: ListingType; categoryId?: string } = {}): Promise<{
+    listings: Listing[];
+  }> {
+    const params = new URLSearchParams();
+    if (filter.type !== undefined) params.set('type', filter.type);
+    if (filter.categoryId !== undefined) params.set('categoryId', filter.categoryId);
+    const query = params.toString();
+    return this.tenant('GET', query === '' ? '/listings' : `/listings?${query}`);
+  }
+
+  postListing(input: ListingInput): Promise<{ listing: Listing }> {
+    return this.tenant('POST', '/listings', input);
+  }
+
+  categories(): Promise<{ categories: Category[] }> {
+    return this.tenant('GET', '/categories');
+  }
+
+  apply(input: ApplicationInput): Promise<{ member: Member }> {
+    return this.tenant('POST', '/applications', input);
+  }
+
+  // --- Admin ---------------------------------------------------------------
+
+  adminMembers(status?: MemberStatus): Promise<{ members: Member[] }> {
+    const query = status === undefined ? '' : `?${new URLSearchParams({ status })}`;
+    return this.tenant('GET', `/admin/members${query}`);
+  }
+
+  adminMemberAction(id: string, action: MemberAction): Promise<{ member: Member }> {
+    return this.tenant('POST', `/admin/members/${encodeURIComponent(id)}/${action}`);
+  }
+
+  adminSetRole(id: string, role: MemberRole): Promise<{ member: Member }> {
+    return this.tenant('POST', `/admin/members/${encodeURIComponent(id)}/role`, { role });
+  }
+
+  adminPolicies(): Promise<{ policies: Policy[] }> {
+    return this.tenant('GET', '/admin/policies');
+  }
+
+  adminAddPolicy(input: PolicyInput): Promise<{ policy: Policy }> {
+    return this.tenant('POST', '/admin/policies', input);
+  }
+
+  adminPatchPolicy(
+    id: string,
+    patch: { enabled?: boolean; config?: CreditPolicyConfig },
+  ): Promise<{ policy: Policy }> {
+    return this.tenant('PATCH', `/admin/policies/${encodeURIComponent(id)}`, patch);
+  }
+
+  adminGetBands(currencyId: string): Promise<{ bands: DemurrageBand[] }> {
+    return this.tenant(
+      'GET',
+      `/admin/demurrage/${encodeURIComponent(currencyId)}/bands`,
+    );
+  }
+
+  adminSetBands(
+    currencyId: string,
+    bands: DemurrageBand[],
+  ): Promise<{ bands: DemurrageBand[] }> {
+    return this.tenant('PUT', `/admin/demurrage/${encodeURIComponent(currencyId)}/bands`, {
+      bands,
+    });
+  }
+
+  adminRestrict(memberId: string, reason: string): Promise<{ restriction: Restriction }> {
+    return this.tenant('POST', '/admin/restrictions', { memberId, reason });
+  }
+
+  adminUnrestrict(memberId: string): Promise<{ ok: boolean }> {
+    return this.tenant('DELETE', `/admin/restrictions/${encodeURIComponent(memberId)}`);
+  }
+
+  adminFlags(currencyId: string): Promise<{ flags: Flag[] }> {
+    return this.tenant('GET', `/admin/flags?${new URLSearchParams({ currencyId })}`);
+  }
+
+  adminReverse(id: string): Promise<{ transaction: Transaction }> {
+    return this.tenant('POST', `/admin/transactions/${encodeURIComponent(id)}/reverse`);
+  }
+
+  // --- Operator (platform level, outside any tenant) -------------------------
+
+  operatorLogin(email: string, password: string): Promise<{ ok: boolean }> {
+    return this.operator('POST', '/login', { email, password });
+  }
+
+  operatorGroups(): Promise<{ groups: Group[] }> {
+    return this.operator('GET', '/groups');
+  }
+
+  operatorCreateGroup(input: CreateGroupInput): Promise<{
+    group: Group;
+    currency: Currency;
+    admin?: Member;
+  }> {
+    return this.operator('POST', '/groups', input);
+  }
+}

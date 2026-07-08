@@ -1,0 +1,28 @@
+{
+  "name": "@silvio/ui-shared",
+  "version": "0.0.1",
+  "description": "Silvio LETS shared UI library: typed API client and money formatting",
+  "type": "module",
+  "license": "GPL-3.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit",
+    "generate": "openapi-typescript openapi.json -o src/api-types.d.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "openapi-typescript": "^7.6.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.1.0"
+  }
+}

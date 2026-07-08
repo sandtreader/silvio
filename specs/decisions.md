@@ -448,3 +448,52 @@ proof; full journal export allows independent offline audit.
 upgrade tamper-evidence to non-repudiation of member consent — the door is open
 because payer-authorises is already the invariant (#5) and passkeys are already
 required (plan).
+
+## 11. UI architecture — DECIDED 2026-07-08
+
+Two UIs, one API, same origin.
+
+**Packages**: `ui/member` (consumer, mobile-first), `ui/admin` (desktop,
+admin/operator), `ui/shared` (typed API client + money formatting; MUI-free so
+both apps can consume it). All React + TypeScript + Vite + MUI.
+
+**Same-origin serving**: the Fastify server serves both built apps via static
+files with SPA fallback — member app at `/`, admin at `/admin/`, API at
+`/api/v1`. No CORS anywhere; cookie sessions just work; tenancy-by-hostname
+applies to the UI exactly as to the API (visit the group's domain, get its
+branded app). One process on the minimal VPS (#2, #7). Dev mode: Vite proxy to
+:1862.
+
+**Member app — mobile-first PWA**:
+- `vite-plugin-pwa`: installable, camera access for the QR payment flow
+  (decision #5: the QR is an invoice — payee shows {payee, amount, reference},
+  payer scans and authorises). Capacitor kept as the later native-wrap path
+  (plan.md's Android/iOS option) — a Vite PWA wraps nearly unchanged.
+- Bottom-tab IA: Home (balance, activity, later projected demurrage #1) ·
+  Market (offers/wants, public browse when logged out) · Pay (centre action:
+  scan / show QR / manual) · Activity (statement + pending accept/decline with
+  action badge) · More (profile, settings, directory).
+- Current MUI (no Rafiki dependency).
+
+**Admin app — desktop, Rafiki** (`@sandtreader/rafiki`, npm):
+- Used for the `Framework` shell, login flow, and `MenuStructure` navigation
+  (capability globs mapped from member role / operator flag). Pages are custom
+  MUI components — `ListEditPage`/`BasicForm` only where a flow is genuinely
+  CRUD-shaped; admin flows are mostly action-shaped (approve/suspend/restrict).
+- Custom `AuthenticationProvider` over the cookie-session API (`/auth/login` +
+  `/me` → capabilities). Rafiki pins MUI 5 / React 18 — admin app matches.
+- Known gaps accepted for now: no session restore on reload (candidate small
+  upstream Rafiki improvement: initial-session/restoreSession hook); our API
+  layer catches all errors and surfaces them (snackbar) rather than throwing
+  into Rafiki components.
+- **Upstream Rafiki changes are approved so long as they stay backwards
+  compatible** (additive props/hooks only). MUI-major posture: admin app starts
+  on MUI 5 matching Rafiki today (zero blast radius); widening Rafiki's peer
+  range to `^5 || ^6 || ^7` with a CI build matrix is the preferred future
+  route — never a hard bump that forces existing Rafiki apps to migrate in
+  lockstep.
+
+**API client**: generated from the server's own OpenAPI document
+(`openapi-typescript`) so types cannot drift from the server; falls back to
+hand-written interfaces only if the route schemas prove too thin to generate
+useful response types.
