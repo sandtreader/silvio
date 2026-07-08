@@ -28,6 +28,7 @@ import type {
   Person,
   Restriction,
   StatementLine,
+  TradeStats,
   Transaction,
   TxState,
   VerifyReport,
@@ -180,6 +181,10 @@ export interface Storage extends Ledger {
 
   /** Pending transactions with expiresAt <= asOf (decision #5 sweeps). */
   pendingDue(groupId: Id, asOf: string): Promise<Transaction[]>;
+  /** Pending transactions with a leg on any of the member's accounts. */
+  pendingForMember(memberId: Id): Promise<Transaction[]>;
+  /** Trade-count stats from committed 'trade' transactions (decision #8). */
+  tradeStats(memberId: Id): Promise<TradeStats>;
 
   // Marketplace.
   createCategory(input: { groupId: Id; name: string; parentId?: Id }): Promise<Category>;

@@ -15,7 +15,17 @@ import type {
 import cookie from '@fastify/cookie';
 import swagger from '@fastify/swagger';
 import type { Storage } from '../storage/interface.js';
-import type { Group, ListingType, Member, Session, User } from '../types.js';
+import type {
+  Group,
+  ListingType,
+  Member,
+  MemberStatus,
+  MemberType,
+  Session,
+  TxFlow,
+  TxType,
+  User,
+} from '../types.js';
 import { DomainError, type DomainErrorCode } from '../services/errors.js';
 import { StorageError } from '../storage/errors.js';
 import { authenticate, login, logout, register } from '../services/auth.js';
@@ -53,6 +63,37 @@ const ID_PARAM_SCHEMA = {
   required: ['id'],
   properties: { id: { type: 'string' } },
 } as const;
+
+/** Directory projection: public profile fields only (no private settings). */
+interface PublicMember {
+  id: string;
+  memberNo: number;
+  displayName: string;
+  type: MemberType;
+  status: MemberStatus;
+}
+
+function publicMember(member: Member): PublicMember {
+  return {
+    id: member.id,
+    memberNo: member.memberNo,
+    displayName: member.displayName,
+    type: member.type,
+    status: member.status,
+  };
+}
+
+/** A pending transaction from one member's point of view (decision #5). */
+interface PendingItem {
+  id: string;
+  type: TxType;
+  flow?: TxFlow;
+  amount: number; // absolute amount of this member's leg
+  direction: 'in' | 'out';
+  description?: string;
+  expiresAt?: string;
+  actions: ('accept' | 'decline' | 'cancel')[];
+}
 
 export async function buildApp(storage: Storage): Promise<FastifyInstance> {
   const app = Fastify();
@@ -179,6 +220,103 @@ export async function buildApp(storage: Storage): Promise<FastifyInstance> {
         }
         return { member, accounts };
       });
+
+      scope.patch(
+        '/me',
+        {
+          preHandler: requireMember,
+          schema: {
+            body: {
+              type: 'object',
+              properties: {
+                confirmIncoming: { type: 'boolean' },
+                displayName: { type: 'string' },
+              },
+            },
+          },
+        },
+        async (request) => {
+          const body = request.body as { confirmIncoming?: boolean; displayName?: string };
+          const patch: Parameters<typeof storage.updateMember>[1] = {};
+          if (body.confirmIncoming !== undefined) patch.confirmIncoming = body.confirmIncoming;
+          if (body.displayName !== undefined) patch.displayName = body.displayName;
+          const member = await storage.updateMember(request.auth!.member.id, patch);
+          return { member };
+        },
+      );
+
+      scope.get(
+        '/me/statement',
+        {
+          preHandler: requireMember,
+          schema: {
+            querystring: {
+              type: 'object',
+              required: ['currencyId'],
+              properties: { currencyId: { type: 'string' } },
+            },
+          },
+        },
+        async (request) => {
+          const { currencyId } = request.query as { currencyId: string };
+          const accounts = await storage.accountsForMember(request.auth!.member.id);
+          const account = accounts.find((candidate) => candidate.currencyId === currencyId);
+          if (!account) return { lines: [] };
+          return { lines: await storage.statement(account.id) };
+        },
+      );
+
+      scope.get('/me/pending', { preHandler: requireMember }, async (request) => {
+        const member = request.auth!.member;
+        const pending: PendingItem[] = [];
+        for (const tx of await storage.pendingForMember(member.id)) {
+          let myAmount: number | undefined;
+          for (const entry of tx.entries) {
+            const account = await storage.getAccount(entry.accountId);
+            if (account.memberId === member.id) {
+              myAmount = entry.amount;
+              break;
+            }
+          }
+          if (myAmount === undefined) continue;
+          const direction = myAmount > 0 ? 'in' : 'out';
+          // #5 roles: the responder (payee of a held payment, payer of an
+          // invoice) may accept/decline; the initiator may cancel.
+          const responds =
+            (tx.flow === 'payment' && direction === 'in') ||
+            (tx.flow === 'invoice' && direction === 'out');
+          const item: PendingItem = {
+            id: tx.id,
+            type: tx.type,
+            amount: Math.abs(myAmount),
+            direction,
+            actions: responds ? ['accept', 'decline'] : ['cancel'],
+          };
+          if (tx.flow !== undefined) item.flow = tx.flow;
+          if (tx.description !== undefined) item.description = tx.description;
+          if (tx.expiresAt !== undefined) item.expiresAt = tx.expiresAt;
+          pending.push(item);
+        }
+        return { pending };
+      });
+
+      scope.get('/members', { preHandler: requireMember }, async (request) => {
+        const members = await storage.listMembers(request.group!.id, 'active');
+        return { members: members.map(publicMember) };
+      });
+
+      scope.get(
+        '/members/:id',
+        { preHandler: requireMember, schema: { params: ID_PARAM_SCHEMA } },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          const member = await storage.getMember(id);
+          if (member.groupId !== request.group!.id) {
+            throw new DomainError('NOT_FOUND', `member ${id} not found in this group`);
+          }
+          return { member: publicMember(member), stats: await storage.tradeStats(id) };
+        },
+      );
 
       scope.post(
         '/applications',

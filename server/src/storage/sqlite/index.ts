@@ -36,6 +36,7 @@ import type {
   Restriction,
   Session,
   StatementLine,
+  TradeStats,
   Transaction,
   TxFlow,
   TxState,
@@ -1143,6 +1144,48 @@ export class SqliteStorage implements Storage {
       )
       .all(groupId, asOf) as { id: string }[];
     return Promise.resolve(rows.map((row) => this.loadTransaction(row.id)));
+  }
+
+  pendingForMember(memberId: Id): Promise<Transaction[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT DISTINCT t.id, t.created_at FROM transactions t
+         JOIN entries e ON e.transaction_id = t.id
+         JOIN accounts a ON a.id = e.account_id
+         WHERE t.state = 'pending' AND a.member_id = ?
+         ORDER BY t.created_at, t.id`,
+      )
+      .all(memberId) as { id: string }[];
+    return Promise.resolve(rows.map((row) => this.loadTransaction(row.id)));
+  }
+
+  tradeStats(memberId: Id): Promise<TradeStats> {
+    const row = this.db
+      .prepare(
+        `WITH member_trades AS (
+           SELECT DISTINCT t.id, t.committed_at
+           FROM transactions t
+           JOIN entries e ON e.transaction_id = t.id
+           JOIN accounts a ON a.id = e.account_id
+           WHERE t.state = 'committed' AND t.type = 'trade' AND a.member_id = ?
+         )
+         SELECT
+           (SELECT COUNT(*) FROM member_trades) AS trades,
+           (SELECT MAX(committed_at) FROM member_trades) AS last_trade_at,
+           (SELECT COUNT(DISTINCT a2.member_id)
+              FROM member_trades mt
+              JOIN entries e2 ON e2.transaction_id = mt.id
+              JOIN accounts a2 ON a2.id = e2.account_id
+              WHERE a2.member_id IS NOT NULL AND a2.member_id != ?) AS partners`,
+      )
+      .get(memberId, memberId) as {
+      trades: number;
+      partners: number;
+      last_trade_at: string | null;
+    };
+    const stats: TradeStats = { trades: row.trades, partners: row.partners };
+    if (row.last_trade_at !== null) stats.lastTradeAt = row.last_trade_at;
+    return Promise.resolve(stats);
   }
 
   createCategory(input: { groupId: Id; name: string; parentId?: Id }): Promise<Category> {

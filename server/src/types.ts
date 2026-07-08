@@ -235,6 +235,14 @@ export interface DemurrageRun {
   completedAt?: string;
 }
 
+// Trade-count profile stats (decision #8): computed from the journal,
+// the evidence-backed substitute for ratings.
+export interface TradeStats {
+  trades: number; // committed trades involving the member
+  partners: number; // distinct counterparty members
+  lastTradeAt?: string;
+}
+
 export interface StatementLine {
   seq: number;
   transactionId: Id;
