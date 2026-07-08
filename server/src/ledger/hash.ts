@@ -1,9 +1,12 @@
 // Journal hash chain (decision #10), hash_version 1: sha256 hex over a
 // canonical JSON encoding with deterministic key order. Chained per group by
 // the previous committed transaction's hash ('' for the first).
+// This canonical encoding is domain logic, not a storage detail: every storage
+// backend must produce identical hashes so a storage migration preserves the
+// chain.
 
 import { createHash } from 'node:crypto';
-import type { Id, TxType } from '../types.js';
+import type { Id, TxType } from '../storage/types.js';
 
 export const HASH_VERSION = 1;
 

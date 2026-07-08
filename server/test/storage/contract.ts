@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { Storage } from '../../src/storage/interface.js';
 import type { Account, Currency, Group, NewTransaction } from '../../src/storage/types.js';
 import { StorageError } from '../../src/storage/types.js';
+import { txHash } from '../../src/ledger/hash.js';
 
 export interface Fixture {
   storage: Storage;
@@ -116,6 +117,35 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
       expect(t2.hash).toMatch(/^[0-9a-f]{64}$/);
       expect(t1.hash).not.toBe(t2.hash);
       expect(t1.hashVersion).toBe(1);
+    });
+
+    it('hashes are the domain-level canonical hash, portable across backends (#10)', async () => {
+      // Any backend must produce byte-identical hashes from the shared
+      // src/ledger/hash.ts encoding, so a storage migration keeps the chain.
+      const t1 = await f.storage.post(trade(f));
+      const t2 = await f.storage.post(trade(f));
+      expect(t1.hash).toBe(
+        txHash({
+          prev: '',
+          id: t1.id,
+          groupId: t1.groupId,
+          type: t1.type,
+          seq: t1.seq!,
+          committedAt: t1.committedAt!,
+          entries: t1.entries,
+        }),
+      );
+      expect(t2.hash).toBe(
+        txHash({
+          prev: t1.hash!,
+          id: t2.id,
+          groupId: t2.groupId,
+          type: t2.type,
+          seq: t2.seq!,
+          committedAt: t2.committedAt!,
+          entries: t2.entries,
+        }),
+      );
     });
 
     it('per-group seq: two groups each start at 1', async () => {

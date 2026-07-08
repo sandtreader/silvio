@@ -27,8 +27,8 @@ import type {
   VerifyReport,
 } from '../types.js';
 import { StorageError } from '../types.js';
-import { HASH_VERSION, txHash } from './hash.js';
-import { SCHEMA } from './schema.js';
+import { HASH_VERSION, txHash } from '../../ledger/hash.js';
+import { migrate } from './migrations.js';
 
 interface AccountRow {
   id: string;
@@ -84,7 +84,7 @@ export class SqliteStorage implements Storage {
       this.db.pragma('journal_mode = WAL');
     }
     this.db.pragma('foreign_keys = ON');
-    this.db.exec(SCHEMA);
+    migrate(this.db);
   }
 
   createGroup(input: CreateGroupInput): Promise<Group> {

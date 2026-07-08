@@ -1,15 +1,17 @@
 // SQLite DDL for the storage layer (specs/data-model.md §1–3). Only the
 // fields the current domain types need; amounts are INTEGER minor units (#6).
+// This is migration 1 (see migrations.ts) and runs exactly once per database,
+// so no IF NOT EXISTS guards.
 
 export const SCHEMA = `
-CREATE TABLE IF NOT EXISTS groups (
+CREATE TABLE groups (
   id         TEXT PRIMARY KEY,
   slug       TEXT NOT NULL UNIQUE,
   name       TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS currencies (
+CREATE TABLE currencies (
   id         TEXT PRIMARY KEY,
   group_id   TEXT NOT NULL REFERENCES groups(id),
   code       TEXT NOT NULL,
@@ -19,7 +21,7 @@ CREATE TABLE IF NOT EXISTS currencies (
   UNIQUE (group_id, code)
 );
 
-CREATE TABLE IF NOT EXISTS accounts (
+CREATE TABLE accounts (
   id               TEXT PRIMARY KEY,
   group_id         TEXT NOT NULL REFERENCES groups(id),
   currency_id      TEXT NOT NULL REFERENCES currencies(id),
@@ -30,7 +32,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   closed_at        TEXT
 );
 
-CREATE TABLE IF NOT EXISTS transactions (
+CREATE TABLE transactions (
   id               TEXT PRIMARY KEY,
   group_id         TEXT NOT NULL REFERENCES groups(id),
   type             TEXT NOT NULL,
@@ -55,14 +57,14 @@ CREATE TABLE IF NOT EXISTS transactions (
   UNIQUE (group_id, seq)
 );
 
-CREATE TABLE IF NOT EXISTS entries (
+CREATE TABLE entries (
   id             TEXT PRIMARY KEY,
   transaction_id TEXT NOT NULL REFERENCES transactions(id),
   account_id     TEXT NOT NULL REFERENCES accounts(id),
   amount         INTEGER NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_entries_transaction ON entries(transaction_id);
-CREATE INDEX IF NOT EXISTS idx_entries_account ON entries(account_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_group_seq ON transactions(group_id, seq);
+CREATE INDEX idx_entries_transaction ON entries(transaction_id);
+CREATE INDEX idx_entries_account ON entries(account_id);
+CREATE INDEX idx_transactions_group_seq ON transactions(group_id, seq);
 `;
