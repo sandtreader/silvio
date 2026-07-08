@@ -6,12 +6,24 @@
 import type {
   Account,
   AccountType,
+  Category,
+  CreditPolicy,
+  CreditPolicyConfig,
+  CreditPolicyType,
   Currency,
   DemurrageBand,
   DemurrageRun,
   Group,
   Id,
+  Listing,
+  ListingStatus,
+  ListingType,
+  Member,
+  MemberStatus,
+  MemberType,
   NewTransaction,
+  Person,
+  Restriction,
   StatementLine,
   Transaction,
   TxState,
@@ -95,6 +107,89 @@ export interface Storage extends Ledger {
   completeDemurrageRun(runId: Id): Promise<DemurrageRun>;
   /** Committed transactions referencing this run (recovery: who is already charged). */
   transactionsForRun(runId: Id): Promise<Transaction[]>;
+
+  // Members & persons (decision #7). memberNo assigned per group, sequential.
+  createMember(input: {
+    groupId: Id;
+    displayName: string;
+    type?: MemberType; // default 'individual'
+  }): Promise<Member>; // status 'applied'
+  getMember(id: Id): Promise<Member>;
+  updateMember(
+    id: Id,
+    patch: { displayName?: string; confirmIncoming?: boolean },
+  ): Promise<Member>;
+  setMemberStatus(id: Id, status: MemberStatus): Promise<Member>;
+  listMembers(groupId: Id, status?: MemberStatus): Promise<Member[]>;
+  createPerson(input: {
+    memberId: Id;
+    name: string;
+    email?: string;
+    isPrimary?: boolean;
+  }): Promise<Person>;
+  personsForMember(memberId: Id): Promise<Person[]>;
+
+  listCurrencies(groupId: Id): Promise<Currency[]>;
+  getAccount(id: Id): Promise<Account>;
+  /** Get or create the member's account in a currency. */
+  ensureMemberAccount(memberId: Id, currencyId: Id): Promise<Account>;
+  accountsForMember(memberId: Id): Promise<Account[]>; // open accounts
+  closeAccount(accountId: Id): Promise<void>;
+
+  // Credit control (decision #3): persisted config; evaluation is domain logic.
+  setCreditPolicy(input: {
+    groupId: Id;
+    currencyId: Id;
+    type: CreditPolicyType;
+    config: CreditPolicyConfig;
+    enabled?: boolean; // default true
+  }): Promise<CreditPolicy>;
+  creditPolicies(groupId: Id, currencyId: Id): Promise<CreditPolicy[]>; // enabled only
+  imposeRestriction(memberId: Id, reason: string, imposedBy: Id): Promise<Restriction>;
+  liftRestriction(memberId: Id, liftedBy: Id): Promise<void>;
+  activeRestriction(memberId: Id): Promise<Restriction | undefined>;
+
+  /** Pending transactions with expiresAt <= asOf (decision #5 sweeps). */
+  pendingDue(groupId: Id, asOf: string): Promise<Transaction[]>;
+
+  // Marketplace.
+  createCategory(input: { groupId: Id; name: string; parentId?: Id }): Promise<Category>;
+  listCategories(groupId: Id): Promise<Category[]>;
+  createListing(input: {
+    groupId: Id;
+    memberId: Id;
+    type: ListingType;
+    title: string;
+    description: string;
+    categoryId: Id;
+    priceAmount?: number;
+    priceCurrencyId?: Id;
+    rateText?: string;
+    expiresAt?: string;
+  }): Promise<Listing>;
+  getListing(id: Id): Promise<Listing>;
+  updateListing(
+    id: Id,
+    patch: Partial<{
+      title: string;
+      description: string;
+      categoryId: Id;
+      priceAmount: number;
+      priceCurrencyId: Id;
+      rateText: string;
+      status: ListingStatus;
+      expiresAt: string;
+    }>,
+  ): Promise<Listing>;
+  listListings(
+    groupId: Id,
+    filter?: {
+      type?: ListingType;
+      categoryId?: Id;
+      memberId?: Id;
+      status?: ListingStatus; // default 'active'
+    },
+  ): Promise<Listing[]>;
 
   close(): void;
 }

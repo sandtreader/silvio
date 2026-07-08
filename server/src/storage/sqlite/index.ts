@@ -13,14 +13,26 @@ import type {
 } from '../interface.js';
 import type {
   Account,
+  Category,
   Channel,
+  CreditPolicy,
+  CreditPolicyConfig,
+  CreditPolicyType,
   Currency,
   DemurrageBand,
   DemurrageRun,
   Entry,
   Group,
   Id,
+  Listing,
+  ListingStatus,
+  ListingType,
+  Member,
+  MemberStatus,
+  MemberType,
   NewTransaction,
+  Person,
+  Restriction,
   StatementLine,
   Transaction,
   TxFlow,
@@ -81,6 +93,80 @@ interface DemurrageRunRow {
   status: string;
   started_at: string;
   completed_at: string | null;
+}
+
+interface MemberRow {
+  id: string;
+  group_id: string;
+  member_no: number;
+  type: string;
+  display_name: string;
+  status: string;
+  confirm_incoming: number;
+  applied_at: string;
+  approved_at: string | null;
+  closed_at: string | null;
+}
+
+interface PersonRow {
+  id: string;
+  member_id: string;
+  user_id: string | null;
+  is_primary: number;
+  name: string;
+  email: string | null;
+}
+
+interface CurrencyRow {
+  id: string;
+  group_id: string;
+  code: string;
+  name: string;
+  scale: number;
+  created_at: string;
+}
+
+interface CreditPolicyRow {
+  id: string;
+  group_id: string;
+  currency_id: string;
+  type: string;
+  config: string;
+  enabled: number;
+}
+
+interface RestrictionRow {
+  id: string;
+  member_id: string;
+  reason: string;
+  imposed_by: string;
+  imposed_at: string;
+  lifted_by: string | null;
+  lifted_at: string | null;
+}
+
+interface CategoryRow {
+  id: string;
+  group_id: string;
+  name: string;
+  parent_id: string | null;
+}
+
+interface ListingRow {
+  id: string;
+  group_id: string;
+  member_id: string;
+  type: string;
+  title: string;
+  description: string;
+  category_id: string;
+  price_amount: number | null;
+  price_currency_id: string | null;
+  rate_text: string | null;
+  status: string;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 function now(): string {
@@ -163,6 +249,14 @@ export class SqliteStorage implements Storage {
     if (input.memberId !== undefined) account.memberId = input.memberId;
     if (input.counterpartyRef !== undefined) account.counterpartyRef = input.counterpartyRef;
     return Promise.resolve(account);
+  }
+
+  getAccount(id: Id): Promise<Account> {
+    const row = this.db.prepare('SELECT * FROM accounts WHERE id = ?').get(id) as
+      | AccountRow
+      | undefined;
+    if (!row) return Promise.reject(new StorageError('NOT_FOUND', `account ${id} not found`));
+    return Promise.resolve(this.accountFromRow(row));
   }
 
   listAccounts(groupId: Id, currencyId: Id): Promise<Account[]> {
@@ -517,6 +611,500 @@ export class SqliteStorage implements Storage {
     return Promise.resolve({ ok: errors.length === 0, errors });
   }
 
+  createMember(input: {
+    groupId: Id;
+    displayName: string;
+    type?: MemberType;
+  }): Promise<Member> {
+    try {
+      const member = this.db.transaction((): Member => {
+        const head = this.db
+          .prepare('SELECT COALESCE(MAX(member_no), 0) AS member_no FROM members WHERE group_id = ?')
+          .get(input.groupId) as { member_no: number };
+        const member: Member = {
+          id: uuidv7(),
+          groupId: input.groupId,
+          memberNo: head.member_no + 1,
+          type: input.type ?? 'individual',
+          displayName: input.displayName,
+          status: 'applied',
+          confirmIncoming: false,
+          appliedAt: now(),
+        };
+        this.db
+          .prepare(
+            `INSERT INTO members (id, group_id, member_no, type, display_name, status, confirm_incoming, applied_at)
+             VALUES (?, ?, ?, ?, ?, 'applied', 0, ?)`,
+          )
+          .run(
+            member.id,
+            member.groupId,
+            member.memberNo,
+            member.type,
+            member.displayName,
+            member.appliedAt,
+          );
+        return member;
+      })();
+      return Promise.resolve(member);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  getMember(id: Id): Promise<Member> {
+    try {
+      return Promise.resolve(this.loadMember(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  updateMember(
+    id: Id,
+    patch: { displayName?: string; confirmIncoming?: boolean },
+  ): Promise<Member> {
+    try {
+      this.loadMember(id);
+      if (patch.displayName !== undefined) {
+        this.db.prepare('UPDATE members SET display_name = ? WHERE id = ?').run(patch.displayName, id);
+      }
+      if (patch.confirmIncoming !== undefined) {
+        this.db
+          .prepare('UPDATE members SET confirm_incoming = ? WHERE id = ?')
+          .run(patch.confirmIncoming ? 1 : 0, id);
+      }
+      return Promise.resolve(this.loadMember(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  setMemberStatus(id: Id, status: MemberStatus): Promise<Member> {
+    try {
+      const member = this.loadMember(id);
+      const at = now();
+      const approvedAt =
+        status === 'active' && member.approvedAt === undefined ? at : null;
+      const closedAt = status === 'closed' ? at : null;
+      this.db
+        .prepare(
+          `UPDATE members
+           SET status = ?,
+               approved_at = COALESCE(?, approved_at),
+               closed_at = COALESCE(?, closed_at)
+           WHERE id = ?`,
+        )
+        .run(status, approvedAt, closedAt, id);
+      return Promise.resolve(this.loadMember(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  listMembers(groupId: Id, status?: MemberStatus): Promise<Member[]> {
+    const rows = (
+      status === undefined
+        ? this.db
+            .prepare('SELECT * FROM members WHERE group_id = ? ORDER BY member_no')
+            .all(groupId)
+        : this.db
+            .prepare('SELECT * FROM members WHERE group_id = ? AND status = ? ORDER BY member_no')
+            .all(groupId, status)
+    ) as MemberRow[];
+    return Promise.resolve(rows.map((row) => this.memberFromRow(row)));
+  }
+
+  createPerson(input: {
+    memberId: Id;
+    name: string;
+    email?: string;
+    isPrimary?: boolean;
+  }): Promise<Person> {
+    try {
+      this.loadMember(input.memberId);
+      const person: Person = {
+        id: uuidv7(),
+        memberId: input.memberId,
+        isPrimary: input.isPrimary ?? false,
+        name: input.name,
+      };
+      if (input.email !== undefined) person.email = input.email;
+      this.db
+        .prepare(
+          'INSERT INTO persons (id, member_id, is_primary, name, email) VALUES (?, ?, ?, ?, ?)',
+        )
+        .run(person.id, person.memberId, person.isPrimary ? 1 : 0, person.name, input.email ?? null);
+      return Promise.resolve(person);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  personsForMember(memberId: Id): Promise<Person[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM persons WHERE member_id = ? ORDER BY id')
+      .all(memberId) as PersonRow[];
+    return Promise.resolve(
+      rows.map((row) => {
+        const person: Person = {
+          id: row.id,
+          memberId: row.member_id,
+          isPrimary: row.is_primary !== 0,
+          name: row.name,
+        };
+        if (row.user_id !== null) person.userId = row.user_id;
+        if (row.email !== null) person.email = row.email;
+        return person;
+      }),
+    );
+  }
+
+  listCurrencies(groupId: Id): Promise<Currency[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM currencies WHERE group_id = ? ORDER BY id')
+      .all(groupId) as CurrencyRow[];
+    return Promise.resolve(
+      rows.map((row) => ({
+        id: row.id,
+        groupId: row.group_id,
+        code: row.code,
+        name: row.name,
+        scale: row.scale,
+        createdAt: row.created_at,
+      })),
+    );
+  }
+
+  ensureMemberAccount(memberId: Id, currencyId: Id): Promise<Account> {
+    try {
+      const member = this.loadMember(memberId);
+      const account = this.db.transaction((): Account => {
+        const existing = this.db
+          .prepare(
+            `SELECT * FROM accounts
+             WHERE member_id = ? AND currency_id = ? AND type = 'member' AND closed_at IS NULL
+             ORDER BY id LIMIT 1`,
+          )
+          .get(memberId, currencyId) as AccountRow | undefined;
+        if (existing) return this.accountFromRow(existing);
+        const id = uuidv7();
+        const createdAt = now();
+        this.db
+          .prepare(
+            `INSERT INTO accounts (id, group_id, currency_id, type, member_id, created_at)
+             VALUES (?, ?, ?, 'member', ?, ?)`,
+          )
+          .run(id, member.groupId, currencyId, memberId, createdAt);
+        return {
+          id,
+          groupId: member.groupId,
+          currencyId,
+          type: 'member',
+          memberId,
+          createdAt,
+        };
+      })();
+      return Promise.resolve(account);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  accountsForMember(memberId: Id): Promise<Account[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM accounts WHERE member_id = ? AND closed_at IS NULL ORDER BY id')
+      .all(memberId) as AccountRow[];
+    return Promise.resolve(rows.map((row) => this.accountFromRow(row)));
+  }
+
+  closeAccount(accountId: Id): Promise<void> {
+    const result = this.db
+      .prepare('UPDATE accounts SET closed_at = ? WHERE id = ? AND closed_at IS NULL')
+      .run(now(), accountId);
+    if (result.changes === 0) {
+      const exists = this.db.prepare('SELECT id FROM accounts WHERE id = ?').get(accountId);
+      if (!exists) {
+        return Promise.reject(new StorageError('NOT_FOUND', `account ${accountId} not found`));
+      }
+    }
+    return Promise.resolve();
+  }
+
+  setCreditPolicy(input: {
+    groupId: Id;
+    currencyId: Id;
+    type: CreditPolicyType;
+    config: CreditPolicyConfig;
+    enabled?: boolean;
+  }): Promise<CreditPolicy> {
+    const policy: CreditPolicy = {
+      id: uuidv7(),
+      groupId: input.groupId,
+      currencyId: input.currencyId,
+      type: input.type,
+      config: input.config,
+      enabled: input.enabled ?? true,
+    };
+    this.db
+      .prepare(
+        `INSERT INTO credit_policies (id, group_id, currency_id, type, config, enabled)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        policy.id,
+        policy.groupId,
+        policy.currencyId,
+        policy.type,
+        JSON.stringify(policy.config),
+        policy.enabled ? 1 : 0,
+      );
+    return Promise.resolve(policy);
+  }
+
+  creditPolicies(groupId: Id, currencyId: Id): Promise<CreditPolicy[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM credit_policies
+         WHERE group_id = ? AND currency_id = ? AND enabled = 1
+         ORDER BY id`,
+      )
+      .all(groupId, currencyId) as CreditPolicyRow[];
+    return Promise.resolve(
+      rows.map((row) => ({
+        id: row.id,
+        groupId: row.group_id,
+        currencyId: row.currency_id,
+        type: row.type as CreditPolicyType,
+        config: JSON.parse(row.config) as CreditPolicyConfig,
+        enabled: row.enabled !== 0,
+      })),
+    );
+  }
+
+  imposeRestriction(memberId: Id, reason: string, imposedBy: Id): Promise<Restriction> {
+    try {
+      this.loadMember(memberId);
+      const restriction: Restriction = {
+        id: uuidv7(),
+        memberId,
+        reason,
+        imposedBy,
+        imposedAt: now(),
+      };
+      this.db
+        .prepare(
+          'INSERT INTO restrictions (id, member_id, reason, imposed_by, imposed_at) VALUES (?, ?, ?, ?, ?)',
+        )
+        .run(restriction.id, memberId, reason, imposedBy, restriction.imposedAt);
+      return Promise.resolve(restriction);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  liftRestriction(memberId: Id, liftedBy: Id): Promise<void> {
+    const result = this.db
+      .prepare(
+        'UPDATE restrictions SET lifted_by = ?, lifted_at = ? WHERE member_id = ? AND lifted_at IS NULL',
+      )
+      .run(liftedBy, now(), memberId);
+    if (result.changes === 0) {
+      return Promise.reject(
+        new StorageError('NOT_FOUND', `member ${memberId} has no active restriction`),
+      );
+    }
+    return Promise.resolve();
+  }
+
+  activeRestriction(memberId: Id): Promise<Restriction | undefined> {
+    const row = this.db
+      .prepare(
+        `SELECT * FROM restrictions
+         WHERE member_id = ? AND lifted_at IS NULL
+         ORDER BY imposed_at DESC LIMIT 1`,
+      )
+      .get(memberId) as RestrictionRow | undefined;
+    if (!row) return Promise.resolve(undefined);
+    const restriction: Restriction = {
+      id: row.id,
+      memberId: row.member_id,
+      reason: row.reason,
+      imposedBy: row.imposed_by,
+      imposedAt: row.imposed_at,
+    };
+    if (row.lifted_by !== null) restriction.liftedBy = row.lifted_by;
+    if (row.lifted_at !== null) restriction.liftedAt = row.lifted_at;
+    return Promise.resolve(restriction);
+  }
+
+  pendingDue(groupId: Id, asOf: string): Promise<Transaction[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT id FROM transactions
+         WHERE group_id = ? AND state = 'pending' AND expires_at IS NOT NULL AND expires_at <= ?
+         ORDER BY created_at, id`,
+      )
+      .all(groupId, asOf) as { id: string }[];
+    return Promise.resolve(rows.map((row) => this.loadTransaction(row.id)));
+  }
+
+  createCategory(input: { groupId: Id; name: string; parentId?: Id }): Promise<Category> {
+    try {
+      const category: Category = {
+        id: uuidv7(),
+        groupId: input.groupId,
+        name: input.name,
+      };
+      if (input.parentId !== undefined) category.parentId = input.parentId;
+      this.db
+        .prepare('INSERT INTO categories (id, group_id, name, parent_id) VALUES (?, ?, ?, ?)')
+        .run(category.id, category.groupId, category.name, input.parentId ?? null);
+      return Promise.resolve(category);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  listCategories(groupId: Id): Promise<Category[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM categories WHERE group_id = ? ORDER BY name')
+      .all(groupId) as CategoryRow[];
+    return Promise.resolve(
+      rows.map((row) => {
+        const category: Category = { id: row.id, groupId: row.group_id, name: row.name };
+        if (row.parent_id !== null) category.parentId = row.parent_id;
+        return category;
+      }),
+    );
+  }
+
+  createListing(input: {
+    groupId: Id;
+    memberId: Id;
+    type: ListingType;
+    title: string;
+    description: string;
+    categoryId: Id;
+    priceAmount?: number;
+    priceCurrencyId?: Id;
+    rateText?: string;
+    expiresAt?: string;
+  }): Promise<Listing> {
+    try {
+      const id = uuidv7();
+      const createdAt = now();
+      this.db
+        .prepare(
+          `INSERT INTO listings (
+             id, group_id, member_id, type, title, description, category_id,
+             price_amount, price_currency_id, rate_text, status, expires_at,
+             created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
+        )
+        .run(
+          id,
+          input.groupId,
+          input.memberId,
+          input.type,
+          input.title,
+          input.description,
+          input.categoryId,
+          input.priceAmount ?? null,
+          input.priceCurrencyId ?? null,
+          input.rateText ?? null,
+          input.expiresAt ?? null,
+          createdAt,
+          createdAt,
+        );
+      return Promise.resolve(this.loadListing(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  getListing(id: Id): Promise<Listing> {
+    try {
+      return Promise.resolve(this.loadListing(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  updateListing(
+    id: Id,
+    patch: Partial<{
+      title: string;
+      description: string;
+      categoryId: Id;
+      priceAmount: number;
+      priceCurrencyId: Id;
+      rateText: string;
+      status: ListingStatus;
+      expiresAt: string;
+    }>,
+  ): Promise<Listing> {
+    try {
+      this.loadListing(id);
+      const sets: string[] = [];
+      const values: (string | number)[] = [];
+      const columns: [keyof typeof patch, string][] = [
+        ['title', 'title'],
+        ['description', 'description'],
+        ['categoryId', 'category_id'],
+        ['priceAmount', 'price_amount'],
+        ['priceCurrencyId', 'price_currency_id'],
+        ['rateText', 'rate_text'],
+        ['status', 'status'],
+        ['expiresAt', 'expires_at'],
+      ];
+      for (const [key, column] of columns) {
+        const value = patch[key];
+        if (value !== undefined) {
+          sets.push(`${column} = ?`);
+          values.push(value);
+        }
+      }
+      if (sets.length > 0) {
+        sets.push('updated_at = ?');
+        values.push(now());
+        this.db.prepare(`UPDATE listings SET ${sets.join(', ')} WHERE id = ?`).run(...values, id);
+      }
+      return Promise.resolve(this.loadListing(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  listListings(
+    groupId: Id,
+    filter?: {
+      type?: ListingType;
+      categoryId?: Id;
+      memberId?: Id;
+      status?: ListingStatus;
+    },
+  ): Promise<Listing[]> {
+    const clauses = ['group_id = ?', 'status = ?'];
+    const values: string[] = [groupId, filter?.status ?? 'active'];
+    if (filter?.type !== undefined) {
+      clauses.push('type = ?');
+      values.push(filter.type);
+    }
+    if (filter?.categoryId !== undefined) {
+      clauses.push('category_id = ?');
+      values.push(filter.categoryId);
+    }
+    if (filter?.memberId !== undefined) {
+      clauses.push('member_id = ?');
+      values.push(filter.memberId);
+    }
+    const rows = this.db
+      .prepare(`SELECT * FROM listings WHERE ${clauses.join(' AND ')} ORDER BY created_at, id`)
+      .all(...values) as ListingRow[];
+    return Promise.resolve(rows.map((row) => this.listingFromRow(row)));
+  }
+
   close(): void {
     this.db.close();
   }
@@ -535,6 +1123,58 @@ export class SqliteStorage implements Storage {
     if (row.counterparty_ref !== null) account.counterpartyRef = row.counterparty_ref;
     if (row.closed_at !== null) account.closedAt = row.closed_at;
     return account;
+  }
+
+  private memberFromRow(row: MemberRow): Member {
+    const member: Member = {
+      id: row.id,
+      groupId: row.group_id,
+      memberNo: row.member_no,
+      type: row.type as MemberType,
+      displayName: row.display_name,
+      status: row.status as MemberStatus,
+      confirmIncoming: row.confirm_incoming !== 0,
+      appliedAt: row.applied_at,
+    };
+    if (row.approved_at !== null) member.approvedAt = row.approved_at;
+    if (row.closed_at !== null) member.closedAt = row.closed_at;
+    return member;
+  }
+
+  private loadMember(id: Id): Member {
+    const row = this.db
+      .prepare('SELECT * FROM members WHERE id = ?')
+      .get(id) as MemberRow | undefined;
+    if (!row) throw new StorageError('NOT_FOUND', `member ${id} not found`);
+    return this.memberFromRow(row);
+  }
+
+  private listingFromRow(row: ListingRow): Listing {
+    const listing: Listing = {
+      id: row.id,
+      groupId: row.group_id,
+      memberId: row.member_id,
+      type: row.type as ListingType,
+      title: row.title,
+      description: row.description,
+      categoryId: row.category_id,
+      status: row.status as ListingStatus,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+    if (row.price_amount !== null) listing.priceAmount = row.price_amount;
+    if (row.price_currency_id !== null) listing.priceCurrencyId = row.price_currency_id;
+    if (row.rate_text !== null) listing.rateText = row.rate_text;
+    if (row.expires_at !== null) listing.expiresAt = row.expires_at;
+    return listing;
+  }
+
+  private loadListing(id: Id): Listing {
+    const row = this.db
+      .prepare('SELECT * FROM listings WHERE id = ?')
+      .get(id) as ListingRow | undefined;
+    if (!row) throw new StorageError('NOT_FOUND', `listing ${id} not found`);
+    return this.listingFromRow(row);
   }
 
   private runFromRow(row: DemurrageRunRow): DemurrageRun {

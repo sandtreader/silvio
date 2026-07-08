@@ -33,9 +33,85 @@ CREATE TABLE demurrage_runs (
 );
 `;
 
+// Migration 3: membership, credit control, and marketplace (decisions #3, #7).
+const DOMAIN_SCHEMA = `
+CREATE TABLE members (
+  id               TEXT PRIMARY KEY,
+  group_id         TEXT NOT NULL REFERENCES groups(id),
+  member_no        INTEGER NOT NULL,
+  type             TEXT NOT NULL,
+  display_name     TEXT NOT NULL,
+  status           TEXT NOT NULL,
+  confirm_incoming INTEGER NOT NULL DEFAULT 0,
+  applied_at       TEXT NOT NULL,
+  approved_at      TEXT,
+  closed_at        TEXT,
+  UNIQUE (group_id, member_no)
+);
+
+CREATE TABLE persons (
+  id         TEXT PRIMARY KEY,
+  member_id  TEXT NOT NULL REFERENCES members(id),
+  user_id    TEXT,
+  is_primary INTEGER NOT NULL DEFAULT 0,
+  name       TEXT NOT NULL,
+  email      TEXT
+);
+
+CREATE TABLE credit_policies (
+  id          TEXT PRIMARY KEY,
+  group_id    TEXT NOT NULL REFERENCES groups(id),
+  currency_id TEXT NOT NULL REFERENCES currencies(id),
+  type        TEXT NOT NULL,
+  config      TEXT NOT NULL,
+  enabled     INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE restrictions (
+  id         TEXT PRIMARY KEY,
+  member_id  TEXT NOT NULL REFERENCES members(id),
+  reason     TEXT NOT NULL,
+  imposed_by TEXT NOT NULL,
+  imposed_at TEXT NOT NULL,
+  lifted_by  TEXT,
+  lifted_at  TEXT
+);
+
+CREATE TABLE categories (
+  id        TEXT PRIMARY KEY,
+  group_id  TEXT NOT NULL REFERENCES groups(id),
+  name      TEXT NOT NULL,
+  parent_id TEXT REFERENCES categories(id),
+  UNIQUE (group_id, parent_id, name)
+);
+
+CREATE TABLE listings (
+  id                TEXT PRIMARY KEY,
+  group_id          TEXT NOT NULL REFERENCES groups(id),
+  member_id         TEXT NOT NULL REFERENCES members(id),
+  type              TEXT NOT NULL,
+  title             TEXT NOT NULL,
+  description       TEXT NOT NULL,
+  category_id       TEXT NOT NULL REFERENCES categories(id),
+  price_amount      INTEGER,
+  price_currency_id TEXT,
+  rate_text         TEXT,
+  status            TEXT NOT NULL,
+  expires_at        TEXT,
+  created_at        TEXT NOT NULL,
+  updated_at        TEXT NOT NULL
+);
+
+CREATE INDEX idx_members_group ON members(group_id);
+CREATE INDEX idx_persons_member ON persons(member_id);
+CREATE INDEX idx_restrictions_member ON restrictions(member_id);
+CREATE INDEX idx_listings_group_status ON listings(group_id, status);
+`;
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, sql: SCHEMA },
   { version: 2, sql: DEMURRAGE_SCHEMA },
+  { version: 3, sql: DOMAIN_SCHEMA },
 ];
 
 export function migrate(db: Database.Database): void {
