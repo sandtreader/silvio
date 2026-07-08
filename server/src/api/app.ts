@@ -31,7 +31,8 @@ import type {
 } from '../types.js';
 import { DomainError, type DomainErrorCode } from '../services/errors.js';
 import { StorageError } from '../storage/errors.js';
-import { authenticate, login, logout, register } from '../services/auth.js';
+import { authenticate, login, logout, register, verifyCredentials } from '../services/auth.js';
+import { provisionGroup } from '../services/provisioning.js';
 import { apply, approve, leave, reinstate, suspend } from '../services/membership.js';
 import {
   accept,
@@ -791,6 +792,111 @@ export async function buildApp(storage: Storage): Promise<FastifyInstance> {
     }),
     { prefix: '/api/v1/g/:slug' },
   );
+
+  // --- Operator area (decision #2): platform-level provisioning, outside ---
+  // any tenant. Operators are users, not members; their sessions carry no
+  // member context, so these routes live outside the group-scoped plugins.
+
+  /** Session cookie -> live operator session; 401 without one, 403 for non-operators. */
+  async function requireOperator(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<unknown> {
+    const token = request.cookies[SESSION_COOKIE];
+    const context = token === undefined ? undefined : await authenticate(storage, token);
+    if (!context) {
+      return reply
+        .status(401)
+        .send(errorBody('NOT_AUTHORISED', 'a valid session is required'));
+    }
+    if (!context.user.isOperator) {
+      return reply
+        .status(403)
+        .send(errorBody('NOT_AUTHORISED', 'this action requires operator access'));
+    }
+    return undefined;
+  }
+
+  app.post(
+    '/api/v1/operator/login',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['email', 'password'],
+          properties: {
+            email: { type: 'string' },
+            password: { type: 'string' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as { email: string; password: string };
+      // Check the operator flag before opening any session: a failed operator
+      // login must not leave a usable cookie behind.
+      const user = await verifyCredentials(storage, body.email, body.password);
+      if (!user.isOperator) {
+        throw new DomainError('NOT_AUTHORISED', 'this account is not an operator');
+      }
+      const { token } = await login(storage, { email: body.email, password: body.password });
+      reply.setCookie(SESSION_COOKIE, token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+      });
+      return { ok: true };
+    },
+  );
+
+  app.post(
+    '/api/v1/operator/groups',
+    {
+      preHandler: requireOperator,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['slug', 'name', 'currency'],
+          properties: {
+            slug: { type: 'string' },
+            name: { type: 'string' },
+            hostname: { type: 'string' },
+            currency: {
+              type: 'object',
+              required: ['code', 'name'],
+              properties: {
+                code: { type: 'string' },
+                name: { type: 'string' },
+                scale: { type: 'integer' },
+                demurrageDay: { type: 'integer' },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as {
+        slug: string;
+        name: string;
+        hostname?: string;
+        currency: { code: string; name: string; scale?: number; demurrageDay?: number };
+      };
+      const input: Parameters<typeof provisionGroup>[1] = {
+        slug: body.slug,
+        name: body.name,
+        currency: body.currency,
+      };
+      if (body.hostname !== undefined) input.hostname = body.hostname;
+      const { group, currency } = await provisionGroup(storage, input);
+      reply.status(201);
+      return { group, currency };
+    },
+  );
+
+  app.get('/api/v1/operator/groups', { preHandler: requireOperator }, async () => {
+    return { groups: await storage.listGroups() };
+  });
 
   // Served as an ordinary route so it reflects everything registered above.
   app.get('/api/v1/openapi.json', async () => app.swagger());

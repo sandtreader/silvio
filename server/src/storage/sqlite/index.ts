@@ -163,6 +163,7 @@ interface UserRow {
   email: string;
   password_hash: string;
   status: string;
+  is_operator: number;
   created_at: string;
   last_login_at: string | null;
 }
@@ -665,6 +666,7 @@ export class SqliteStorage implements Storage {
         id: uuidv7(),
         email: input.email,
         status: 'active',
+        isOperator: false,
         createdAt: now(),
       };
       try {
@@ -704,6 +706,16 @@ export class SqliteStorage implements Storage {
       | undefined;
     if (!row) return Promise.resolve(undefined);
     return Promise.resolve({ user: this.userFromRow(row), passwordHash: row.password_hash });
+  }
+
+  setOperator(userId: Id, isOperator: boolean): Promise<User> {
+    const result = this.db
+      .prepare('UPDATE users SET is_operator = ? WHERE id = ?')
+      .run(isOperator ? 1 : 0, userId);
+    if (result.changes === 0) {
+      return Promise.reject(new StorageError('NOT_FOUND', `user ${userId} not found`));
+    }
+    return this.getUser(userId);
   }
 
   createSession(input: {
@@ -1438,6 +1450,7 @@ export class SqliteStorage implements Storage {
       id: row.id,
       email: row.email,
       status: row.status as User['status'],
+      isOperator: row.is_operator !== 0,
       createdAt: row.created_at,
     };
   }

@@ -109,6 +109,7 @@ export interface User {
   id: Id;
   email: string; // unique globally; login identifier
   status: 'active' | 'locked' | 'closed';
+  isOperator: boolean; // platform super-admin (decision #2); never listed in groups
   createdAt: string;
 }
 

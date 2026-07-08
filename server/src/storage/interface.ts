@@ -122,6 +122,7 @@ export interface Storage extends Ledger {
   credentialsForEmail(
     email: string,
   ): Promise<{ user: User; passwordHash: string } | undefined>;
+  setOperator(userId: Id, isOperator: boolean): Promise<User>;
   createSession(input: {
     userId: Id;
     memberId?: Id;

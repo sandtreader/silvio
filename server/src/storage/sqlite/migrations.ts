@@ -148,12 +148,19 @@ CREATE INDEX idx_persons_user ON persons(user_id);
 CREATE INDEX idx_sessions_user ON sessions(user_id);
 `;
 
+// Migration 6: platform operators (decision #2). Operators are users, not
+// members; the flag gates the provisioning API.
+const OPERATOR_SCHEMA = `
+ALTER TABLE users ADD COLUMN is_operator INTEGER NOT NULL DEFAULT 0;
+`;
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, sql: SCHEMA },
   { version: 2, sql: DEMURRAGE_SCHEMA },
   { version: 3, sql: DOMAIN_SCHEMA },
   { version: 4, sql: SCHEDULER_SCHEMA },
   { version: 5, sql: IDENTITY_SCHEMA },
+  { version: 6, sql: OPERATOR_SCHEMA },
 ];
 
 export function migrate(db: Database.Database): void {

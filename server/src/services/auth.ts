@@ -22,7 +22,7 @@ export interface RegisterInput {
 export interface LoginInput {
   email: string;
   password: string;
-  groupId: Id;
+  groupId?: Id; // absent: a group-less session (operator login, decision #2)
 }
 
 export interface AuthContext {
@@ -54,27 +54,44 @@ export async function register(storage: Storage, input: RegisterInput): Promise<
   }
 }
 
-/** Verify credentials and open a session in the given group's context. */
+/** Check email/password without opening a session; NOT_AUTHORISED otherwise. */
+export async function verifyCredentials(
+  storage: Storage,
+  email: string,
+  password: string,
+): Promise<User> {
+  const creds = await storage.credentialsForEmail(email);
+  if (!creds || !(await argon2.verify(creds.passwordHash, password))) {
+    throw new DomainError('NOT_AUTHORISED', BAD_CREDENTIALS);
+  }
+  return creds.user;
+}
+
+/**
+ * Verify credentials and open a session. With groupId the session is bound
+ * to the user's membership there (required); without, the session carries no
+ * member context (operator login).
+ */
 export async function login(
   storage: Storage,
   input: LoginInput,
 ): Promise<{ token: string; session: Session }> {
-  const creds = await storage.credentialsForEmail(input.email);
-  if (!creds || !(await argon2.verify(creds.passwordHash, input.password))) {
-    throw new DomainError('NOT_AUTHORISED', BAD_CREDENTIALS);
-  }
-  const members = await storage.membersForUser(creds.user.id);
-  const member = members.find((candidate) => candidate.groupId === input.groupId);
-  if (!member) {
-    throw new DomainError('NOT_AUTHORISED', BAD_CREDENTIALS);
-  }
+  const user = await verifyCredentials(storage, input.email, input.password);
   const token = randomBytes(32).toString('hex');
-  const session = await storage.createSession({
-    userId: creds.user.id,
-    memberId: member.id,
+  const sessionInput: Parameters<Storage['createSession']>[0] = {
+    userId: user.id,
     tokenHash: sha256(token),
     expiresAt: new Date(Date.now() + SESSION_DAYS * 86_400_000).toISOString(),
-  });
+  };
+  if (input.groupId !== undefined) {
+    const members = await storage.membersForUser(user.id);
+    const member = members.find((candidate) => candidate.groupId === input.groupId);
+    if (!member) {
+      throw new DomainError('NOT_AUTHORISED', BAD_CREDENTIALS);
+    }
+    sessionInput.memberId = member.id;
+  }
+  const session = await storage.createSession(sessionInput);
   return { token, session };
 }
 
