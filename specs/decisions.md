@@ -399,3 +399,52 @@ The MCP server is a thin client of the same REST API as the web UI (API-first,
 **Design point**: the payment-confirmation flow needed no new mechanism — #5's
 pending → committed distinction is exactly the human-in-the-loop boundary for
 AI agents. Credit-control (#3) applies at commit regardless of channel.
+
+## 10. Tamper-evidence — DECIDED 2026-07-08
+
+Make ledger history tamper-evident so that neither a compromised server, a rogue
+self-host admin, nor the SaaS **operator themselves** can silently rewrite it —
+"you don't have to trust the host" is a differentiator for white-label hosting
+(#2), and chained hashes are also what Credit Commons federation expects (#4).
+Cheap because the journal is append-only (#6): tamper-evidence over append-only
+data is one hash column; it's rewriteable ledgers that make it hard.
+
+**Journal hash chain** (continuous)
+- At commit, inside the same atomic storage transaction that assigns the
+  per-group `seq`: `hash = H(prev_hash ‖ canonical(header + entries))`.
+- Chain order is commit order — per-group commits are already serialised
+  (single-writer SQLite; trivial volume), so there is no race. The chain links
+  by `prev_hash`, never by arithmetic on `seq`, so sequence gaps can never break
+  verification.
+- Only committed transactions are chained; pending-phase concurrency (#5) is
+  outside the chain. Reversals are new chained transactions (#6).
+- **Canonical serialisation is the engineering risk**: hash over a byte-stable,
+  versioned encoding (fixed field order; all-integer money, no float
+  ambiguity). Specify once, version it (`hash_version`).
+
+**Merkle checkpoints** (periodic — monthly, natural cadence alongside the
+demurrage run)
+- Merkle tree over every account's `(account_id, balance, last_entry_seq)` plus
+  the journal head hash; checkpoint roots chain to each other.
+- Gives each member an **inclusion proof of their own balance** without
+  revealing anyone else's data — the benefit of per-account chains without
+  maintaining N live chains atomically on every multi-leg transaction
+  (demurrage runs and swaps touch many accounts at once).
+
+**Witnesses** — pluggable root publishers (terminology from a prior project):
+- Newsletter/market-day flyer (print the root — very stamp scrip)
+- Digest email (every member's inbox is an independent witness)
+- Public git repo
+- **Cross-group witnessing** — free on a multi-tenant instance: groups witness
+  each other's roots
+- Blockchain anchor as one more plugin for whoever wants it
+Witness receipts recorded per checkpoint.
+
+**Verification**: the storage `verify` operation extends to recompute the chain
+and checkpoint roots; member-facing "verify my statement" shows the inclusion
+proof; full journal export allows independent offline audit.
+
+**Future option, not built**: passkey-signed payment authorisations would
+upgrade tamper-evidence to non-repudiation of member consent — the door is open
+because payer-authorises is already the invariant (#5) and passkeys are already
+required (plan).
