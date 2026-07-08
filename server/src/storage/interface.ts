@@ -7,6 +7,8 @@ import type {
   Account,
   AccountType,
   Currency,
+  DemurrageBand,
+  DemurrageRun,
   Group,
   Id,
   NewTransaction,
@@ -78,5 +80,21 @@ export interface Storage extends Ledger {
   createGroup(input: CreateGroupInput): Promise<Group>;
   createCurrency(input: CreateCurrencyInput): Promise<Currency>;
   createAccount(input: CreateAccountInput): Promise<Account>;
+
+  /** Open (unclosed) accounts of a currency; optionally filtered by type. */
+  listAccounts(groupId: Id, currencyId: Id): Promise<Account[]>;
+
+  // Demurrage config and runs (decision #1). The engine itself is domain
+  // logic in src/ledger/demurrage.ts; storage only persists bands and runs.
+  /** Replace the currency's bands. Must be valid: fromAmounts unique and >= 0, rates >= 0. */
+  setDemurrageBands(currencyId: Id, bands: DemurrageBand[]): Promise<void>;
+  demurrageBands(currencyId: Id): Promise<DemurrageBand[]>; // ordered by fromAmount
+
+  /** Begin a run, or return the existing one for (currency, period) — idempotent. */
+  beginDemurrageRun(groupId: Id, currencyId: Id, period: string): Promise<DemurrageRun>;
+  completeDemurrageRun(runId: Id): Promise<DemurrageRun>;
+  /** Committed transactions referencing this run (recovery: who is already charged). */
+  transactionsForRun(runId: Id): Promise<Transaction[]>;
+
   close(): void;
 }

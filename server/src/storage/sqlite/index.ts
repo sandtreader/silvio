@@ -15,6 +15,8 @@ import type {
   Account,
   Channel,
   Currency,
+  DemurrageBand,
+  DemurrageRun,
   Entry,
   Group,
   Id,
@@ -69,6 +71,16 @@ interface EntryRow {
   transaction_id: string;
   account_id: string;
   amount: number;
+}
+
+interface DemurrageRunRow {
+  id: string;
+  group_id: string;
+  currency_id: string;
+  period: string;
+  status: string;
+  started_at: string;
+  completed_at: string | null;
 }
 
 function now(): string {
@@ -151,6 +163,121 @@ export class SqliteStorage implements Storage {
     if (input.memberId !== undefined) account.memberId = input.memberId;
     if (input.counterpartyRef !== undefined) account.counterpartyRef = input.counterpartyRef;
     return Promise.resolve(account);
+  }
+
+  listAccounts(groupId: Id, currencyId: Id): Promise<Account[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM accounts
+         WHERE group_id = ? AND currency_id = ? AND closed_at IS NULL
+         ORDER BY id`,
+      )
+      .all(groupId, currencyId) as AccountRow[];
+    return Promise.resolve(rows.map((row) => this.accountFromRow(row)));
+  }
+
+  setDemurrageBands(currencyId: Id, bands: DemurrageBand[]): Promise<void> {
+    try {
+      const seen = new Set<number>();
+      for (const band of bands) {
+        if (!Number.isSafeInteger(band.fromAmount) || band.fromAmount < 0) {
+          throw new StorageError(
+            'INVALID_TRANSACTION',
+            `band fromAmount must be a non-negative integer, got ${band.fromAmount}`,
+          );
+        }
+        if (!Number.isSafeInteger(band.ratePpmPerMonth) || band.ratePpmPerMonth < 0) {
+          throw new StorageError(
+            'INVALID_TRANSACTION',
+            `band ratePpmPerMonth must be a non-negative integer, got ${band.ratePpmPerMonth}`,
+          );
+        }
+        if (seen.has(band.fromAmount)) {
+          throw new StorageError(
+            'INVALID_TRANSACTION',
+            `duplicate band fromAmount ${band.fromAmount}`,
+          );
+        }
+        seen.add(band.fromAmount);
+      }
+      this.db.transaction(() => {
+        this.db.prepare('DELETE FROM demurrage_bands WHERE currency_id = ?').run(currencyId);
+        const insert = this.db.prepare(
+          'INSERT INTO demurrage_bands (currency_id, from_amount, rate_ppm_per_month) VALUES (?, ?, ?)',
+        );
+        for (const band of bands) {
+          insert.run(currencyId, band.fromAmount, band.ratePpmPerMonth);
+        }
+      })();
+      return Promise.resolve();
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  demurrageBands(currencyId: Id): Promise<DemurrageBand[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT from_amount, rate_ppm_per_month FROM demurrage_bands
+         WHERE currency_id = ? ORDER BY from_amount`,
+      )
+      .all(currencyId) as { from_amount: number; rate_ppm_per_month: number }[];
+    return Promise.resolve(
+      rows.map((row) => ({ fromAmount: row.from_amount, ratePpmPerMonth: row.rate_ppm_per_month })),
+    );
+  }
+
+  beginDemurrageRun(groupId: Id, currencyId: Id, period: string): Promise<DemurrageRun> {
+    try {
+      const run = this.db.transaction((): DemurrageRun => {
+        const existing = this.db
+          .prepare('SELECT * FROM demurrage_runs WHERE currency_id = ? AND period = ?')
+          .get(currencyId, period) as DemurrageRunRow | undefined;
+        if (existing) return this.runFromRow(existing);
+        const id = uuidv7();
+        const startedAt = now();
+        this.db
+          .prepare(
+            `INSERT INTO demurrage_runs (id, group_id, currency_id, period, status, started_at)
+             VALUES (?, ?, ?, ?, 'running', ?)`,
+          )
+          .run(id, groupId, currencyId, period, startedAt);
+        return { id, groupId, currencyId, period, status: 'running', startedAt };
+      })();
+      return Promise.resolve(run);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  completeDemurrageRun(runId: Id): Promise<DemurrageRun> {
+    try {
+      const result = this.db
+        .prepare(
+          `UPDATE demurrage_runs SET status = 'completed', completed_at = ? WHERE id = ?`,
+        )
+        .run(now(), runId);
+      if (result.changes === 0) {
+        throw new StorageError('NOT_FOUND', `demurrage run ${runId} not found`);
+      }
+      const row = this.db
+        .prepare('SELECT * FROM demurrage_runs WHERE id = ?')
+        .get(runId) as DemurrageRunRow;
+      return Promise.resolve(this.runFromRow(row));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  transactionsForRun(runId: Id): Promise<Transaction[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT id FROM transactions
+         WHERE demurrage_run_id = ? AND state = 'committed'
+         ORDER BY seq`,
+      )
+      .all(runId) as { id: string }[];
+    return Promise.resolve(rows.map((row) => this.loadTransaction(row.id)));
   }
 
   post(tx: NewTransaction, idempotencyKey?: string): Promise<Transaction> {
@@ -395,6 +522,33 @@ export class SqliteStorage implements Storage {
   }
 
   // --- private ---------------------------------------------------------------
+
+  private accountFromRow(row: AccountRow): Account {
+    const account: Account = {
+      id: row.id,
+      groupId: row.group_id,
+      currencyId: row.currency_id,
+      type: row.type as Account['type'],
+      createdAt: row.created_at,
+    };
+    if (row.member_id !== null) account.memberId = row.member_id;
+    if (row.counterparty_ref !== null) account.counterpartyRef = row.counterparty_ref;
+    if (row.closed_at !== null) account.closedAt = row.closed_at;
+    return account;
+  }
+
+  private runFromRow(row: DemurrageRunRow): DemurrageRun {
+    const run: DemurrageRun = {
+      id: row.id,
+      groupId: row.group_id,
+      currencyId: row.currency_id,
+      period: row.period,
+      status: row.status as DemurrageRun['status'],
+      startedAt: row.started_at,
+    };
+    if (row.completed_at !== null) run.completedAt = row.completed_at;
+    return run;
+  }
 
   /** #6 invariants: >= 2 legs, non-zero safe integers, accounts exist in
    *  tx.groupId, legs grouped by their account's currency each sum to zero. */

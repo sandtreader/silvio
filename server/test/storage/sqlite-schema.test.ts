@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { SqliteStorage } from '../../src/storage/sqlite/index.js';
+import { MIGRATIONS } from '../../src/storage/sqlite/migrations.js';
 
 describe('SqliteStorage schema lifecycle', () => {
   let dir: string;
@@ -53,7 +54,7 @@ describe('SqliteStorage schema lifecycle', () => {
       version: number;
     };
     db.close();
-    expect(row.version).toBe(1);
+    expect(row.version).toBe(MIGRATIONS.at(-1)!.version);
   });
 
   it('refuses to open a database with a newer schema version', () => {

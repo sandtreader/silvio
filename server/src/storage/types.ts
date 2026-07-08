@@ -103,6 +103,22 @@ export interface Transaction {
   entries: Entry[];
 }
 
+// Demurrage (decision #1): marginal bands per currency, monthly runs.
+export interface DemurrageBand {
+  fromAmount: number; // band start, minor units (first band typically 0)
+  ratePpmPerMonth: number; // marginal rate in parts-per-million per month
+}
+
+export interface DemurrageRun {
+  id: Id;
+  groupId: Id;
+  currencyId: Id;
+  period: string; // "YYYY-MM", unique per currency
+  status: 'running' | 'completed';
+  startedAt: string;
+  completedAt?: string;
+}
+
 export interface StatementLine {
   seq: number;
   transactionId: Id;

@@ -12,7 +12,31 @@ export interface Migration {
   sql: string;
 }
 
-export const MIGRATIONS: Migration[] = [{ version: 1, sql: SCHEMA }];
+// Migration 2: demurrage config and runs (decision #1).
+const DEMURRAGE_SCHEMA = `
+CREATE TABLE demurrage_bands (
+  currency_id        TEXT NOT NULL REFERENCES currencies(id),
+  from_amount        INTEGER NOT NULL,
+  rate_ppm_per_month INTEGER NOT NULL,
+  UNIQUE (currency_id, from_amount)
+);
+
+CREATE TABLE demurrage_runs (
+  id           TEXT PRIMARY KEY,
+  group_id     TEXT NOT NULL REFERENCES groups(id),
+  currency_id  TEXT NOT NULL REFERENCES currencies(id),
+  period       TEXT NOT NULL,
+  status       TEXT NOT NULL,
+  started_at   TEXT NOT NULL,
+  completed_at TEXT,
+  UNIQUE (currency_id, period)
+);
+`;
+
+export const MIGRATIONS: Migration[] = [
+  { version: 1, sql: SCHEMA },
+  { version: 2, sql: DEMURRAGE_SCHEMA },
+];
 
 export function migrate(db: Database.Database): void {
   db.exec(
