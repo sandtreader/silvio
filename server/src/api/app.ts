@@ -17,6 +17,8 @@ import swagger from '@fastify/swagger';
 import fastifyStatic from '@fastify/static';
 import type { Storage } from '../storage/interface.js';
 import type {
+  ApiScope,
+  ApiToken,
   Category,
   CreditPolicyConfig,
   CreditPolicyType,
@@ -45,6 +47,7 @@ import {
   reverse,
   sendPayment,
 } from '../services/trading.js';
+import { authenticateApiToken, checkTokenCaps, issueApiToken } from '../services/tokens.js';
 import { evaluateFlags } from '../services/creditcontrol.js';
 import { browse, postListing } from '../services/marketplace.js';
 import { LoginThrottle } from '../services/ratelimit.js';
@@ -54,7 +57,13 @@ const SESSION_COOKIE = 'silvio_session';
 declare module 'fastify' {
   interface FastifyRequest {
     group?: Group;
-    auth?: { user: User; session: Session; member: Member };
+    // Exactly one of session (cookie) or token (bearer, decision #9) is set.
+    auth?: { user: User; session?: Session; member: Member; token?: ApiToken };
+  }
+  interface FastifyContextConfig {
+    // Routes opt in to API-token access by listing acceptable scopes
+    // (decision #9); routes without a scopes config are cookie-only.
+    scopes?: ApiScope[];
   }
 }
 
@@ -254,8 +263,65 @@ export async function buildApp(
     return reply.status(500).send(errorBody('INTERNAL', 'internal server error'));
   });
 
+  /**
+   * Bearer token -> live auth context (decision #9): the token acts as its
+   * member, the acting user resolved via the issuing person, and access is
+   * gated by the route's scopes config — cookie-only routes reject tokens.
+   */
+  async function requireTokenMember(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    raw: string,
+  ): Promise<unknown> {
+    const result = await authenticateApiToken(storage, raw); // unknown/revoked/expired
+    if (!result) {
+      return reply
+        .status(401)
+        .send(errorBody('NOT_AUTHORISED', 'a valid API token is required'));
+    }
+    const { token, member } = result;
+    if (member.groupId !== request.group!.id) {
+      return reply
+        .status(403)
+        .send(errorBody('NOT_AUTHORISED', 'this token belongs to another group'));
+    }
+    // The acting user is the person who issued the token; a token cannot
+    // outlive its issuer's link to the membership.
+    const persons = await storage.personsForMember(token.memberId);
+    const person = persons.find((candidate) => candidate.id === token.createdBy);
+    if (!person || person.userId === undefined) {
+      return reply
+        .status(401)
+        .send(errorBody('NOT_AUTHORISED', 'the person who issued this token is gone'));
+    }
+    const user = await storage.getUser(person.userId);
+    const scopes = request.routeOptions.config.scopes;
+    if (scopes === undefined) {
+      return reply
+        .status(403)
+        .send(errorBody('NOT_AUTHORISED', 'this route is not available to API tokens'));
+    }
+    if (!scopes.some((scope) => token.scopes.includes(scope))) {
+      return reply
+        .status(403)
+        .send(
+          errorBody(
+            'NOT_AUTHORISED',
+            `this token lacks the required scope (needs ${scopes.join(' or ')})`,
+          ),
+        );
+    }
+    request.auth = { user, member, token };
+    return undefined;
+  }
+
   /** Session cookie -> live auth context in this request's group; 401/403 otherwise. */
   async function requireMember(request: FastifyRequest, reply: FastifyReply): Promise<unknown> {
+    // A Bearer header takes precedence over any cookie (decision #9).
+    const authorization = request.headers.authorization;
+    if (authorization !== undefined && authorization.startsWith('Bearer ')) {
+      return requireTokenMember(request, reply, authorization.slice('Bearer '.length));
+    }
     const token = request.cookies[SESSION_COOKIE];
     const context = token === undefined ? undefined : await authenticate(storage, token);
     if (!context || !context.member) {
@@ -335,7 +401,9 @@ export async function buildApp(
         return { ok: true };
       });
 
-      scope.get('/me', { preHandler: requireMember }, async (request) => {
+      // account:read (decision #9): a token may see its member's own state.
+      const accountRead: ApiScope[] = ['account:read'];
+      scope.get('/me', { preHandler: requireMember, config: { scopes: accountRead } }, async (request) => {
         const member = request.auth!.member;
         const currencies = new Map(
           (await storage.listCurrencies(request.group!.id)).map((currency) => [
@@ -385,6 +453,7 @@ export async function buildApp(
         '/me/statement',
         {
           preHandler: requireMember,
+          config: { scopes: accountRead },
           schema: {
             querystring: {
               type: 'object',
@@ -402,7 +471,7 @@ export async function buildApp(
         },
       );
 
-      scope.get('/me/pending', { preHandler: requireMember }, async (request) => {
+      scope.get('/me/pending', { preHandler: requireMember, config: { scopes: accountRead } }, async (request) => {
         const member = request.auth!.member;
         const pending: PendingItem[] = [];
         for (const tx of await storage.pendingForMember(member.id)) {
@@ -433,17 +502,29 @@ export async function buildApp(
           if (tx.expiresAt !== undefined) item.expiresAt = tx.expiresAt;
           pending.push(item);
         }
-        return { pending };
+        // Served under both keys: 'pending' is the original shape; 'items'
+        // is the name agent-facing clients use (decision #9 tests).
+        return { pending, items: pending };
       });
 
-      scope.get('/members', { preHandler: requireMember }, async (request) => {
-        const members = await storage.listMembers(request.group!.id, 'active');
-        return { members: members.map(publicMember) };
-      });
+      // directory:read (decision #9): the public member directory.
+      const directoryRead: ApiScope[] = ['directory:read'];
+      scope.get(
+        '/members',
+        { preHandler: requireMember, config: { scopes: directoryRead } },
+        async (request) => {
+          const members = await storage.listMembers(request.group!.id, 'active');
+          return { members: members.map(publicMember) };
+        },
+      );
 
       scope.get(
         '/members/:id',
-        { preHandler: requireMember, schema: { params: ID_PARAM_SCHEMA } },
+        {
+          preHandler: requireMember,
+          config: { scopes: directoryRead },
+          schema: { params: ID_PARAM_SCHEMA },
+        },
         async (request) => {
           const { id } = request.params as { id: string };
           const member = await storage.getMember(id);
@@ -490,10 +571,15 @@ export async function buildApp(
         },
       );
 
+      // trade scopes (decision #9): either trade scope may reach the trade
+      // routes; the handlers below decide commit vs pending per token.
+      const tradeScopes: ApiScope[] = ['trade:request', 'trade:autonomous'];
+
       scope.post(
         '/payments',
         {
           preHandler: requireMember,
+          config: { scopes: tradeScopes },
           schema: {
             body: {
               type: 'object',
@@ -514,6 +600,29 @@ export async function buildApp(
             amount: number;
             description?: string;
           };
+          const token = request.auth!.token;
+          if (token !== undefined && !token.scopes.includes('trade:autonomous')) {
+            // trade:request (decision #9): the agent proposes, the member
+            // disposes. The payment is posted as a pending item via
+            // requestPayment — #5's invoice-flow machinery — with the token's
+            // member as payer, so the member (the payer = the invoice-flow
+            // responder) confirms it with accept in the web UI. No balance
+            // moves until then.
+            const input: Parameters<typeof requestPayment>[1] = {
+              groupId: request.group!.id,
+              payerMemberId: request.auth!.member.id,
+              payeeMemberId: body.payeeMemberId,
+              currencyId: body.currencyId,
+              amount: body.amount,
+              actorPersonId: token.createdBy,
+              channel: 'mcp',
+              apiTokenId: token.id,
+            };
+            if (body.description !== undefined) input.description = body.description;
+            const transaction = await requestPayment(storage, input);
+            reply.status(201);
+            return { transaction };
+          }
           const input: Parameters<typeof sendPayment>[1] = {
             groupId: request.group!.id,
             payerMemberId: request.auth!.member.id,
@@ -523,6 +632,14 @@ export async function buildApp(
             actorPersonId: request.auth!.user.id,
             channel: 'web',
           };
+          if (token !== undefined) {
+            // trade:autonomous (decision #9): commits directly, but only
+            // within the member-granted per-transaction and rolling caps.
+            await checkTokenCaps(storage, token, body.amount, new Date().toISOString());
+            input.actorPersonId = token.createdBy;
+            input.channel = 'mcp';
+            input.apiTokenId = token.id;
+          }
           if (body.description !== undefined) input.description = body.description;
           const transaction = await sendPayment(storage, input);
           reply.status(201);
@@ -534,6 +651,7 @@ export async function buildApp(
         '/invoices',
         {
           preHandler: requireMember,
+          config: { scopes: tradeScopes },
           schema: {
             body: {
               type: 'object',
@@ -554,15 +672,20 @@ export async function buildApp(
             amount: number;
             description?: string;
           };
+          // Same shape for both channels: the payee is the acting member —
+          // for a token, the token's member (decision #9). Invoices are
+          // always pending, so no cap check: the payer commits, not the token.
+          const token = request.auth!.token;
           const input: Parameters<typeof requestPayment>[1] = {
             groupId: request.group!.id,
             payeeMemberId: request.auth!.member.id,
             payerMemberId: body.payerMemberId,
             currencyId: body.currencyId,
             amount: body.amount,
-            actorPersonId: request.auth!.user.id,
-            channel: 'web',
+            actorPersonId: token === undefined ? request.auth!.user.id : token.createdBy,
+            channel: token === undefined ? 'web' : 'mcp',
           };
+          if (token !== undefined) input.apiTokenId = token.id;
           if (body.description !== undefined) input.description = body.description;
           const transaction = await requestPayment(storage, input);
           reply.status(201);
@@ -609,6 +732,7 @@ export async function buildApp(
         '/listings',
         {
           preHandler: requireMember,
+          config: { scopes: ['listings:write'] satisfies ApiScope[] },
           schema: {
             body: {
               type: 'object',
@@ -656,6 +780,82 @@ export async function buildApp(
       scope.get('/categories', async (request) => {
         return { categories: await storage.listCategories(request.group!.id) };
       });
+
+      // --- API token management (decision #9) -------------------------------
+      // Cookie-only by design (no scopes config): a token must never mint,
+      // list, or revoke tokens. The raw value appears exactly once, in the
+      // creation response; listings expose ApiToken records, never the hash.
+
+      scope.post(
+        '/me/tokens',
+        {
+          preHandler: requireMember,
+          schema: {
+            body: {
+              type: 'object',
+              required: ['label', 'scopes'],
+              properties: {
+                label: { type: 'string' },
+                scopes: { type: 'array', items: { type: 'string' } },
+                maxTxAmount: { type: 'integer' },
+                maxPeriodAmount: { type: 'integer' },
+                periodDays: { type: 'integer' },
+                expiresAt: { type: 'string' },
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const body = request.body as {
+            label: string;
+            scopes: ApiScope[];
+            maxTxAmount?: number;
+            maxPeriodAmount?: number;
+            periodDays?: number;
+            expiresAt?: string;
+          };
+          const member = request.auth!.member;
+          // createdBy is the session user's person within this membership
+          // (joint members share one member, so attribution matters).
+          const persons = await storage.personsForMember(member.id);
+          const person = persons.find(
+            (candidate) => candidate.userId === request.auth!.user.id,
+          );
+          const input: Parameters<typeof issueApiToken>[1] = {
+            memberId: member.id,
+            createdBy: person?.id ?? request.auth!.user.id,
+            label: body.label,
+            scopes: body.scopes,
+          };
+          if (body.maxTxAmount !== undefined) input.maxTxAmount = body.maxTxAmount;
+          if (body.maxPeriodAmount !== undefined) input.maxPeriodAmount = body.maxPeriodAmount;
+          if (body.periodDays !== undefined) input.periodDays = body.periodDays;
+          if (body.expiresAt !== undefined) input.expiresAt = body.expiresAt;
+          const { token, apiToken } = await issueApiToken(storage, input);
+          reply.status(201);
+          return { token, apiToken };
+        },
+      );
+
+      scope.get('/me/tokens', { preHandler: requireMember }, async (request) => {
+        return { tokens: await storage.listApiTokens(request.auth!.member.id) };
+      });
+
+      scope.delete(
+        '/me/tokens/:id',
+        { preHandler: requireMember, schema: { params: ID_PARAM_SCHEMA } },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          // Ownership check doubles as existence check: 404 either way, so
+          // token ids leak nothing across members.
+          const owned = await storage.listApiTokens(request.auth!.member.id);
+          if (!owned.some((candidate) => candidate.id === id)) {
+            throw new DomainError('NOT_FOUND', `token ${id} not found`);
+          }
+          await storage.revokeApiToken(id);
+          return { ok: true };
+        },
+      );
 
       // --- Admin area: role-gated group management (decision #2) -----------
 

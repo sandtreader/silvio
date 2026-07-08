@@ -17,6 +17,7 @@ export interface SendPaymentInput {
   description?: string;
   actorPersonId: Id;
   channel: Channel;
+  apiTokenId?: Id; // set when an API token initiated this (decision #9)
   expiresAt?: string;
 }
 
@@ -29,6 +30,7 @@ export interface RequestPaymentInput {
   description?: string;
   actorPersonId: Id;
   channel: Channel;
+  apiTokenId?: Id; // set when an API token initiated this (decision #9)
   expiresAt?: string;
 }
 
@@ -201,6 +203,7 @@ export async function sendPayment(storage: Storage, input: SendPaymentInput): Pr
     ],
   };
   if (input.description !== undefined) tx.description = input.description;
+  if (input.apiTokenId !== undefined) tx.apiTokenId = input.apiTokenId;
   if (hold) tx.expiresAt = input.expiresAt ?? daysFromNow(PAYMENT_AUTO_ACCEPT_DAYS);
   return storage.post(tx);
 }
@@ -237,6 +240,7 @@ export async function requestPayment(
     ],
   };
   if (input.description !== undefined) tx.description = input.description;
+  if (input.apiTokenId !== undefined) tx.apiTokenId = input.apiTokenId;
   return storage.post(tx);
 }
 

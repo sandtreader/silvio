@@ -154,6 +154,31 @@ const OPERATOR_SCHEMA = `
 ALTER TABLE users ADD COLUMN is_operator INTEGER NOT NULL DEFAULT 0;
 `;
 
+// Migration 7: API tokens (decision #9, data-model §7). A token acts as one
+// membership with member-granted scopes; the raw value is sha256-hashed at
+// rest like sessions. No FK on member_id — like accounts, member linkage is
+// loose so the ledger contract can use synthetic member ids. Rolling spend is
+// derived from transactions.api_token_id, so no counter column here.
+const API_TOKEN_SCHEMA = `
+CREATE TABLE api_tokens (
+  id                TEXT PRIMARY KEY,
+  member_id         TEXT NOT NULL,
+  created_by        TEXT NOT NULL,
+  token_hash        TEXT NOT NULL UNIQUE,
+  label             TEXT NOT NULL,
+  scopes            TEXT NOT NULL,
+  max_tx_amount     INTEGER,
+  max_period_amount INTEGER,
+  period_days       INTEGER,
+  expires_at        TEXT,
+  revoked_at        TEXT,
+  last_used_at      TEXT,
+  created_at        TEXT NOT NULL
+);
+
+CREATE INDEX idx_api_tokens_member ON api_tokens(member_id);
+`;
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, sql: SCHEMA },
   { version: 2, sql: DEMURRAGE_SCHEMA },
@@ -161,6 +186,7 @@ export const MIGRATIONS: Migration[] = [
   { version: 4, sql: SCHEDULER_SCHEMA },
   { version: 5, sql: IDENTITY_SCHEMA },
   { version: 6, sql: OPERATOR_SCHEMA },
+  { version: 7, sql: API_TOKEN_SCHEMA },
 ];
 
 export function migrate(db: Database.Database): void {

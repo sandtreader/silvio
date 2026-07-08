@@ -13,6 +13,8 @@ import type {
 } from '../interface.js';
 import type {
   Account,
+  ApiScope,
+  ApiToken,
   Category,
   Channel,
   CreditPolicy,
@@ -182,6 +184,22 @@ interface GroupRow {
   id: string;
   slug: string;
   name: string;
+  created_at: string;
+}
+
+interface ApiTokenRow {
+  id: string;
+  member_id: string;
+  created_by: string;
+  token_hash: string;
+  label: string;
+  scopes: string; // JSON text array
+  max_tx_amount: number | null;
+  max_period_amount: number | null;
+  period_days: number | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  last_used_at: string | null;
   created_at: string;
 }
 
@@ -1180,6 +1198,102 @@ export class SqliteStorage implements Storage {
     return Promise.resolve(restriction);
   }
 
+  createApiToken(input: {
+    memberId: Id;
+    createdBy: Id;
+    tokenHash: string;
+    label: string;
+    scopes: ApiScope[];
+    maxTxAmount?: number;
+    maxPeriodAmount?: number;
+    periodDays?: number;
+    expiresAt?: string;
+  }): Promise<ApiToken> {
+    try {
+      const token: ApiToken = {
+        id: uuidv7(),
+        memberId: input.memberId,
+        createdBy: input.createdBy,
+        label: input.label,
+        scopes: [...input.scopes],
+        createdAt: now(),
+      };
+      if (input.maxTxAmount !== undefined) token.maxTxAmount = input.maxTxAmount;
+      if (input.maxPeriodAmount !== undefined) token.maxPeriodAmount = input.maxPeriodAmount;
+      if (input.periodDays !== undefined) token.periodDays = input.periodDays;
+      if (input.expiresAt !== undefined) token.expiresAt = input.expiresAt;
+      this.db
+        .prepare(
+          `INSERT INTO api_tokens (
+             id, member_id, created_by, token_hash, label, scopes,
+             max_tx_amount, max_period_amount, period_days, expires_at, created_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          token.id,
+          token.memberId,
+          token.createdBy,
+          input.tokenHash,
+          token.label,
+          JSON.stringify(token.scopes),
+          input.maxTxAmount ?? null,
+          input.maxPeriodAmount ?? null,
+          input.periodDays ?? null,
+          input.expiresAt ?? null,
+          token.createdAt,
+        );
+      return Promise.resolve(token);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  apiTokenByHash(tokenHash: string): Promise<ApiToken | undefined> {
+    const row = this.db
+      .prepare('SELECT * FROM api_tokens WHERE token_hash = ? AND revoked_at IS NULL')
+      .get(tokenHash) as ApiTokenRow | undefined;
+    return Promise.resolve(row ? this.apiTokenFromRow(row) : undefined);
+  }
+
+  listApiTokens(memberId: Id): Promise<ApiToken[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM api_tokens WHERE member_id = ? ORDER BY created_at, id')
+      .all(memberId) as ApiTokenRow[];
+    return Promise.resolve(rows.map((row) => this.apiTokenFromRow(row)));
+  }
+
+  revokeApiToken(id: Id): Promise<void> {
+    this.db
+      .prepare('UPDATE api_tokens SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL')
+      .run(now(), id);
+    return Promise.resolve();
+  }
+
+  touchApiToken(id: Id, atIso: string): Promise<void> {
+    this.db.prepare('UPDATE api_tokens SET last_used_at = ? WHERE id = ?').run(atIso, id);
+    return Promise.resolve();
+  }
+
+  tokenSpend(tokenId: Id, sinceIso: string): Promise<number> {
+    // Rolling spend (decision #9): the token member's outward (negative) legs
+    // over committed transactions carrying this apiTokenId. Inward legs and
+    // pending holds do not count.
+    const row = this.db
+      .prepare(
+        `SELECT COALESCE(SUM(-e.amount), 0) AS spent
+         FROM entries e
+         JOIN accounts a ON a.id = e.account_id
+         JOIN transactions t ON t.id = e.transaction_id
+         WHERE t.api_token_id = ?
+           AND t.state = 'committed'
+           AND t.committed_at >= ?
+           AND e.amount < 0
+           AND a.member_id = (SELECT member_id FROM api_tokens WHERE id = ?)`,
+      )
+      .get(tokenId, sinceIso, tokenId) as { spent: number };
+    return Promise.resolve(row.spent);
+  }
+
   pendingDue(groupId: Id, asOf: string): Promise<Transaction[]> {
     const rows = this.db
       .prepare(
@@ -1494,6 +1608,24 @@ export class SqliteStorage implements Storage {
 
   private groupFromRow(row: GroupRow): Group {
     return { id: row.id, slug: row.slug, name: row.name, createdAt: row.created_at };
+  }
+
+  private apiTokenFromRow(row: ApiTokenRow): ApiToken {
+    const token: ApiToken = {
+      id: row.id,
+      memberId: row.member_id,
+      createdBy: row.created_by,
+      label: row.label,
+      scopes: JSON.parse(row.scopes) as ApiScope[],
+      createdAt: row.created_at,
+    };
+    if (row.max_tx_amount !== null) token.maxTxAmount = row.max_tx_amount;
+    if (row.max_period_amount !== null) token.maxPeriodAmount = row.max_period_amount;
+    if (row.period_days !== null) token.periodDays = row.period_days;
+    if (row.expires_at !== null) token.expiresAt = row.expires_at;
+    if (row.revoked_at !== null) token.revokedAt = row.revoked_at;
+    if (row.last_used_at !== null) token.lastUsedAt = row.last_used_at;
+    return token;
   }
 
   private loadMember(id: Id): Member {

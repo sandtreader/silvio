@@ -6,6 +6,8 @@
 import type {
   Account,
   AccountType,
+  ApiScope,
+  ApiToken,
   Category,
   MemberRole,
   Session,
@@ -185,6 +187,32 @@ export interface Storage extends Ledger {
   imposeRestriction(memberId: Id, reason: string, imposedBy: Id): Promise<Restriction>;
   liftRestriction(memberId: Id, liftedBy: Id): Promise<void>;
   activeRestriction(memberId: Id): Promise<Restriction | undefined>;
+
+  // API tokens (decision #9, data-model §7). Hashing is the token service's
+  // job; storage stores/matches hashes only, like sessions.
+  createApiToken(input: {
+    memberId: Id;
+    createdBy: Id; // person
+    tokenHash: string;
+    label: string;
+    scopes: ApiScope[];
+    maxTxAmount?: number;
+    maxPeriodAmount?: number;
+    periodDays?: number;
+    expiresAt?: string;
+  }): Promise<ApiToken>;
+  /** Unrevoked only (expiry is the service's check). */
+  apiTokenByHash(tokenHash: string): Promise<ApiToken | undefined>;
+  /** All of a member's tokens, revoked included (for the management UI). */
+  listApiTokens(memberId: Id): Promise<ApiToken[]>;
+  revokeApiToken(id: Id): Promise<void>;
+  touchApiToken(id: Id, atIso: string): Promise<void>; // lastUsedAt
+  /**
+   * Rolling spend via this token (decision #9): sum of the token member's
+   * outward (negative) leg amounts, as a positive number, over committed
+   * transactions with this apiTokenId and committedAt >= sinceIso.
+   */
+  tokenSpend(tokenId: Id, sinceIso: string): Promise<number>;
 
   /** Pending transactions with expiresAt <= asOf (decision #5 sweeps). */
   pendingDue(groupId: Id, asOf: string): Promise<Transaction[]>;

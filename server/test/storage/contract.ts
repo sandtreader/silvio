@@ -3,7 +3,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { Storage } from '../../src/storage/interface.js';
-import type { Account, Currency, Group, NewTransaction } from '../../src/types.js';
+import type { Account, ApiScope, Currency, Group, NewTransaction } from '../../src/types.js';
 import { StorageError } from '../../src/storage/errors.js';
 import { txHash } from '../../src/ledger/hash.js';
 
@@ -472,6 +472,104 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
     it('passes on an empty ledger', async () => {
       const report = await f.storage.verify(f.group.id);
       expect(report.ok).toBe(true);
+    });
+  });
+
+  describe('api tokens (#9)', () => {
+    const tokenInput = (overrides: Record<string, unknown> = {}) => ({
+      memberId: 'member-alice',
+      createdBy: 'person-alice',
+      tokenHash: 'hash-one',
+      label: 'my agent',
+      scopes: ['account:read', 'trade:request'] as ApiScope[],
+      ...overrides,
+    });
+
+    it('creates a token and fetches it by hash', async () => {
+      const created = await f.storage.createApiToken(tokenInput());
+      expect(created.id).toBeTruthy();
+      expect(created.label).toBe('my agent');
+      expect(created.scopes).toEqual(['account:read', 'trade:request']);
+      expect(created.createdAt).toBeTruthy();
+      expect(created.revokedAt).toBeUndefined();
+      expect(created.lastUsedAt).toBeUndefined();
+
+      const fetched = await f.storage.apiTokenByHash('hash-one');
+      expect(fetched?.id).toBe(created.id);
+      expect(await f.storage.apiTokenByHash('no-such-hash')).toBeUndefined();
+    });
+
+    it('round-trips the autonomous caps and expiry', async () => {
+      const created = await f.storage.createApiToken(
+        tokenInput({
+          scopes: ['trade:autonomous'] as ApiScope[],
+          maxTxAmount: 5000,
+          maxPeriodAmount: 20_000,
+          periodDays: 30,
+          expiresAt: '2027-01-01T00:00:00.000Z',
+        }),
+      );
+      const fetched = await f.storage.apiTokenByHash('hash-one');
+      expect(fetched).toMatchObject({
+        id: created.id,
+        maxTxAmount: 5000,
+        maxPeriodAmount: 20_000,
+        periodDays: 30,
+        expiresAt: '2027-01-01T00:00:00.000Z',
+      });
+    });
+
+    it('revoked tokens disappear from hash lookup but stay listed', async () => {
+      const created = await f.storage.createApiToken(tokenInput());
+      await f.storage.revokeApiToken(created.id);
+      expect(await f.storage.apiTokenByHash('hash-one')).toBeUndefined();
+
+      const listed = await f.storage.listApiTokens('member-alice');
+      expect(listed).toHaveLength(1);
+      expect(listed[0]!.revokedAt).toBeTruthy();
+    });
+
+    it('lists only the member’s own tokens', async () => {
+      await f.storage.createApiToken(tokenInput());
+      await f.storage.createApiToken(
+        tokenInput({ memberId: 'member-bob', tokenHash: 'hash-two', label: 'bob agent' }),
+      );
+      const alices = await f.storage.listApiTokens('member-alice');
+      expect(alices.map((t) => t.label)).toEqual(['my agent']);
+    });
+
+    it('touch updates lastUsedAt', async () => {
+      const created = await f.storage.createApiToken(tokenInput());
+      await f.storage.touchApiToken(created.id, '2026-07-08T12:00:00.000Z');
+      const fetched = await f.storage.apiTokenByHash('hash-one');
+      expect(fetched?.lastUsedAt).toBe('2026-07-08T12:00:00.000Z');
+    });
+
+    it('tokenSpend sums only the member’s outward committed legs via this token', async () => {
+      const token = await f.storage.createApiToken(tokenInput());
+      // Outward via the token: counts.
+      await f.storage.post(trade(f, { apiTokenId: token.id, channel: 'mcp' }));
+      // Outward without the token: does not count.
+      await f.storage.post(trade(f));
+      // Inward via the token (alice receives): does not count.
+      await f.storage.post(
+        trade(f, {
+          apiTokenId: token.id,
+          channel: 'mcp',
+          entries: [
+            { accountId: f.bob.id, amount: -40 },
+            { accountId: f.alice.id, amount: 40 },
+          ],
+        }),
+      );
+      // Pending via the token: does not count until committed.
+      await f.storage.post(
+        trade(f, { apiTokenId: token.id, channel: 'mcp', state: 'pending' }),
+      );
+
+      expect(await f.storage.tokenSpend(token.id, '2000-01-01T00:00:00.000Z')).toBe(100);
+      // Nothing committed after a future cutoff.
+      expect(await f.storage.tokenSpend(token.id, '2100-01-01T00:00:00.000Z')).toBe(0);
     });
   });
 }

@@ -244,6 +244,42 @@ export interface TradeStats {
   lastTradeAt?: string;
 }
 
+// API tokens (decision #9, data-model §7): a token acts as one membership,
+// with least-privilege scopes granted by the member. trade:autonomous is
+// bounded by per-token caps; spend is computed from the journal via
+// transactions.api_token_id — no separate counter to drift.
+export type ApiScope =
+  | 'marketplace:read'
+  | 'directory:read'
+  | 'account:read'
+  | 'listings:write'
+  | 'trade:request' // payments enter pending; the member confirms in the web UI
+  | 'trade:autonomous'; // payments commit, bounded by the caps below
+
+export const API_SCOPES: readonly ApiScope[] = [
+  'marketplace:read',
+  'directory:read',
+  'account:read',
+  'listings:write',
+  'trade:request',
+  'trade:autonomous',
+];
+
+export interface ApiToken {
+  id: Id;
+  memberId: Id;
+  createdBy: Id; // person
+  label: string;
+  scopes: ApiScope[];
+  maxTxAmount?: number; // required when trade:autonomous
+  maxPeriodAmount?: number; // rolling spend cap, paired with periodDays
+  periodDays?: number;
+  expiresAt?: string;
+  revokedAt?: string;
+  lastUsedAt?: string;
+  createdAt: string;
+}
+
 export interface StatementLine {
   seq: number;
   transactionId: Id;
