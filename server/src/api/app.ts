@@ -47,6 +47,7 @@ import {
 } from '../services/trading.js';
 import { evaluateFlags } from '../services/creditcontrol.js';
 import { browse, postListing } from '../services/marketplace.js';
+import { LoginThrottle } from '../services/ratelimit.js';
 
 const SESSION_COOKIE = 'silvio_session';
 
@@ -65,7 +66,11 @@ const DOMAIN_STATUS: Record<DomainErrorCode, number> = {
   RESTRICTED: 403,
   SUSPENDED: 403,
   LIMIT_BREACHED: 422,
+  RATE_LIMITED: 429,
 };
+
+/** Methods that can change state and therefore need the CSRF origin check. */
+const STATE_CHANGING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 function errorBody(code: string, message: string): { error: { code: string; message: string } } {
   return { error: { code, message } };
@@ -122,6 +127,81 @@ export async function buildApp(
   opts: BuildAppOptions = {},
 ): Promise<FastifyInstance> {
   const app = Fastify();
+
+  // CSRF defence in depth (todo: "CSRF protection for cookie sessions").
+  // Sessions are already SameSite=Lax, which blocks cross-site POSTs in
+  // modern browsers; this Origin check on state-changing /api/* requests is
+  // a second layer. Only the host is compared — behind a TLS-terminating
+  // proxy the server cannot see the browser's scheme, so scheme is
+  // deliberately ignored. No Origin header (CLI, curl, server-to-server) is
+  // allowed; a mismatched or unparseable browser Origin is rejected.
+  app.addHook('onRequest', async (request, reply) => {
+    if (!STATE_CHANGING.has(request.method)) return undefined;
+    const path = request.url.split('?')[0] ?? request.url;
+    if (!path.startsWith('/api/')) return undefined;
+    const origin = request.headers.origin;
+    if (origin === undefined) return undefined;
+    let originHost: string;
+    try {
+      originHost = new URL(origin).host; // 'null' and garbage both throw
+    } catch {
+      return reply
+        .status(403)
+        .send(errorBody('NOT_AUTHORISED', 'request origin is not acceptable'));
+    }
+    const host = request.headers.host ?? '';
+    if (originHost.toLowerCase() !== host.toLowerCase()) {
+      return reply
+        .status(403)
+        .send(errorBody('NOT_AUTHORISED', 'request origin does not match this host'));
+    }
+    return undefined;
+  });
+
+  // Login throttling (todo: "Login lockout / rate limiting on auth
+  // endpoints"): sliding windows per email (targeted guessing) and per IP
+  // (spraying many emails). Both login routes share the same helper.
+  const emailThrottle = new LoginThrottle(); // 10 failures / 15 minutes
+  const ipThrottle = new LoginThrottle({ maxFailures: 30 }); // same window
+
+  /**
+   * Wrap a credential check with lockout accounting: 429 + Retry-After when
+   * either key is throttled, a failure recorded on both keys when the check
+   * throws NOT_AUTHORISED, and the email counter cleared on success.
+   */
+  async function checkThrottled<T>(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    email: string,
+    verify: () => Promise<T>,
+  ): Promise<T> {
+    const emailKey = `email:${email.toLowerCase()}`;
+    const ipKey = `ip:${request.ip}`;
+    const now = Date.now();
+    const waitMs = Math.max(
+      emailThrottle.retryAfterMs(emailKey, now),
+      ipThrottle.retryAfterMs(ipKey, now),
+    );
+    if (waitMs > 0) {
+      // Set before throwing: Fastify preserves reply headers through the
+      // error handler.
+      reply.header('retry-after', Math.max(1, Math.ceil(waitMs / 1000)));
+      throw new DomainError('RATE_LIMITED', 'too many failed login attempts; try again later');
+    }
+    let result: T;
+    try {
+      result = await verify();
+    } catch (err) {
+      if (err instanceof DomainError && err.code === 'NOT_AUTHORISED') {
+        const failedAt = Date.now();
+        emailThrottle.recordFailure(emailKey, failedAt);
+        ipThrottle.recordFailure(ipKey, failedAt);
+      }
+      throw err;
+    }
+    emailThrottle.recordSuccess(emailKey); // the IP counter is left alone
+    return result;
+  }
 
   await app.register(cookie);
   await app.register(swagger, {
@@ -232,11 +312,13 @@ export async function buildApp(
         },
         async (request, reply) => {
           const body = request.body as { email: string; password: string };
-          const { token } = await login(storage, {
-            email: body.email,
-            password: body.password,
-            groupId: request.group!.id,
-          });
+          const { token } = await checkThrottled(request, reply, body.email, () =>
+            login(storage, {
+              email: body.email,
+              password: body.password,
+              groupId: request.group!.id,
+            }),
+          );
           reply.setCookie(SESSION_COOKIE, token, {
             httpOnly: true,
             sameSite: 'lax',
@@ -970,11 +1052,14 @@ export async function buildApp(
     async (request, reply) => {
       const body = request.body as { email: string; password: string };
       // Check the operator flag before opening any session: a failed operator
-      // login must not leave a usable cookie behind.
-      const user = await verifyCredentials(storage, body.email, body.password);
-      if (!user.isOperator) {
-        throw new DomainError('NOT_AUTHORISED', 'this account is not an operator');
-      }
+      // login must not leave a usable cookie behind. A non-operator account
+      // counts as a login failure for throttling purposes.
+      await checkThrottled(request, reply, body.email, async () => {
+        const user = await verifyCredentials(storage, body.email, body.password);
+        if (!user.isOperator) {
+          throw new DomainError('NOT_AUTHORISED', 'this account is not an operator');
+        }
+      });
       const { token } = await login(storage, { email: body.email, password: body.password });
       reply.setCookie(SESSION_COOKIE, token, {
         httpOnly: true,

@@ -3,7 +3,7 @@
 // sweep, listing expiry sweep. Wall-clock wiring stays thin; tick() is the
 // tested unit and takes `now` explicitly.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { tick } from '../../src/services/scheduler.js';
 import { apply, approve } from '../../src/services/membership.js';
 import { sendPayment } from '../../src/services/trading.js';
@@ -119,5 +119,40 @@ describe('scheduler tick', () => {
 
     const report = await tick(storage, '2026-07-05T09:00:00.000Z');
     expect(report.demurrageRuns).toBe(2); // one per group's currency
+  });
+
+  // Decision #6: verification runs on every tick and failures are loud —
+  // there is no silent option.
+  describe('journal verification', () => {
+    it('verifies every group and reports a healthy journal quietly', async () => {
+      const alert = vi.fn();
+      const report = await tick(storage, '2026-07-04T09:00:00.000Z', { alert });
+      expect(report.verifyFailures).toBe(0);
+      expect(alert).not.toHaveBeenCalled();
+    });
+
+    it('alerts loudly when verification fails', async () => {
+      const alert = vi.fn();
+      vi.spyOn(storage, 'verify').mockResolvedValue({
+        ok: false,
+        errors: ['hash chain broken at seq 3'],
+      });
+      const report = await tick(storage, '2026-07-04T09:00:00.000Z', { alert });
+      expect(report.verifyFailures).toBe(1);
+      expect(alert).toHaveBeenCalledOnce();
+      const message = alert.mock.calls[0]![0] as string;
+      expect(message).toContain('g'); // the group slug
+      expect(message).toContain('hash chain broken at seq 3');
+    });
+
+    it('alerts if verification itself throws, and the tick still completes', async () => {
+      const alert = vi.fn();
+      vi.spyOn(storage, 'verify').mockRejectedValue(new Error('disk on fire'));
+      const report = await tick(storage, '2026-07-05T09:00:00.000Z', { alert });
+      expect(report.verifyFailures).toBe(1);
+      expect(alert).toHaveBeenCalledOnce();
+      expect(alert.mock.calls[0]![0] as string).toContain('disk on fire');
+      expect(report.demurrageRuns).toBe(1); // the rest of the tick still ran
+    });
   });
 });

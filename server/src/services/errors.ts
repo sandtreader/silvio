@@ -8,7 +8,8 @@ export type DomainErrorCode =
   | 'NOT_AUTHORISED' // actor may not perform this action
   | 'RESTRICTED' // outward payments blocked by admin restriction (decision #3)
   | 'SUSPENDED' // member is suspended (decision #7)
-  | 'LIMIT_BREACHED'; // hard credit limit (decision #3)
+  | 'LIMIT_BREACHED' // hard credit limit (decision #3)
+  | 'RATE_LIMITED'; // too many failed login attempts
 
 export class DomainError extends Error {
   constructor(
