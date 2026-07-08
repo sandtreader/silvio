@@ -229,6 +229,34 @@ describe('admin API', () => {
     expect(res.json().flags[0].level).toBe('notice');
   });
 
+  it('admins can change member roles, but never their own', async () => {
+    const promote = await app.inject({
+      method: 'POST', url: `/api/v1/admin/members/${bob.id}/role`,
+      headers: { host: HOST, cookie: adminCookie },
+      payload: { role: 'committee' },
+    });
+    expect(promote.statusCode).toBe(200);
+    expect(promote.json().member.role).toBe('committee');
+
+    // non-admin cannot set roles
+    const denied = await app.inject({
+      method: 'POST', url: `/api/v1/admin/members/${bob.id}/role`,
+      headers: { host: HOST, cookie: aliceCookie },
+      payload: { role: 'admin' },
+    });
+    expect(denied.statusCode).toBe(403);
+
+    // self-demotion is blocked — a group must not lose its last admin by accident
+    const adminId = (await storage.listMembers(group.id)).find((m) => m.role === 'admin')!.id;
+    const self = await app.inject({
+      method: 'POST', url: `/api/v1/admin/members/${adminId}/role`,
+      headers: { host: HOST, cookie: adminCookie },
+      payload: { role: 'member' },
+    });
+    expect(self.statusCode).toBe(400);
+    expect(self.json().error.code).toBe('INVALID');
+  });
+
   it('reverse posts a linked compensating transaction (#5, #6)', async () => {
     const pay = await app.inject({
       method: 'POST', url: '/api/v1/payments', headers: { host: HOST, cookie: aliceCookie },

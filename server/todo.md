@@ -75,10 +75,6 @@ Remaining server-side work, grouped by area. References are to
 
 ## Operator & deployment
 
-- [ ] First-admin bootstrap: no API path exists to grant the admin role in a
-      freshly provisioned group (found building the CLI — its tests seed the
-      role via storage). Operator route to set a member's role, or an
-      owner-invite in provisioning.
 - [ ] Operator group management: suspend group, edit domains, plan/status field
 - [ ] Migration importers: members/balances/listings from Mutual Credit Manager
       and Local Exchange installs (first-review — likely first adopters)

@@ -76,6 +76,93 @@ describe('operator API', () => {
     expect(accounts.some((a) => a.type === 'community')).toBe(true);
   });
 
+  it('provisions a group with an initial admin who can approve members', async () => {
+    const cookie = await operatorCookie();
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/operator/groups', headers: { cookie },
+      payload: {
+        slug: 'tot', name: 'Totnes LETS', hostname: 'tot.example.org',
+        currency: { code: 'ACN', name: 'Acorns', scale: 2 },
+        admin: {
+          displayName: 'Founder', personName: 'Fran Founder',
+          email: 'fran@example.com', password: 'founder-pass',
+        },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().admin.role).toBe('admin');
+    expect(res.json().admin.status).toBe('active');
+
+    // the founder can log in immediately and work the approval queue
+    const login = await app.inject({
+      method: 'POST', url: '/api/v1/g/tot/auth/login',
+      payload: { email: 'fran@example.com', password: 'founder-pass' },
+    });
+    expect(login.statusCode).toBe(200);
+    const founderCookie = `silvio_session=${
+      login.cookies.find((c) => c.name === 'silvio_session')!.value
+    }`;
+
+    const applied = await app.inject({
+      method: 'POST', url: '/api/v1/g/tot/applications',
+      payload: {
+        displayName: 'First Member', personName: 'F M',
+        email: 'first@example.com', password: 'first-pass',
+      },
+    });
+    const approve = await app.inject({
+      method: 'POST',
+      url: `/api/v1/g/tot/admin/members/${applied.json().member.id}/approve`,
+      headers: { cookie: founderCookie },
+    });
+    expect(approve.statusCode).toBe(200);
+  });
+
+  it('an existing user can be the initial admin of a second group', async () => {
+    const cookie = await operatorCookie();
+    const first = await app.inject({
+      method: 'POST', url: '/api/v1/operator/groups', headers: { cookie },
+      payload: {
+        slug: 'one', name: 'One', currency: { code: 'A', name: 'A' },
+        admin: {
+          displayName: 'Fran', personName: 'Fran', email: 'fran2@example.com',
+          password: 'fran2-pass',
+        },
+      },
+    });
+    expect(first.statusCode).toBe(201);
+
+    // same email, no password: links the existing user rather than failing
+    const second = await app.inject({
+      method: 'POST', url: '/api/v1/operator/groups', headers: { cookie },
+      payload: {
+        slug: 'two', name: 'Two', currency: { code: 'B', name: 'B' },
+        admin: { displayName: 'Fran', personName: 'Fran', email: 'fran2@example.com' },
+      },
+    });
+    expect(second.statusCode).toBe(201);
+
+    // original password works on the second group
+    const login = await app.inject({
+      method: 'POST', url: '/api/v1/g/two/auth/login',
+      payload: { email: 'fran2@example.com', password: 'fran2-pass' },
+    });
+    expect(login.statusCode).toBe(200);
+  });
+
+  it('a brand-new initial admin requires a password', async () => {
+    const cookie = await operatorCookie();
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/operator/groups', headers: { cookie },
+      payload: {
+        slug: 'bad', name: 'Bad', currency: { code: 'C', name: 'C' },
+        admin: { displayName: 'X', personName: 'X', email: 'new-user@example.com' },
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('INVALID');
+  });
+
   it('lists provisioned groups', async () => {
     const cookie = await operatorCookie();
     await app.inject({

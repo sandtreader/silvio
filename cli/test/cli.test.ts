@@ -224,6 +224,45 @@ describe('silvio CLI', () => {
     expect(members.length).toBeGreaterThanOrEqual(3); // alice, bob, admin
   });
 
+  it('op groups create --admin-* bootstraps a working group admin', async () => {
+    const create = await cli(
+      [
+        'op', 'groups', 'create',
+        '--slug', 'fal', '--name', 'Falmouth LETS',
+        '--currency-code', 'PLM', '--currency-name', 'Palms', '--scale', '2',
+        '--admin-name', 'Founder', '--admin-person', 'Fran Founder',
+        '--admin-email', 'fran@example.com', '--admin-password', 'founder-pass',
+      ],
+      cfgOp,
+    );
+    expect(create.stderr).toBe('');
+    expect(create.code).toBe(0);
+
+    const cfgFran = join(dir, 'fran.json');
+    const login = await cli(
+      ['login', '-s', url, '-g', 'fal', '-e', 'fran@example.com', '-p', 'founder-pass'],
+      cfgFran,
+    );
+    expect(login.code).toBe(0);
+    const queue = await cli(['admin', 'members', '--status', 'applied', '--json'], cfgFran);
+    expect(queue.code).toBe(0);
+    expect(JSON.parse(queue.stdout)).toHaveLength(0);
+  });
+
+  it('admin role promotes a member', async () => {
+    const bobIdRes = await cli(['members', '--json'], cfgAdmin);
+    const bobId = JSON.parse(bobIdRes.stdout).find(
+      (m: { displayName: string }) => m.displayName === 'Bob',
+    ).id;
+    const promote = await cli(['admin', 'role', bobId, 'committee'], cfgAdmin);
+    expect(promote.stderr).toBe('');
+    expect(promote.code).toBe(0);
+
+    const members = await cli(['admin', 'members', '--json'], cfgAdmin);
+    const bob = JSON.parse(members.stdout).find((m: { id: string }) => m.id === bobId);
+    expect(bob.role).toBe('committee');
+  });
+
   it('logout invalidates the stored session', async () => {
     const logout = await cli(['logout'], cfgAlice);
     expect(logout.code).toBe(0);

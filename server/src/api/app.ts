@@ -22,6 +22,7 @@ import type {
   Group,
   ListingType,
   Member,
+  MemberRole,
   MemberStatus,
   MemberType,
   Session,
@@ -581,6 +582,34 @@ export async function buildApp(storage: Storage): Promise<FastifyInstance> {
         );
       }
 
+      // Role changes (first-admin bootstrap follow-on): admins set roles, but
+      // never their own — a group must not lose its last admin by accident.
+      scope.post(
+        '/admin/members/:id/role',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            body: {
+              type: 'object',
+              required: ['role'],
+              properties: {
+                role: { type: 'string', enum: ['member', 'committee', 'admin'] },
+              },
+            },
+          },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          const { role } = request.body as { role: MemberRole };
+          await targetMember(request, id);
+          if (id === request.auth!.member.id) {
+            throw new DomainError('INVALID', 'cannot change your own role');
+          }
+          return { member: await storage.updateMember(id, { role }) };
+        },
+      );
+
       scope.get(
         '/admin/policies',
         { preHandler: [requireMember, requireAdmin] },
@@ -871,6 +900,16 @@ export async function buildApp(storage: Storage): Promise<FastifyInstance> {
                 demurrageDay: { type: 'integer' },
               },
             },
+            admin: {
+              type: 'object',
+              required: ['displayName', 'personName', 'email'],
+              properties: {
+                displayName: { type: 'string' },
+                personName: { type: 'string' },
+                email: { type: 'string' },
+                password: { type: 'string' },
+              },
+            },
           },
         },
       },
@@ -881,6 +920,7 @@ export async function buildApp(storage: Storage): Promise<FastifyInstance> {
         name: string;
         hostname?: string;
         currency: { code: string; name: string; scale?: number; demurrageDay?: number };
+        admin?: { displayName: string; personName: string; email: string; password?: string };
       };
       const input: Parameters<typeof provisionGroup>[1] = {
         slug: body.slug,
@@ -888,9 +928,10 @@ export async function buildApp(storage: Storage): Promise<FastifyInstance> {
         currency: body.currency,
       };
       if (body.hostname !== undefined) input.hostname = body.hostname;
-      const { group, currency } = await provisionGroup(storage, input);
+      if (body.admin !== undefined) input.admin = body.admin;
+      const { group, currency, admin } = await provisionGroup(storage, input);
       reply.status(201);
-      return { group, currency };
+      return admin === undefined ? { group, currency } : { group, currency, admin };
     },
   );
 

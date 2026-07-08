@@ -375,6 +375,22 @@ export async function run(argv: string[], opts: RunOptions): Promise<RunResult> 
       }
     });
 
+  admin
+    .command('role')
+    .description("set a member's role")
+    .argument('<memberId>', 'member id')
+    .argument('<role>', 'member|committee|admin')
+    .action(async (memberId: string, role: string) => {
+      const client = memberClient();
+      const res = await client.request(
+        'POST',
+        client.groupUrl(`/admin/members/${memberId}/role`),
+        { role },
+      );
+      const { member } = res.body as { member: { displayName: string; role: string } };
+      print(`${member.displayName} is now ${member.role}`);
+    });
+
   for (const action of ['approve', 'suspend', 'reinstate', 'remove'] as const) {
     admin
       .command(action)
@@ -482,6 +498,10 @@ export async function run(argv: string[], opts: RunOptions): Promise<RunResult> 
     .option('--scale <n>', 'decimal places')
     .option('--demurrage-day <n>', 'day of month demurrage runs')
     .option('--hostname <hostname>', 'custom domain for the group')
+    .option('--admin-name <displayName>', "initial admin's display name")
+    .option('--admin-person <personName>', "initial admin's legal/personal name")
+    .option('--admin-email <email>', "initial admin's account email")
+    .option('--admin-password <password>', "initial admin's password (new users only)")
     .action(
       async (options: {
         slug: string;
@@ -491,6 +511,10 @@ export async function run(argv: string[], opts: RunOptions): Promise<RunResult> 
         scale?: string;
         demurrageDay?: string;
         hostname?: string;
+        adminName?: string;
+        adminPerson?: string;
+        adminEmail?: string;
+        adminPassword?: string;
       }) => {
         const client = operatorClient();
         const currency: { code: string; name: string; scale?: number; demurrageDay?: number } = {
@@ -506,8 +530,16 @@ export async function run(argv: string[], opts: RunOptions): Promise<RunResult> 
           name: string;
           hostname?: string;
           currency: typeof currency;
+          admin?: { displayName?: string; personName?: string; email: string; password?: string };
         } = { slug: options.slug, name: options.name, currency };
         if (options.hostname !== undefined) body.hostname = options.hostname;
+        if (options.adminEmail !== undefined) {
+          const admin: NonNullable<typeof body.admin> = { email: options.adminEmail };
+          if (options.adminName !== undefined) admin.displayName = options.adminName;
+          if (options.adminPerson !== undefined) admin.personName = options.adminPerson;
+          if (options.adminPassword !== undefined) admin.password = options.adminPassword;
+          body.admin = admin;
+        }
         const res = await client.request('POST', client.operatorUrl('/groups'), body);
         const payload = res.body as { group: { slug: string }; currency: { code: string } };
         print(`created group ${payload.group.slug} with currency ${payload.currency.code}`);
