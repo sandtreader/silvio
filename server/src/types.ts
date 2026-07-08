@@ -104,15 +104,35 @@ export interface Transaction {
   entries: Entry[];
 }
 
+// Identity (decision #2): auth identity is global, membership is per-group.
+export interface User {
+  id: Id;
+  email: string; // unique globally; login identifier
+  status: 'active' | 'locked' | 'closed';
+  createdAt: string;
+}
+
+// Server-side revocable session, token hashed at rest (data-model §1).
+export interface Session {
+  id: Id;
+  userId: Id;
+  memberId?: Id; // selected group context (decision #2)
+  createdAt: string;
+  expiresAt: string;
+  revokedAt?: string;
+}
+
 // Membership (decision #7).
 export type MemberStatus = 'applied' | 'active' | 'away' | 'suspended' | 'closed';
 export type MemberType = 'individual' | 'joint' | 'organisation';
+export type MemberRole = 'member' | 'committee' | 'admin';
 
 export interface Member {
   id: Id;
   groupId: Id;
   memberNo: number; // per-group sequential, human-friendly
   type: MemberType;
+  role: MemberRole;
   displayName: string;
   status: MemberStatus;
   confirmIncoming: boolean; // opt-in payment confirmation (decision #5)

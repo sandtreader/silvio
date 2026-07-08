@@ -7,6 +7,9 @@ import type {
   Account,
   AccountType,
   Category,
+  MemberRole,
+  Session,
+  User,
   CreditPolicy,
   CreditPolicyConfig,
   CreditPolicyType,
@@ -110,21 +113,45 @@ export interface Storage extends Ledger {
   /** Committed transactions referencing this run (recovery: who is already charged). */
   transactionsForRun(runId: Id): Promise<Transaction[]>;
 
+  // Users, sessions, tenancy resolution (decision #2, data-model §1).
+  // Hashing is the auth service's job; storage only stores/matches hashes.
+  createUser(input: { email: string; passwordHash: string }): Promise<User>;
+  getUser(id: Id): Promise<User>;
+  /** User + stored password hash for credential verification; undefined if unknown. */
+  credentialsForEmail(
+    email: string,
+  ): Promise<{ user: User; passwordHash: string } | undefined>;
+  createSession(input: {
+    userId: Id;
+    memberId?: Id;
+    tokenHash: string;
+    expiresAt: string;
+  }): Promise<Session>;
+  sessionByTokenHash(tokenHash: string): Promise<Session | undefined>; // unrevoked only
+  revokeSession(id: Id): Promise<void>;
+  /** Memberships of a user across groups (via persons.user_id). */
+  membersForUser(userId: Id): Promise<Member[]>;
+  addGroupDomain(groupId: Id, hostname: string): Promise<void>;
+  groupByDomain(hostname: string): Promise<Group | undefined>;
+  groupBySlug(slug: string): Promise<Group | undefined>;
+
   // Members & persons (decision #7). memberNo assigned per group, sequential.
   createMember(input: {
     groupId: Id;
     displayName: string;
     type?: MemberType; // default 'individual'
+    role?: MemberRole; // default 'member'
   }): Promise<Member>; // status 'applied'
   getMember(id: Id): Promise<Member>;
   updateMember(
     id: Id,
-    patch: { displayName?: string; confirmIncoming?: boolean },
+    patch: { displayName?: string; confirmIncoming?: boolean; role?: MemberRole },
   ): Promise<Member>;
   setMemberStatus(id: Id, status: MemberStatus): Promise<Member>;
   listMembers(groupId: Id, status?: MemberStatus): Promise<Member[]>;
   createPerson(input: {
     memberId: Id;
+    userId?: Id;
     name: string;
     email?: string;
     isPrimary?: boolean;

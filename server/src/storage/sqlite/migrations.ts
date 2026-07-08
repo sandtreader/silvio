@@ -113,11 +113,47 @@ const SCHEDULER_SCHEMA = `
 ALTER TABLE currencies ADD COLUMN demurrage_day INTEGER;
 `;
 
+// Migration 5: identity and tenancy resolution (decision #2, data-model §1).
+// Users are global, members are per-group (linked via persons.user_id, which
+// exists since migration 3); sessions are server-side and revocable with the
+// token hashed at rest; group_domains maps hostnames to tenants.
+const IDENTITY_SCHEMA = `
+CREATE TABLE users (
+  id            TEXT PRIMARY KEY,
+  email         TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  status        TEXT NOT NULL,
+  created_at    TEXT NOT NULL,
+  last_login_at TEXT
+);
+
+CREATE TABLE sessions (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id),
+  member_id  TEXT REFERENCES members(id),
+  token_hash TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT
+);
+
+CREATE TABLE group_domains (
+  hostname TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL REFERENCES groups(id)
+);
+
+ALTER TABLE members ADD COLUMN role TEXT NOT NULL DEFAULT 'member';
+
+CREATE INDEX idx_persons_user ON persons(user_id);
+CREATE INDEX idx_sessions_user ON sessions(user_id);
+`;
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, sql: SCHEMA },
   { version: 2, sql: DEMURRAGE_SCHEMA },
   { version: 3, sql: DOMAIN_SCHEMA },
   { version: 4, sql: SCHEDULER_SCHEMA },
+  { version: 5, sql: IDENTITY_SCHEMA },
 ];
 
 export function migrate(db: Database.Database): void {

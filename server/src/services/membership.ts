@@ -11,6 +11,7 @@ export interface ApplyInput {
   displayName: string;
   personName: string;
   email?: string;
+  userId?: Id; // links the primary person to a login (decision #2)
   type?: MemberType;
 }
 
@@ -41,11 +42,18 @@ export async function apply(
   };
   if (input.type !== undefined) memberInput.type = input.type;
   const member = await storage.createMember(memberInput);
-  const personInput: { memberId: Id; name: string; email?: string; isPrimary?: boolean } = {
+  const personInput: {
+    memberId: Id;
+    userId?: Id;
+    name: string;
+    email?: string;
+    isPrimary?: boolean;
+  } = {
     memberId: member.id,
     name: input.personName,
     isPrimary: true,
   };
+  if (input.userId !== undefined) personInput.userId = input.userId;
   if (input.email !== undefined) personInput.email = input.email;
   const person = await storage.createPerson(personInput);
   return { member, person };

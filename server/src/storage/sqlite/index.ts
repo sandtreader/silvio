@@ -28,16 +28,19 @@ import type {
   ListingStatus,
   ListingType,
   Member,
+  MemberRole,
   MemberStatus,
   MemberType,
   NewTransaction,
   Person,
   Restriction,
+  Session,
   StatementLine,
   Transaction,
   TxFlow,
   TxState,
   TxType,
+  User,
   VerifyReport,
 } from '../../types.js';
 import { StorageError } from '../errors.js';
@@ -100,6 +103,7 @@ interface MemberRow {
   group_id: string;
   member_no: number;
   type: string;
+  role: string;
   display_name: string;
   status: string;
   confirm_incoming: number;
@@ -151,6 +155,32 @@ interface CategoryRow {
   group_id: string;
   name: string;
   parent_id: string | null;
+}
+
+interface UserRow {
+  id: string;
+  email: string;
+  password_hash: string;
+  status: string;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+interface SessionRow {
+  id: string;
+  user_id: string;
+  member_id: string | null;
+  token_hash: string;
+  created_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+}
+
+interface GroupRow {
+  id: string;
+  slug: string;
+  name: string;
+  created_at: string;
 }
 
 interface ListingRow {
@@ -628,10 +658,154 @@ export class SqliteStorage implements Storage {
     return Promise.resolve({ ok: errors.length === 0, errors });
   }
 
+  createUser(input: { email: string; passwordHash: string }): Promise<User> {
+    try {
+      const user: User = {
+        id: uuidv7(),
+        email: input.email,
+        status: 'active',
+        createdAt: now(),
+      };
+      try {
+        this.db
+          .prepare(
+            'INSERT INTO users (id, email, password_hash, status, created_at) VALUES (?, ?, ?, ?, ?)',
+          )
+          .run(user.id, user.email, input.passwordHash, user.status, user.createdAt);
+      } catch (err) {
+        if (err instanceof Error && /UNIQUE/.test(err.message)) {
+          throw new StorageError(
+            'INVALID_TRANSACTION',
+            `a user with email ${input.email} already exists`,
+          );
+        }
+        throw err;
+      }
+      return Promise.resolve(user);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  getUser(id: Id): Promise<User> {
+    const row = this.db.prepare('SELECT * FROM users WHERE id = ?').get(id) as
+      | UserRow
+      | undefined;
+    if (!row) return Promise.reject(new StorageError('NOT_FOUND', `user ${id} not found`));
+    return Promise.resolve(this.userFromRow(row));
+  }
+
+  credentialsForEmail(
+    email: string,
+  ): Promise<{ user: User; passwordHash: string } | undefined> {
+    const row = this.db.prepare('SELECT * FROM users WHERE email = ?').get(email) as
+      | UserRow
+      | undefined;
+    if (!row) return Promise.resolve(undefined);
+    return Promise.resolve({ user: this.userFromRow(row), passwordHash: row.password_hash });
+  }
+
+  createSession(input: {
+    userId: Id;
+    memberId?: Id;
+    tokenHash: string;
+    expiresAt: string;
+  }): Promise<Session> {
+    try {
+      const session: Session = {
+        id: uuidv7(),
+        userId: input.userId,
+        createdAt: now(),
+        expiresAt: input.expiresAt,
+      };
+      if (input.memberId !== undefined) session.memberId = input.memberId;
+      this.db
+        .prepare(
+          `INSERT INTO sessions (id, user_id, member_id, token_hash, created_at, expires_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          session.id,
+          session.userId,
+          input.memberId ?? null,
+          input.tokenHash,
+          session.createdAt,
+          session.expiresAt,
+        );
+      return Promise.resolve(session);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  sessionByTokenHash(tokenHash: string): Promise<Session | undefined> {
+    const row = this.db
+      .prepare('SELECT * FROM sessions WHERE token_hash = ? AND revoked_at IS NULL')
+      .get(tokenHash) as SessionRow | undefined;
+    if (!row) return Promise.resolve(undefined);
+    const session: Session = {
+      id: row.id,
+      userId: row.user_id,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+    };
+    if (row.member_id !== null) session.memberId = row.member_id;
+    return Promise.resolve(session);
+  }
+
+  revokeSession(id: Id): Promise<void> {
+    this.db
+      .prepare('UPDATE sessions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL')
+      .run(now(), id);
+    return Promise.resolve();
+  }
+
+  membersForUser(userId: Id): Promise<Member[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT DISTINCT m.* FROM members m
+         JOIN persons p ON p.member_id = m.id
+         WHERE p.user_id = ?
+         ORDER BY m.id`,
+      )
+      .all(userId) as MemberRow[];
+    return Promise.resolve(rows.map((row) => this.memberFromRow(row)));
+  }
+
+  addGroupDomain(groupId: Id, hostname: string): Promise<void> {
+    try {
+      this.db
+        .prepare('INSERT INTO group_domains (hostname, group_id) VALUES (?, ?)')
+        .run(hostname, groupId);
+      return Promise.resolve();
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  groupByDomain(hostname: string): Promise<Group | undefined> {
+    const row = this.db
+      .prepare(
+        `SELECT g.* FROM groups g
+         JOIN group_domains d ON d.group_id = g.id
+         WHERE d.hostname = ?`,
+      )
+      .get(hostname) as GroupRow | undefined;
+    return Promise.resolve(row ? this.groupFromRow(row) : undefined);
+  }
+
+  groupBySlug(slug: string): Promise<Group | undefined> {
+    const row = this.db.prepare('SELECT * FROM groups WHERE slug = ?').get(slug) as
+      | GroupRow
+      | undefined;
+    return Promise.resolve(row ? this.groupFromRow(row) : undefined);
+  }
+
   createMember(input: {
     groupId: Id;
     displayName: string;
     type?: MemberType;
+    role?: MemberRole;
   }): Promise<Member> {
     try {
       const member = this.db.transaction((): Member => {
@@ -643,6 +817,7 @@ export class SqliteStorage implements Storage {
           groupId: input.groupId,
           memberNo: head.member_no + 1,
           type: input.type ?? 'individual',
+          role: input.role ?? 'member',
           displayName: input.displayName,
           status: 'applied',
           confirmIncoming: false,
@@ -650,14 +825,15 @@ export class SqliteStorage implements Storage {
         };
         this.db
           .prepare(
-            `INSERT INTO members (id, group_id, member_no, type, display_name, status, confirm_incoming, applied_at)
-             VALUES (?, ?, ?, ?, ?, 'applied', 0, ?)`,
+            `INSERT INTO members (id, group_id, member_no, type, role, display_name, status, confirm_incoming, applied_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'applied', 0, ?)`,
           )
           .run(
             member.id,
             member.groupId,
             member.memberNo,
             member.type,
+            member.role,
             member.displayName,
             member.appliedAt,
           );
@@ -679,7 +855,7 @@ export class SqliteStorage implements Storage {
 
   updateMember(
     id: Id,
-    patch: { displayName?: string; confirmIncoming?: boolean },
+    patch: { displayName?: string; confirmIncoming?: boolean; role?: MemberRole },
   ): Promise<Member> {
     try {
       this.loadMember(id);
@@ -690,6 +866,9 @@ export class SqliteStorage implements Storage {
         this.db
           .prepare('UPDATE members SET confirm_incoming = ? WHERE id = ?')
           .run(patch.confirmIncoming ? 1 : 0, id);
+      }
+      if (patch.role !== undefined) {
+        this.db.prepare('UPDATE members SET role = ? WHERE id = ?').run(patch.role, id);
       }
       return Promise.resolve(this.loadMember(id));
     } catch (err) {
@@ -734,6 +913,7 @@ export class SqliteStorage implements Storage {
 
   createPerson(input: {
     memberId: Id;
+    userId?: Id;
     name: string;
     email?: string;
     isPrimary?: boolean;
@@ -746,12 +926,20 @@ export class SqliteStorage implements Storage {
         isPrimary: input.isPrimary ?? false,
         name: input.name,
       };
+      if (input.userId !== undefined) person.userId = input.userId;
       if (input.email !== undefined) person.email = input.email;
       this.db
         .prepare(
-          'INSERT INTO persons (id, member_id, is_primary, name, email) VALUES (?, ?, ?, ?, ?)',
+          'INSERT INTO persons (id, member_id, user_id, is_primary, name, email) VALUES (?, ?, ?, ?, ?, ?)',
         )
-        .run(person.id, person.memberId, person.isPrimary ? 1 : 0, person.name, input.email ?? null);
+        .run(
+          person.id,
+          person.memberId,
+          input.userId ?? null,
+          person.isPrimary ? 1 : 0,
+          person.name,
+          input.email ?? null,
+        );
       return Promise.resolve(person);
     } catch (err) {
       return Promise.reject(err);
@@ -1152,6 +1340,7 @@ export class SqliteStorage implements Storage {
       groupId: row.group_id,
       memberNo: row.member_no,
       type: row.type as MemberType,
+      role: row.role as MemberRole,
       displayName: row.display_name,
       status: row.status as MemberStatus,
       confirmIncoming: row.confirm_incoming !== 0,
@@ -1160,6 +1349,19 @@ export class SqliteStorage implements Storage {
     if (row.approved_at !== null) member.approvedAt = row.approved_at;
     if (row.closed_at !== null) member.closedAt = row.closed_at;
     return member;
+  }
+
+  private userFromRow(row: UserRow): User {
+    return {
+      id: row.id,
+      email: row.email,
+      status: row.status as User['status'],
+      createdAt: row.created_at,
+    };
+  }
+
+  private groupFromRow(row: GroupRow): Group {
+    return { id: row.id, slug: row.slug, name: row.name, createdAt: row.created_at };
   }
 
   private loadMember(id: Id): Member {
