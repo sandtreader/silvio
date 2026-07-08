@@ -80,6 +80,11 @@ Remaining server-side work, grouped by area. References are to
       Priority order: /me, /me/pending, /members (+ the PublicMember
       projection as a leak guard), /me/statement, transaction-returning
       routes, a shared 4xx/5xx error schema, operator group creation.
+- [ ] Group currencies endpoint (admin UI can currently only see currencies
+      the admin holds accounts in, via /me)
+- [ ] Expose currency scale in /me accounts (both UIs assume scale 2)
+- [ ] Transaction list/search for admins (reverse currently needs a pasted id)
+- [ ] List active restrictions (impose/lift exist; no read)
 
 ## Operator & deployment
 
