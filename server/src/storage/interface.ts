@@ -175,6 +175,11 @@ export interface Storage extends Ledger {
     enabled?: boolean; // default true
   }): Promise<CreditPolicy>;
   creditPolicies(groupId: Id, currencyId: Id): Promise<CreditPolicy[]>; // enabled only
+  listCreditPolicies(groupId: Id): Promise<CreditPolicy[]>; // all, for admin UI
+  updateCreditPolicy(
+    id: Id,
+    patch: { enabled?: boolean; config?: CreditPolicyConfig },
+  ): Promise<CreditPolicy>;
   imposeRestriction(memberId: Id, reason: string, imposedBy: Id): Promise<Restriction>;
   liftRestriction(memberId: Id, liftedBy: Id): Promise<void>;
   activeRestriction(memberId: Id): Promise<Restriction | undefined>;

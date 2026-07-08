@@ -1067,16 +1067,44 @@ export class SqliteStorage implements Storage {
          ORDER BY id`,
       )
       .all(groupId, currencyId) as CreditPolicyRow[];
-    return Promise.resolve(
-      rows.map((row) => ({
-        id: row.id,
-        groupId: row.group_id,
-        currencyId: row.currency_id,
-        type: row.type as CreditPolicyType,
-        config: JSON.parse(row.config) as CreditPolicyConfig,
-        enabled: row.enabled !== 0,
-      })),
-    );
+    return Promise.resolve(rows.map((row) => this.policyFromRow(row)));
+  }
+
+  listCreditPolicies(groupId: Id): Promise<CreditPolicy[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM credit_policies WHERE group_id = ? ORDER BY id')
+      .all(groupId) as CreditPolicyRow[];
+    return Promise.resolve(rows.map((row) => this.policyFromRow(row)));
+  }
+
+  updateCreditPolicy(
+    id: Id,
+    patch: { enabled?: boolean; config?: CreditPolicyConfig },
+  ): Promise<CreditPolicy> {
+    try {
+      const existing = this.db
+        .prepare('SELECT id FROM credit_policies WHERE id = ?')
+        .get(id) as { id: string } | undefined;
+      if (!existing) {
+        throw new StorageError('NOT_FOUND', `credit policy ${id} not found`);
+      }
+      if (patch.enabled !== undefined) {
+        this.db
+          .prepare('UPDATE credit_policies SET enabled = ? WHERE id = ?')
+          .run(patch.enabled ? 1 : 0, id);
+      }
+      if (patch.config !== undefined) {
+        this.db
+          .prepare('UPDATE credit_policies SET config = ? WHERE id = ?')
+          .run(JSON.stringify(patch.config), id);
+      }
+      const row = this.db
+        .prepare('SELECT * FROM credit_policies WHERE id = ?')
+        .get(id) as CreditPolicyRow;
+      return Promise.resolve(this.policyFromRow(row));
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   imposeRestriction(memberId: Id, reason: string, imposedBy: Id): Promise<Restriction> {
@@ -1392,6 +1420,17 @@ export class SqliteStorage implements Storage {
     if (row.approved_at !== null) member.approvedAt = row.approved_at;
     if (row.closed_at !== null) member.closedAt = row.closed_at;
     return member;
+  }
+
+  private policyFromRow(row: CreditPolicyRow): CreditPolicy {
+    return {
+      id: row.id,
+      groupId: row.group_id,
+      currencyId: row.currency_id,
+      type: row.type as CreditPolicyType,
+      config: JSON.parse(row.config) as CreditPolicyConfig,
+      enabled: row.enabled !== 0,
+    };
   }
 
   private userFromRow(row: UserRow): User {

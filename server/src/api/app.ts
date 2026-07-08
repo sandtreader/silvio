@@ -16,6 +16,9 @@ import cookie from '@fastify/cookie';
 import swagger from '@fastify/swagger';
 import type { Storage } from '../storage/interface.js';
 import type {
+  CreditPolicyConfig,
+  CreditPolicyType,
+  DemurrageBand,
   Group,
   ListingType,
   Member,
@@ -29,8 +32,16 @@ import type {
 import { DomainError, type DomainErrorCode } from '../services/errors.js';
 import { StorageError } from '../storage/errors.js';
 import { authenticate, login, logout, register } from '../services/auth.js';
-import { apply, approve } from '../services/membership.js';
-import { accept, cancel, decline, requestPayment, sendPayment } from '../services/trading.js';
+import { apply, approve, leave, reinstate, suspend } from '../services/membership.js';
+import {
+  accept,
+  cancel,
+  decline,
+  requestPayment,
+  reverse,
+  sendPayment,
+} from '../services/trading.js';
+import { evaluateFlags } from '../services/creditcontrol.js';
 import { browse, postListing } from '../services/marketplace.js';
 
 const SESSION_COOKIE = 'silvio_session';
@@ -521,16 +532,245 @@ export async function buildApp(storage: Storage): Promise<FastifyInstance> {
         return { categories: await storage.listCategories(request.group!.id) };
       });
 
+      // --- Admin area: role-gated group management (decision #2) -----------
+
+      /** Assert the member exists in the request's group (tenancy isolation). */
+      async function targetMember(request: FastifyRequest, id: string): Promise<Member> {
+        const target = await storage.getMember(id);
+        if (target.groupId !== request.group!.id) {
+          throw new DomainError('NOT_FOUND', `member ${id} not found in this group`);
+        }
+        return target;
+      }
+
+      scope.get(
+        '/admin/members',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            querystring: {
+              type: 'object',
+              properties: {
+                status: {
+                  type: 'string',
+                  enum: ['applied', 'active', 'away', 'suspended', 'closed'],
+                },
+              },
+            },
+          },
+        },
+        async (request) => {
+          const { status } = request.query as { status?: MemberStatus };
+          return { members: await storage.listMembers(request.group!.id, status) };
+        },
+      );
+
+      // Lifecycle actions (decision #7): suspend/reinstate, and remove
+      // settling any residual balance to the community account.
+      const memberActions = { approve, suspend, reinstate, remove: leave } as const;
+      for (const [action, service] of Object.entries(memberActions)) {
+        scope.post(
+          `/admin/members/:id/${action}`,
+          { preHandler: [requireMember, requireAdmin], schema: { params: ID_PARAM_SCHEMA } },
+          async (request) => {
+            const { id } = request.params as { id: string };
+            await targetMember(request, id);
+            return { member: await service(storage, id) };
+          },
+        );
+      }
+
+      scope.get(
+        '/admin/policies',
+        { preHandler: [requireMember, requireAdmin] },
+        async (request) => {
+          return { policies: await storage.listCreditPolicies(request.group!.id) };
+        },
+      );
+
       scope.post(
-        '/admin/members/:id/approve',
-        { preHandler: [requireMember, requireAdmin], schema: { params: ID_PARAM_SCHEMA } },
+        '/admin/policies',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            body: {
+              type: 'object',
+              required: ['currencyId', 'type', 'config'],
+              properties: {
+                currencyId: { type: 'string' },
+                type: { type: 'string', enum: ['soft_threshold', 'hard_limit'] },
+                config: { type: 'object' },
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const body = request.body as {
+            currencyId: string;
+            type: CreditPolicyType;
+            config: CreditPolicyConfig;
+          };
+          const policy = await storage.setCreditPolicy({
+            groupId: request.group!.id,
+            currencyId: body.currencyId,
+            type: body.type,
+            config: body.config,
+          });
+          reply.status(201);
+          return { policy };
+        },
+      );
+
+      scope.patch(
+        '/admin/policies/:id',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            body: {
+              type: 'object',
+              properties: {
+                enabled: { type: 'boolean' },
+                config: { type: 'object' },
+              },
+            },
+          },
+        },
         async (request) => {
           const { id } = request.params as { id: string };
-          const target = await storage.getMember(id);
-          if (target.groupId !== request.group!.id) {
-            throw new DomainError('NOT_FOUND', `member ${id} not found in this group`);
+          const body = request.body as { enabled?: boolean; config?: CreditPolicyConfig };
+          const patch: Parameters<typeof storage.updateCreditPolicy>[1] = {};
+          if (body.enabled !== undefined) patch.enabled = body.enabled;
+          if (body.config !== undefined) patch.config = body.config;
+          return { policy: await storage.updateCreditPolicy(id, patch) };
+        },
+      );
+
+      const CURRENCY_PARAM_SCHEMA = {
+        type: 'object',
+        required: ['currencyId'],
+        properties: { currencyId: { type: 'string' } },
+      } as const;
+
+      scope.get(
+        '/admin/demurrage/:currencyId/bands',
+        { preHandler: [requireMember, requireAdmin], schema: { params: CURRENCY_PARAM_SCHEMA } },
+        async (request) => {
+          const { currencyId } = request.params as { currencyId: string };
+          return { bands: await storage.demurrageBands(currencyId) };
+        },
+      );
+
+      scope.put(
+        '/admin/demurrage/:currencyId/bands',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: CURRENCY_PARAM_SCHEMA,
+            body: {
+              type: 'object',
+              required: ['bands'],
+              properties: {
+                bands: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    required: ['fromAmount', 'ratePpmPerMonth'],
+                    properties: {
+                      fromAmount: { type: 'integer' },
+                      ratePpmPerMonth: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        async (request) => {
+          const { currencyId } = request.params as { currencyId: string };
+          const body = request.body as { bands: DemurrageBand[] };
+          await storage.setDemurrageBands(currencyId, body.bands);
+          return { bands: await storage.demurrageBands(currencyId) };
+        },
+      );
+
+      scope.post(
+        '/admin/restrictions',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            body: {
+              type: 'object',
+              required: ['memberId', 'reason'],
+              properties: {
+                memberId: { type: 'string' },
+                reason: { type: 'string' },
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const body = request.body as { memberId: string; reason: string };
+          await targetMember(request, body.memberId);
+          const restriction = await storage.imposeRestriction(
+            body.memberId,
+            body.reason,
+            request.auth!.member.id,
+          );
+          reply.status(201);
+          return { restriction };
+        },
+      );
+
+      scope.delete(
+        '/admin/restrictions/:memberId',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: {
+              type: 'object',
+              required: ['memberId'],
+              properties: { memberId: { type: 'string' } },
+            },
+          },
+        },
+        async (request) => {
+          const { memberId } = request.params as { memberId: string };
+          await storage.liftRestriction(memberId, request.auth!.member.id);
+          return { ok: true };
+        },
+      );
+
+      scope.get(
+        '/admin/flags',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            querystring: {
+              type: 'object',
+              required: ['currencyId'],
+              properties: { currencyId: { type: 'string' } },
+            },
+          },
+        },
+        async (request) => {
+          const { currencyId } = request.query as { currencyId: string };
+          return { flags: await evaluateFlags(storage, request.group!.id, currencyId) };
+        },
+      );
+
+      scope.post(
+        '/admin/transactions/:id/reverse',
+        { preHandler: [requireMember, requireAdmin], schema: { params: ID_PARAM_SCHEMA } },
+        async (request, reply) => {
+          const { id } = request.params as { id: string };
+          const original = await storage.getTransaction(id);
+          if (original.groupId !== request.group!.id) {
+            throw new DomainError('NOT_FOUND', `transaction ${id} not found in this group`);
           }
-          return { member: await approve(storage, id) };
+          const transaction = await reverse(storage, id, request.auth!.user.id);
+          reply.status(201);
+          return { transaction };
         },
       );
     };

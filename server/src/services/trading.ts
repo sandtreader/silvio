@@ -287,6 +287,34 @@ export async function cancel(storage: Storage, txId: Id, actorMemberId: Id): Pro
   return storage.transition(txId, 'cancelled', { personId: actorMemberId });
 }
 
+/**
+ * Admin reversal (decisions #5, #6): post a committed compensating
+ * transaction linked via reversesId, with every leg negated. Only committed
+ * transactions can be reversed, and a reversal cannot itself be reversed.
+ */
+export async function reverse(storage: Storage, txId: Id, actorPersonId: Id): Promise<Transaction> {
+  const tx = await storage.getTransaction(txId);
+  if (tx.state !== 'committed') {
+    throw new DomainError('WRONG_STATE', `transaction is ${tx.state}, not committed`);
+  }
+  if (tx.type === 'reversal') {
+    throw new DomainError('WRONG_STATE', 'a reversal cannot itself be reversed');
+  }
+  return storage.post({
+    groupId: tx.groupId,
+    type: 'reversal',
+    state: 'committed',
+    createdBy: actorPersonId,
+    channel: 'admin',
+    description: `Reversal of ${txId}`,
+    reversesId: txId,
+    entries: tx.entries.map((entry) => ({
+      accountId: entry.accountId,
+      amount: -entry.amount,
+    })),
+  });
+}
+
 export interface SweepResult {
   autoAccepted: number;
   expired: number;
