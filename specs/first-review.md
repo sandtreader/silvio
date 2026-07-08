@@ -272,25 +272,30 @@ The plan states the principle; these implement it:
 
 ---
 
-## Open decisions
+## Decisions
 
-To refine sequentially:
+All nine decisions arising from this review have been made — see
+[decisions.md](decisions.md):
 
-1. **Demurrage semantics** — sign (positive-only recommended), parameters, proceeds
-   destination (community account vs redistribution), accrual/posting cadence.
-2. **Multi-tenancy** — single group per deployment vs multi-group instance.
-3. **Credit-control levers** — which of: soft-threshold flags, hard limits,
-   turnover-proportional limits, positive caps, restriction mechanism.
-4. **Federation** — none / gateway-account intertrading / Credit Commons; how much
-   to reserve in the schema now.
-5. **Pending-payment & invoicing model** — which transaction states exist
-   (draft/pending/committed/reversed) and who confirms what.
-6. **Ledger representation** — journal schema, balance caching strategy, minor
-   units.
-7. **Membership lifecycle & fees** — application/approval flow, dual-currency fee
-   handling, leaver settlement.
-8. **Reputation** — trade feedback yes/no, rebuttals, visibility.
-9. **MCP server auth** — token scopes, payment authorisation model.
+1. **Demurrage semantics** — positive-only, marginal bands, monthly snapshot,
+   proceeds to community account.
+2. **Multi-tenancy** — tenant-keyed data model from the start; white-label SaaS
+   deployment model.
+3. **Credit-control levers** — pluggable policies: soft threshold flags, optional
+   hard limits, manual restriction.
+4. **Federation** — designed for (gateway account type, remote refs), not
+   implemented.
+5. **Pending-payment & invoicing model** — two-phase pending/committed;
+   initiating is consenting; payer always authorises.
+6. **Ledger representation** — normalised append-only journal, multi-currency
+   legs with per-currency zero-sum, balances derived (caching is a storage-layer
+   decision).
+7. **Membership lifecycle & fees** — approval/removal flows; no fees (demurrage
+   funds the community account); leavers settle to the community account.
+8. **Reputation** — no per-trade ratings (evidence-based rejection); trade-count
+   stats and admin-verified flags instead.
+9. **MCP server auth** — per-membership scoped tokens; pending-by-default
+   payments with human confirmation, autonomous pay as bounded opt-in.
 
 ## Sources
 
