@@ -38,6 +38,7 @@ export interface Currency {
   code: string;
   name: string;
   scale: number;
+  demurrageDay?: number; // day-of-month for the posting run; absent = demurrage off (#1)
   createdAt: string;
 }
 

@@ -123,6 +123,7 @@ interface CurrencyRow {
   code: string;
   name: string;
   scale: number;
+  demurrage_day: number | null;
   created_at: string;
 }
 
@@ -198,6 +199,20 @@ export class SqliteStorage implements Storage {
     return Promise.resolve(group);
   }
 
+  listGroups(): Promise<Group[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM groups ORDER BY created_at, id')
+      .all() as { id: string; slug: string; name: string; created_at: string }[];
+    return Promise.resolve(
+      rows.map((row) => ({
+        id: row.id,
+        slug: row.slug,
+        name: row.name,
+        createdAt: row.created_at,
+      })),
+    );
+  }
+
   createCurrency(input: CreateCurrencyInput): Promise<Currency> {
     const currency: Currency = {
       id: uuidv7(),
@@ -207,9 +222,10 @@ export class SqliteStorage implements Storage {
       scale: input.scale ?? 0,
       createdAt: now(),
     };
+    if (input.demurrageDay !== undefined) currency.demurrageDay = input.demurrageDay;
     this.db
       .prepare(
-        'INSERT INTO currencies (id, group_id, code, name, scale, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO currencies (id, group_id, code, name, scale, demurrage_day, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       )
       .run(
         currency.id,
@@ -217,6 +233,7 @@ export class SqliteStorage implements Storage {
         currency.code,
         currency.name,
         currency.scale,
+        input.demurrageDay ?? null,
         currency.createdAt,
       );
     return Promise.resolve(currency);
@@ -764,16 +781,7 @@ export class SqliteStorage implements Storage {
     const rows = this.db
       .prepare('SELECT * FROM currencies WHERE group_id = ? ORDER BY id')
       .all(groupId) as CurrencyRow[];
-    return Promise.resolve(
-      rows.map((row) => ({
-        id: row.id,
-        groupId: row.group_id,
-        code: row.code,
-        name: row.name,
-        scale: row.scale,
-        createdAt: row.created_at,
-      })),
-    );
+    return Promise.resolve(rows.map((row) => this.currencyFromRow(row)));
   }
 
   ensureMemberAccount(memberId: Id, currencyId: Id): Promise<Account> {
@@ -1123,6 +1131,19 @@ export class SqliteStorage implements Storage {
     if (row.counterparty_ref !== null) account.counterpartyRef = row.counterparty_ref;
     if (row.closed_at !== null) account.closedAt = row.closed_at;
     return account;
+  }
+
+  private currencyFromRow(row: CurrencyRow): Currency {
+    const currency: Currency = {
+      id: row.id,
+      groupId: row.group_id,
+      code: row.code,
+      name: row.name,
+      scale: row.scale,
+      createdAt: row.created_at,
+    };
+    if (row.demurrage_day !== null) currency.demurrageDay = row.demurrage_day;
+    return currency;
   }
 
   private memberFromRow(row: MemberRow): Member {

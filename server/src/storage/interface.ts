@@ -40,6 +40,7 @@ export interface CreateCurrencyInput {
   code: string;
   name: string;
   scale?: number; // default 0
+  demurrageDay?: number; // 1-28; absent = demurrage off
 }
 
 export interface CreateAccountInput {
@@ -90,6 +91,7 @@ export interface Ledger {
 
 export interface Storage extends Ledger {
   createGroup(input: CreateGroupInput): Promise<Group>;
+  listGroups(): Promise<Group[]>;
   createCurrency(input: CreateCurrencyInput): Promise<Currency>;
   createAccount(input: CreateAccountInput): Promise<Account>;
 

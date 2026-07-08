@@ -108,10 +108,16 @@ CREATE INDEX idx_restrictions_member ON restrictions(member_id);
 CREATE INDEX idx_listings_group_status ON listings(group_id, status);
 `;
 
+// Migration 4: per-currency demurrage posting day (decision #1, scheduler).
+const SCHEDULER_SCHEMA = `
+ALTER TABLE currencies ADD COLUMN demurrage_day INTEGER;
+`;
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, sql: SCHEMA },
   { version: 2, sql: DEMURRAGE_SCHEMA },
   { version: 3, sql: DOMAIN_SCHEMA },
+  { version: 4, sql: SCHEDULER_SCHEMA },
 ];
 
 export function migrate(db: Database.Database): void {
