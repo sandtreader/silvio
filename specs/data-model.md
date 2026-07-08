@@ -330,6 +330,19 @@ interface Ledger {
   checkpoint(groupId: Id, period: string): Promise<Checkpoint>;     // build + store (#10)
   inclusionProof(accountId: Id, checkpointId: Id): Promise<Proof>;  // member-facing verify (#10)
 }
+
+interface Search {
+  // Generic search over domains; how it's indexed (SQLite: FTS5) is the
+  // storage layer's private decision — same pattern as balances and images.
+  search(groupId: Id, domain: 'listings' | 'directory' | 'pages' | 'news',
+         query: {
+           text?: string;                  // full-text over the domain's fields
+           filters?: Record<string, unknown>; // domain-specific: category, offer/want,
+                                              // freshness, neighbourhood, …
+           visibility: 'public' | 'member' | 'admin'; // caller's tier — results respect it (#2)
+           page?: Cursor;
+         }): Promise<SearchPage>;
+}
 ```
 
 Whether `balance()` derives, caches incrementally, or materialises is the
@@ -338,10 +351,13 @@ sum of committed entries, atomically with respect to `post`.
 
 ## Open points for implementation
 
-1. Search: SQLite FTS5 over listings/directory in the first storage
-   implementation.
-2. Session store & password-reset tokens — implementation detail, not domain
+1. Session store & password-reset tokens — implementation detail, not domain
    model.
+
+(Resolved: search is exposed as a generic search request over domains
+(listings, directory, pages, news) with text + domain-specific filters +
+caller visibility tier; indexing is the storage layer's private decision —
+the SQLite implementation uses FTS5.)
 
 (Resolved: `seq` is per-group, defined as the transaction's hash-chain position
 (#10) — the chain is the authoritative order and seq is its projection. No
