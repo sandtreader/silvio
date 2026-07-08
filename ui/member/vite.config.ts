@@ -11,6 +11,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        // The service worker's scope is the site root, but /admin (the admin
+        // app) and /api must never be answered from the member app's cache —
+        // without this the SPA navigation fallback hijacks them offline-style.
+        navigateFallbackDenylist: [/^\/admin/, /^\/api\//],
+      },
       manifest: {
         name: 'Silvio',
         short_name: 'Silvio',

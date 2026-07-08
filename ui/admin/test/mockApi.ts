@@ -24,7 +24,7 @@ export function makeMe(): Me {
   return {
     member: makeMember({ id: 'm-admin', memberNo: 99, role: 'admin' }),
     accounts: [
-      { id: 'a-1', currencyId: 'c-1', currencyCode: 'CAM', balance: 0 },
+      { id: 'a-1', currencyId: 'c-1', currencyCode: 'CAM', scale: 2, balance: 0 },
     ],
   };
 }
@@ -46,5 +46,8 @@ export function makeMockApi(): MockAdminApi {
     adminSetBands: vi.fn().mockResolvedValue([]),
     adminFlags: vi.fn().mockResolvedValue([]),
     adminReverse: vi.fn().mockResolvedValue(undefined),
+    categories: vi.fn().mockResolvedValue([]),
+    adminCreateCategory: vi.fn().mockResolvedValue(undefined),
+    adminUpdateCategory: vi.fn().mockResolvedValue(undefined),
   };
 }

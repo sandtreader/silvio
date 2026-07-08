@@ -6,6 +6,7 @@
 import {
   ApiClient,
   ApiError,
+  type Category,
   type CreditPolicyConfig,
   type DemurrageBand,
   type Flag,
@@ -76,6 +77,15 @@ export interface AdminApi {
   ): Promise<DemurrageBand[] | undefined>;
   adminFlags(currencyId: string): Promise<Flag[] | undefined>;
   adminReverse(id: string): Promise<Transaction | undefined>;
+  categories(): Promise<Category[] | undefined>;
+  adminCreateCategory(input: {
+    name: string;
+    parentId?: string;
+  }): Promise<Category | undefined>;
+  adminUpdateCategory(
+    id: string,
+    patch: { name?: string; parentId?: string },
+  ): Promise<Category | undefined>;
 }
 
 /** The real implementation over the shared ApiClient. */
@@ -100,4 +110,9 @@ export const api: AdminApi = {
     (await call(client.adminSetBands(currencyId, bands)))?.bands,
   adminFlags: async (currencyId) => (await call(client.adminFlags(currencyId)))?.flags,
   adminReverse: async (id) => (await call(client.adminReverse(id)))?.transaction,
+  categories: async () => (await call(client.categories()))?.categories,
+  adminCreateCategory: async (input) =>
+    (await call(client.adminCreateCategory(input)))?.category,
+  adminUpdateCategory: async (id, patch) =>
+    (await call(client.adminUpdateCategory(id, patch)))?.category,
 };

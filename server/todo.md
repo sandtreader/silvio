@@ -82,11 +82,10 @@ Remaining server-side work, grouped by area. References are to
       routes, a shared 4xx/5xx error schema, operator group creation.
 - [ ] Group currencies endpoint (admin UI can currently only see currencies
       the admin holds accounts in, via /me)
-- [ ] Expose currency scale in /me accounts (both UIs assume scale 2)
+- [x] Expose currency scale in /me accounts
 - [ ] Transaction list/search for admins (reverse currently needs a pasted id)
 - [ ] List active restrictions (impose/lift exist; no read)
-- [ ] Categories API (storage exists, no routes) — fresh groups cannot post
-      listings; needs admin create/edit + it is already public-readable
+- [x] Categories API (admin create/rename; public read existed)
 
 ## Operator & deployment
 

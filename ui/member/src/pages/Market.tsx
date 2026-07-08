@@ -19,14 +19,20 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { formatAmount, parseAmount } from '@silvio/ui-shared';
-import type { Category, Listing, ListingInput, ListingType } from '@silvio/ui-shared';
+import type {
+  AccountSummary,
+  Category,
+  Listing,
+  ListingInput,
+  ListingType,
+} from '@silvio/ui-shared';
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../api/auth';
 import { useClient } from '../api/client';
 import { useFeedback } from '../api/feedback';
 import { useApi } from '../api/useApi';
 import { PageContainer } from '../components/PageContainer';
-import { DEFAULT_SCALE } from '../scale';
+import { scaleForCurrency, scaleOf } from '../scale';
 
 type Filter = 'all' | ListingType;
 
@@ -88,7 +94,10 @@ export function Market() {
               </Stack>
               {listing.priceAmount !== undefined ? (
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  {formatAmount(listing.priceAmount, DEFAULT_SCALE)}
+                  {formatAmount(
+                    listing.priceAmount,
+                    scaleForCurrency(me?.accounts, listing.priceCurrencyId),
+                  )}
                 </Typography>
               ) : listing.rateText !== undefined ? (
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
@@ -120,7 +129,7 @@ export function Market() {
               setPosting(false);
               void load();
             }}
-            priceCurrencyId={me.accounts[0]?.currencyId}
+            priceAccount={me.accounts[0]}
           />
         </>
       )}
@@ -132,12 +141,12 @@ function PostListingDialog({
   open,
   onClose,
   onPosted,
-  priceCurrencyId,
+  priceAccount,
 }: {
   open: boolean;
   onClose: () => void;
   onPosted: () => void;
-  priceCurrencyId: string | undefined;
+  priceAccount: AccountSummary | undefined;
 }) {
   const client = useClient();
   const { run, busy } = useApi();
@@ -163,13 +172,13 @@ function PostListingDialog({
     if (priceText.trim() !== '') {
       let amount: number;
       try {
-        amount = parseAmount(priceText, DEFAULT_SCALE);
+        amount = parseAmount(priceText, scaleOf(priceAccount));
       } catch (error) {
         setPriceError(error instanceof Error ? error.message : String(error));
         return;
       }
       input.priceAmount = amount;
-      if (priceCurrencyId !== undefined) input.priceCurrencyId = priceCurrencyId;
+      if (priceAccount !== undefined) input.priceCurrencyId = priceAccount.currencyId;
     } else if (rateText.trim() !== '') {
       input.rateText = rateText.trim();
     }

@@ -10,6 +10,8 @@ import type { AdminApi } from './api';
 export interface CurrencyOption {
   id: string;
   code: string;
+  /** Display scale (decimal places), from the account summary. */
+  scale: number;
 }
 
 /** Load the currencies visible via the admin's own accounts. */
@@ -24,7 +26,11 @@ export function useCurrencies(api: AdminApi): CurrencyOption[] {
       for (const account of me.accounts) {
         if (seen.has(account.currencyId)) continue;
         seen.add(account.currencyId);
-        options.push({ id: account.currencyId, code: account.currencyCode });
+        options.push({
+          id: account.currencyId,
+          code: account.currencyCode,
+          scale: account.scale,
+        });
       }
       setCurrencies(options);
     });

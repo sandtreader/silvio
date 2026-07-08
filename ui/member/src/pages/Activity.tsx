@@ -18,7 +18,7 @@ import { useClient } from '../api/client';
 import { useFeedback } from '../api/feedback';
 import { useApi } from '../api/useApi';
 import { PageContainer } from '../components/PageContainer';
-import { DEFAULT_SCALE } from '../scale';
+import { scaleOf } from '../scale';
 
 const ACTION_LABELS: Record<TxAction, string> = {
   accept: 'Accept',
@@ -34,6 +34,7 @@ export function Activity() {
   const [pending, setPending] = useState<PendingItem[] | null>(null);
   const [lines, setLines] = useState<StatementLine[] | null>(null);
   const firstCurrencyId = me?.accounts[0]?.currencyId;
+  const scale = scaleOf(me?.accounts[0]);
 
   const load = useCallback(async () => {
     const pendingResult = await run(() => client.pending());
@@ -82,7 +83,7 @@ export function Activity() {
                 </Typography>
                 <Typography sx={{ fontWeight: 600 }}>
                   {item.direction === 'in' ? '+' : '-'}
-                  {formatAmount(item.amount, DEFAULT_SCALE)}
+                  {formatAmount(item.amount, scale)}
                 </Typography>
               </Stack>
               {item.description !== undefined && (
@@ -128,10 +129,10 @@ export function Activity() {
                 <Typography
                   color={line.amount < 0 ? 'error.main' : 'success.main'}
                 >
-                  {formatAmount(line.amount, DEFAULT_SCALE)}
+                  {formatAmount(line.amount, scale)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  bal {formatAmount(line.runningBalance, DEFAULT_SCALE)}
+                  bal {formatAmount(line.runningBalance, scale)}
                 </Typography>
               </Box>
             </ListItem>

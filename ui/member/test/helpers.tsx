@@ -41,5 +41,7 @@ export const testMe: Me = {
     appliedAt: '2026-01-01T00:00:00Z',
     approvedAt: '2026-01-02T00:00:00Z',
   },
-  accounts: [{ id: 'a1', currencyId: 'c1', currencyCode: 'CAM', balance: 12345 }],
+  accounts: [
+    { id: 'a1', currencyId: 'c1', currencyCode: 'CAM', scale: 2, balance: 12345 },
+  ],
 };

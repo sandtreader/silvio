@@ -5,6 +5,7 @@
 
 import { MenuStructure, StaticMenuProvider } from '@sandtreader/rafiki';
 import { ApprovalQueuePage } from './pages/ApprovalQueuePage';
+import { CategoriesPage } from './pages/CategoriesPage';
 import { MembersPage } from './pages/MembersPage';
 import { PoliciesPage } from './pages/PoliciesPage';
 import { DemurragePage } from './pages/DemurragePage';
@@ -61,6 +62,13 @@ const pages: PageDefinition[] = [
     icon: 'receipt_long',
     content: <TransactionsPage />,
     requirements: ['admin.transactions'],
+  },
+  {
+    id: 'categories',
+    name: 'Categories',
+    icon: 'category',
+    content: <CategoriesPage />,
+    requirements: ['admin.*'],
   },
 ];
 

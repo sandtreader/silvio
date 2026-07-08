@@ -22,7 +22,7 @@ import { useApi } from '../api/useApi';
 import { PageContainer } from '../components/PageContainer';
 import { decodeRequest, encodeRequest } from '../pay/request';
 import type { PaymentRequest } from '../pay/request';
-import { DEFAULT_SCALE } from '../scale';
+import { scaleForCurrency } from '../scale';
 
 export function Pay() {
   const [tab, setTab] = useState(0);
@@ -173,6 +173,7 @@ function ConfirmPaySheet({
   onDone: () => void;
 }) {
   const client = useClient();
+  const { me } = useAuth();
   const { run, busy } = useApi();
   const feedback = useFeedback();
   const [payeeName, setPayeeName] = useState<string | null>(null);
@@ -210,7 +211,7 @@ function ConfirmPaySheet({
             Pay <strong>{payeeName ?? request.payee}</strong>
           </Typography>
           <Typography variant="h4" sx={{ my: 1 }}>
-            {formatAmount(request.amount, DEFAULT_SCALE)}
+            {formatAmount(request.amount, scaleForCurrency(me?.accounts, request.currencyId))}
           </Typography>
           {request.reference !== undefined && (
             <Typography color="text.secondary">{request.reference}</Typography>
@@ -251,7 +252,7 @@ function RequestTab() {
     if (me === null || account === undefined) return;
     let amount: number;
     try {
-      amount = parseAmount(amountText, DEFAULT_SCALE);
+      amount = parseAmount(amountText, account.scale);
     } catch (error) {
       setAmountError(error instanceof Error ? error.message : String(error));
       return;
@@ -351,7 +352,7 @@ function ManualTab() {
     if (account === undefined) return;
     let amount: number;
     try {
-      amount = parseAmount(amountText, DEFAULT_SCALE);
+      amount = parseAmount(amountText, account.scale);
     } catch (error) {
       setAmountError(error instanceof Error ? error.message : String(error));
       return;

@@ -141,6 +141,8 @@ export interface AccountSummary {
   id: Id;
   currencyId: Id;
   currencyCode: string;
+  /** Currency display scale: decimal places for formatAmount/parseAmount. */
+  scale: number;
   balance: number;
 }
 

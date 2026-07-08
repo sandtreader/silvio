@@ -18,7 +18,7 @@ import { useAuth } from '../api/auth';
 import { useClient } from '../api/client';
 import { useApi } from '../api/useApi';
 import { PageContainer } from '../components/PageContainer';
-import { DEFAULT_SCALE } from '../scale';
+import { scaleOf } from '../scale';
 
 export function Home() {
   const { me } = useAuth();
@@ -56,7 +56,7 @@ export function Home() {
               {account.currencyCode} balance
             </Typography>
             <Typography variant="h4">
-              {formatAmount(account.balance, DEFAULT_SCALE)}
+              {formatAmount(account.balance, account.scale)}
             </Typography>
           </CardContent>
         </Card>
@@ -96,7 +96,7 @@ export function Home() {
               <Typography
                 color={line.amount < 0 ? 'error.main' : 'success.main'}
               >
-                {formatAmount(line.amount, DEFAULT_SCALE)}
+                {formatAmount(line.amount, scaleOf(me.accounts[0]))}
               </Typography>
             </ListItem>
           ))}

@@ -37,7 +37,7 @@ import {
 } from '@silvio/ui-shared';
 import { api as realApi, type AdminApi } from '../api';
 import { useCurrencies } from '../currencies';
-import { DEFAULT_SCALE } from '../money';
+import { scaleFor } from '../money';
 
 interface ThresholdRow {
   balance: string;
@@ -97,12 +97,13 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
 
   /** Build the config from the form; throws RangeError on bad amounts. */
   const buildConfig = (): CreditPolicyConfig => {
+    const scale = scaleFor(currencies, currencyId);
     if (type === 'hard_limit') {
       const config: CreditPolicyConfig = {};
       if (minBalance.trim() !== '')
-        config.minBalance = parseAmount(minBalance, DEFAULT_SCALE);
+        config.minBalance = parseAmount(minBalance, scale);
       if (maxBalance.trim() !== '')
-        config.maxBalance = parseAmount(maxBalance, DEFAULT_SCALE);
+        config.maxBalance = parseAmount(maxBalance, scale);
       if (config.minBalance === undefined && config.maxBalance === undefined) {
         throw new RangeError('a hard limit needs a min or max balance');
       }
@@ -116,7 +117,7 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
     }
     const parsed: SoftThreshold[] = rows.map((t) => {
       if (t.level.trim() === '') throw new RangeError('every threshold needs a level');
-      return { balance: parseAmount(t.balance, DEFAULT_SCALE), level: t.level.trim() };
+      return { balance: parseAmount(t.balance, scale), level: t.level.trim() };
     });
     return { thresholds: parsed };
   };

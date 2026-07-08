@@ -28,7 +28,7 @@ import {
 } from '@silvio/ui-shared';
 import { api as realApi, type AdminApi } from '../api';
 import { useCurrencies } from '../currencies';
-import { DEFAULT_SCALE } from '../money';
+import { scaleFor } from '../money';
 
 // Rates are parts-per-million per month on the wire; presented as % with up
 // to four decimal places (1 ppm = 0.0001 %), converted with the shared
@@ -40,16 +40,16 @@ interface BandRow {
   ratePct: string;
 }
 
-function toRow(band: DemurrageBand): BandRow {
+function toRow(band: DemurrageBand, scale: number): BandRow {
   return {
-    fromAmount: formatAmount(band.fromAmount, DEFAULT_SCALE),
+    fromAmount: formatAmount(band.fromAmount, scale),
     ratePct: formatAmount(band.ratePpmPerMonth, RATE_SCALE),
   };
 }
 
-function toBand(row: BandRow): DemurrageBand {
+function toBand(row: BandRow, scale: number): DemurrageBand {
   return {
-    fromAmount: parseAmount(row.fromAmount, DEFAULT_SCALE),
+    fromAmount: parseAmount(row.fromAmount, scale),
     ratePpmPerMonth: parseAmount(row.ratePct, RATE_SCALE),
   };
 }
@@ -60,6 +60,7 @@ export function DemurragePage({ api = realApi }: { api?: AdminApi }) {
   const [rows, setRows] = useState<BandRow[]>();
   const [formError, setFormError] = useState<string>();
   const [saved, setSaved] = useState(false);
+  const scale = scaleFor(currencies, currencyId);
 
   // Default to the first currency once known
   useEffect(() => {
@@ -76,12 +77,13 @@ export function DemurragePage({ api = realApi }: { api?: AdminApi }) {
     setFormError(undefined);
     setSaved(false);
     void api.adminGetBands(currencyId).then((bands) => {
-      if (!cancelled && bands !== undefined) setRows(bands.map(toRow));
+      if (!cancelled && bands !== undefined)
+        setRows(bands.map((band) => toRow(band, scale)));
     });
     return () => {
       cancelled = true;
     };
-  }, [api, currencyId]);
+  }, [api, currencyId, scale]);
 
   const update = (index: number, patch: Partial<BandRow>) => {
     setSaved(false);
@@ -92,7 +94,7 @@ export function DemurragePage({ api = realApi }: { api?: AdminApi }) {
     if (rows === undefined) return;
     let bands: DemurrageBand[];
     try {
-      bands = rows.map(toBand);
+      bands = rows.map((row) => toBand(row, scale));
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : String(cause));
       return;
@@ -100,7 +102,7 @@ export function DemurragePage({ api = realApi }: { api?: AdminApi }) {
     setFormError(undefined);
     const result = await api.adminSetBands(currencyId, bands);
     if (result !== undefined) {
-      setRows(result.map(toRow));
+      setRows(result.map((band) => toRow(band, scale)));
       setSaved(true);
     }
   };

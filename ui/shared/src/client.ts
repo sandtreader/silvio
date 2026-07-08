@@ -288,6 +288,20 @@ export class ApiClient {
     return this.tenant('POST', `/admin/transactions/${encodeURIComponent(id)}/reverse`);
   }
 
+  adminCreateCategory(input: {
+    name: string;
+    parentId?: string;
+  }): Promise<{ category: Category }> {
+    return this.tenant('POST', '/admin/categories', input);
+  }
+
+  adminUpdateCategory(
+    id: string,
+    patch: { name?: string; parentId?: string },
+  ): Promise<{ category: Category }> {
+    return this.tenant('PATCH', `/admin/categories/${encodeURIComponent(id)}`, patch);
+  }
+
   // --- Operator (platform level, outside any tenant) -------------------------
 
   operatorLogin(email: string, password: string): Promise<{ ok: boolean }> {

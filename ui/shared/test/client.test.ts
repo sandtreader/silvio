@@ -102,6 +102,24 @@ describe('path construction', () => {
     expect(lastCall(mock).url).toBe('/api/v1/g/g1/members/id%2Fwith%3Fchars');
   });
 
+  it('creates and updates categories on the admin routes', async () => {
+    const mock = stubFetch(201, { category: {} });
+    const client = new ApiClient({ group: 'g1' });
+    await client.adminCreateCategory({ name: 'Food', parentId: 'cat-0' });
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/categories');
+    expect(lastCall(mock).init.method).toBe('POST');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      name: 'Food',
+      parentId: 'cat-0',
+    });
+    await client.adminCreateCategory({ name: 'Tools' });
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({ name: 'Tools' });
+    await client.adminUpdateCategory('cat/9', { name: 'Garden' });
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/categories/cat%2F9');
+    expect(lastCall(mock).init.method).toBe('PATCH');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({ name: 'Garden' });
+  });
+
   it('uses admin routes with the right methods', async () => {
     const mock = stubFetch(200, { bands: [] });
     const client = new ApiClient({ group: 'g1' });

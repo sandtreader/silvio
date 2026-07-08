@@ -37,7 +37,7 @@ describe('Home', () => {
     };
     renderWithClient(<Home />, client);
 
-    // Balance formatted at the default scale of 2
+    // Balance formatted at the account's scale of 2
     expect(await screen.findByText('123.45')).toBeTruthy();
     expect(screen.getByText(/CAM balance/i)).toBeTruthy();
     // Statement of the first account's currency

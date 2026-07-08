@@ -1,6 +1,14 @@
-// Money display defaults for the admin app.
+// Money display for the admin app. The per-currency scale rides along on the
+// admin's own /me accounts (see currencies.ts); pages look it up for the
+// currency they are editing.
 
-// TODO: currency scale is not exposed by the API yet (AccountSummary and the
-// admin endpoints carry no scale field); assume 2 until the server exposes
-// currency records.
-export const DEFAULT_SCALE = 2;
+import type { CurrencyOption } from './currencies';
+
+// Used only before the (async) currency list has loaded: nothing to read a
+// scale from yet, so assume the common 2 decimal places.
+export const FALLBACK_SCALE = 2;
+
+/** Display scale of the selected currency, or the fallback while loading. */
+export function scaleFor(currencies: CurrencyOption[], currencyId: string): number {
+  return currencies.find((c) => c.id === currencyId)?.scale ?? FALLBACK_SCALE;
+}
