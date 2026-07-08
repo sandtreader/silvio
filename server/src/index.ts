@@ -2,8 +2,11 @@
 // REST API and the scheduler. All logic lives in the layers below; keep
 // this file to wiring only.
 
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { SqliteStorage } from './storage/sqlite/index.js';
-import { buildApp } from './api/app.js';
+import { buildApp, type BuildAppOptions } from './api/app.js';
 import { bootstrapOperator } from './services/bootstrap.js';
 import { startScheduler } from './services/scheduler.js';
 import { promptOperatorCredentials } from './prompt.js';
@@ -33,7 +36,20 @@ if (!(await storage.operatorExists())) {
     );
   }
 }
-const app = await buildApp(storage);
+// Serve built UIs when present (decision #11): env override, else the
+// sibling ui/ packages' dist directories in the repo layout.
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+function uiDist(envVar: string, fallback: string): string | undefined {
+  const path = process.env[envVar] ?? join(repoRoot, fallback);
+  return existsSync(join(path, 'index.html')) ? path : undefined;
+}
+const ui: NonNullable<BuildAppOptions['ui']> = {};
+const memberDist = uiDist('SILVIO_MEMBER_UI', 'ui/member/dist');
+const adminDist = uiDist('SILVIO_ADMIN_UI', 'ui/admin/dist');
+if (memberDist !== undefined) ui.memberDist = memberDist;
+if (adminDist !== undefined) ui.adminDist = adminDist;
+
+const app = await buildApp(storage, { ui });
 const stopScheduler = startScheduler(storage);
 
 async function shutdown(signal: string): Promise<void> {

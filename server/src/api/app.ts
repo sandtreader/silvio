@@ -14,6 +14,7 @@ import type {
 } from 'fastify';
 import cookie from '@fastify/cookie';
 import swagger from '@fastify/swagger';
+import fastifyStatic from '@fastify/static';
 import type { Storage } from '../storage/interface.js';
 import type {
   CreditPolicyConfig,
@@ -108,12 +109,49 @@ interface PendingItem {
   actions: ('accept' | 'decline' | 'cancel')[];
 }
 
-export async function buildApp(storage: Storage): Promise<FastifyInstance> {
+export interface BuildAppOptions {
+  ui?: {
+    memberDist?: string; // built member app, served at / (decision #11)
+    adminDist?: string; // built admin app, served at /admin/
+  };
+}
+
+export async function buildApp(
+  storage: Storage,
+  opts: BuildAppOptions = {},
+): Promise<FastifyInstance> {
   const app = Fastify();
 
   await app.register(cookie);
   await app.register(swagger, {
     openapi: { info: { title: 'Silvio', version: '0.1' } },
+  });
+
+  // Same-origin UI serving (decision #11): static files + SPA fallback per
+  // app; /api/* is never swallowed by the fallback.
+  const memberDist = opts.ui?.memberDist;
+  const adminDist = opts.ui?.adminDist;
+  if (memberDist !== undefined) {
+    await app.register(fastifyStatic, { root: memberDist, prefix: '/' });
+  }
+  if (adminDist !== undefined) {
+    await app.register(fastifyStatic, {
+      root: adminDist,
+      prefix: '/admin/',
+      decorateReply: memberDist === undefined,
+    });
+  }
+  app.setNotFoundHandler((request, reply) => {
+    const path = request.url.split('?')[0] ?? request.url;
+    if (!path.startsWith('/api/')) {
+      if (adminDist !== undefined && path.startsWith('/admin')) {
+        return reply.sendFile('index.html', adminDist);
+      }
+      if (memberDist !== undefined) {
+        return reply.sendFile('index.html', memberDist);
+      }
+    }
+    return reply.status(404).send(errorBody('NOT_FOUND', `no such route: ${path}`));
   });
 
   app.setErrorHandler((err: FastifyError, _request, reply) => {

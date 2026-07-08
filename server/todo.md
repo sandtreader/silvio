@@ -73,6 +73,14 @@ Remaining server-side work, grouped by area. References are to
 - [ ] Location/neighbourhood field + directory filtering (CamLETS grid pattern)
 - [ ] Qualified/professional flags on listings (#8 — admin-verified badges)
 
+## API polish
+
+- [ ] Response schemas in route definitions (currently bodies only, so the
+      OpenAPI doc has no response shapes and ui/shared hand-writes them).
+      Priority order: /me, /me/pending, /members (+ the PublicMember
+      projection as a leak guard), /me/statement, transaction-returning
+      routes, a shared 4xx/5xx error schema, operator group creation.
+
 ## Operator & deployment
 
 - [ ] Operator group management: suspend group, edit domains, plan/status field

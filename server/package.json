@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
+    "@fastify/static": "^9.3.0",
     "@fastify/swagger": "^9.7.0",
     "argon2": "^0.44.0",
     "better-sqlite3": "^11.10.0",
