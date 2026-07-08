@@ -1,0 +1,25 @@
+{
+  "name": "@silvio/cli",
+  "version": "0.0.1",
+  "description": "Silvio LETS command-line client",
+  "type": "module",
+  "license": "GPL-3.0",
+  "bin": {
+    "silvio": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "fastify": "^5.10.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.1.0"
+  }
+}
