@@ -80,7 +80,7 @@ Remaining server-side work, grouped by area. References are to
       and Local Exchange installs (first-review — likely first adopters)
 - [ ] Backup story (SQLite online backup + restore procedure)
 - [ ] Config file alternative to env vars; structured logging
-- [ ] Seed/demo script (demo group with members, listings, history)
+- [x] Demo script: scripts/demo.sh — full lifecycle end-to-end (listings/history seeding still open)
 - [ ] Deployment guide for the minimal-VPS target (#7); systemd unit / Docker
 - [ ] CORS configuration for the UI origin
 
