@@ -9,7 +9,8 @@ import { startScheduler } from './services/scheduler.js';
 import { promptOperatorCredentials } from './prompt.js';
 
 const dbPath = process.env['SILVIO_DB'] ?? 'silvio.sqlite';
-const port = Number(process.env['SILVIO_PORT'] ?? 3000);
+// Default port 1862: Silvio Gesell's year of birth.
+const port = Number(process.env['SILVIO_PORT'] ?? 1862);
 const host = process.env['SILVIO_HOST'] ?? '0.0.0.0';
 
 const storage = new SqliteStorage(dbPath);
