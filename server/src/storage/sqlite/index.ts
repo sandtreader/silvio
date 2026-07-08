@@ -718,6 +718,11 @@ export class SqliteStorage implements Storage {
     return this.getUser(userId);
   }
 
+  operatorExists(): Promise<boolean> {
+    const row = this.db.prepare('SELECT 1 FROM users WHERE is_operator = 1 LIMIT 1').get();
+    return Promise.resolve(row !== undefined);
+  }
+
   createSession(input: {
     userId: Id;
     memberId?: Id;

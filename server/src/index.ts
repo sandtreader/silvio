@@ -4,13 +4,34 @@
 
 import { SqliteStorage } from './storage/sqlite/index.js';
 import { buildApp } from './api/app.js';
+import { bootstrapOperator } from './services/bootstrap.js';
 import { startScheduler } from './services/scheduler.js';
+import { promptOperatorCredentials } from './prompt.js';
 
 const dbPath = process.env['SILVIO_DB'] ?? 'silvio.sqlite';
 const port = Number(process.env['SILVIO_PORT'] ?? 3000);
 const host = process.env['SILVIO_HOST'] ?? '0.0.0.0';
 
 const storage = new SqliteStorage(dbPath);
+
+// First-boot operator bootstrap (idempotent): env vars if set, an
+// interactive prompt on a TTY, otherwise a loud hint — never a hang.
+if (!(await storage.operatorExists())) {
+  const email = process.env['SILVIO_OPERATOR_EMAIL'];
+  const password = process.env['SILVIO_OPERATOR_PASSWORD'];
+  if (email !== undefined && password !== undefined) {
+    await bootstrapOperator(storage, { email, password });
+    console.log(`operator ${email} bootstrapped from environment`);
+  } else if (process.stdin.isTTY) {
+    await bootstrapOperator(storage, await promptOperatorCredentials());
+    console.log('operator bootstrapped');
+  } else {
+    console.warn(
+      'WARNING: no operator exists and no TTY to prompt on — set ' +
+        'SILVIO_OPERATOR_EMAIL and SILVIO_OPERATOR_PASSWORD to bootstrap one',
+    );
+  }
+}
 const app = await buildApp(storage);
 const stopScheduler = startScheduler(storage);
 

@@ -123,6 +123,7 @@ export interface Storage extends Ledger {
     email: string,
   ): Promise<{ user: User; passwordHash: string } | undefined>;
   setOperator(userId: Id, isOperator: boolean): Promise<User>;
+  operatorExists(): Promise<boolean>;
   createSession(input: {
     userId: Id;
     memberId?: Id;
