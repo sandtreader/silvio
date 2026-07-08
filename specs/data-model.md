@@ -82,6 +82,17 @@ Hostname → tenant resolution for white-label custom domains.
 WebAuthn credentials: `id, user_id, credential_id, public_key, sign_count,
 label, created_at, last_used_at`.
 
+### session
+Server-side, revocable — **domain requirement**: suspension (#7), restriction
+(#3) and logout take effect immediately, so no stateless JWTs. Opaque random
+token, **hashed at rest**: `id, user_id, token_hash, member_id? (selected group
+context, #2), created_at, expires_at, revoked_at?, last_seen_at, client_info`.
+
+### one_time_token
+Single-use expiring tokens, one table for all purposes: `id, user_id?, email,
+purpose (password_reset | email_verify | invite), token_hash, expires_at,
+used_at?`. Hashed at rest like sessions.
+
 ### member — a membership of a group (#2, #7)
 | field | type | notes |
 |---|---|---|
@@ -349,10 +360,13 @@ Whether `balance()` derives, caches incrementally, or materialises is the
 implementation's private decision; the contract is that it always equals the
 sum of committed entries, atomically with respect to `post`.
 
-## Open points for implementation
+## Resolved points
 
-1. Session store & password-reset tokens — implementation detail, not domain
-   model.
+No open points remain.
+
+(Resolved: sessions are server-side and revocable — suspension/logout must take
+immediate effect — stored as opaque tokens hashed at rest; reset/verify/invite
+tokens share one single-use `one_time_token` table. See §1.)
 
 (Resolved: search is exposed as a generic search request over domains
 (listings, directory, pages, news) with text + domain-specific filters +
