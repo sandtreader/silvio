@@ -85,6 +85,8 @@ Remaining server-side work, grouped by area. References are to
 - [ ] Expose currency scale in /me accounts (both UIs assume scale 2)
 - [ ] Transaction list/search for admins (reverse currently needs a pasted id)
 - [ ] List active restrictions (impose/lift exist; no read)
+- [ ] Categories API (storage exists, no routes) — fresh groups cannot post
+      listings; needs admin create/edit + it is already public-readable
 
 ## Operator & deployment
 
