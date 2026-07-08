@@ -195,6 +195,8 @@ export interface Storage extends Ledger {
 
   // Marketplace.
   createCategory(input: { groupId: Id; name: string; parentId?: Id }): Promise<Category>;
+  getCategory(id: Id): Promise<Category>;
+  updateCategory(id: Id, patch: { name?: string; parentId?: Id }): Promise<Category>;
   listCategories(groupId: Id): Promise<Category[]>;
   createListing(input: {
     groupId: Id;

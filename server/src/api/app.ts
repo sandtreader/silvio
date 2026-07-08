@@ -17,6 +17,7 @@ import swagger from '@fastify/swagger';
 import fastifyStatic from '@fastify/static';
 import type { Storage } from '../storage/interface.js';
 import type {
+  Category,
   CreditPolicyConfig,
   CreditPolicyType,
   DemurrageBand,
@@ -254,18 +255,20 @@ export async function buildApp(
 
       scope.get('/me', { preHandler: requireMember }, async (request) => {
         const member = request.auth!.member;
-        const codes = new Map(
+        const currencies = new Map(
           (await storage.listCurrencies(request.group!.id)).map((currency) => [
             currency.id,
-            currency.code,
+            currency,
           ]),
         );
         const accounts = [];
         for (const account of await storage.accountsForMember(member.id)) {
+          const currency = currencies.get(account.currencyId);
           accounts.push({
             id: account.id,
             currencyId: account.currencyId,
-            currencyCode: codes.get(account.currencyId) ?? '',
+            currencyCode: currency?.code ?? '',
+            scale: currency?.scale ?? 0,
             balance: await storage.balance(account.id),
           });
         }
@@ -839,6 +842,72 @@ export async function buildApp(
           const transaction = await reverse(storage, id, request.auth!.user.id);
           reply.status(201);
           return { transaction };
+        },
+      );
+
+      /** Assert the category exists in the request's group (tenancy isolation). */
+      async function targetCategory(request: FastifyRequest, id: string): Promise<Category> {
+        const category = await storage.getCategory(id);
+        if (category.groupId !== request.group!.id) {
+          throw new DomainError('NOT_FOUND', `category ${id} not found in this group`);
+        }
+        return category;
+      }
+
+      scope.post(
+        '/admin/categories',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            body: {
+              type: 'object',
+              required: ['name'],
+              properties: {
+                name: { type: 'string' },
+                parentId: { type: 'string' },
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const body = request.body as { name: string; parentId?: string };
+          const input: Parameters<typeof storage.createCategory>[0] = {
+            groupId: request.group!.id,
+            name: body.name,
+          };
+          if (body.parentId !== undefined) {
+            await targetCategory(request, body.parentId);
+            input.parentId = body.parentId;
+          }
+          const category = await storage.createCategory(input);
+          reply.status(201);
+          return { category };
+        },
+      );
+
+      scope.patch(
+        '/admin/categories/:id',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            body: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                parentId: { type: 'string' },
+              },
+            },
+          },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          const body = request.body as { name?: string; parentId?: string };
+          await targetCategory(request, id);
+          const patch: Parameters<typeof storage.updateCategory>[1] = {};
+          if (body.name !== undefined) patch.name = body.name;
+          if (body.parentId !== undefined) patch.parentId = body.parentId;
+          return { category: await storage.updateCategory(id, patch) };
         },
       );
     };

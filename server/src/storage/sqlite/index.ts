@@ -1250,6 +1250,38 @@ export class SqliteStorage implements Storage {
     }
   }
 
+  getCategory(id: Id): Promise<Category> {
+    const row = this.db.prepare('SELECT * FROM categories WHERE id = ?').get(id) as
+      | CategoryRow
+      | undefined;
+    if (!row) return Promise.reject(new StorageError('NOT_FOUND', `category ${id} not found`));
+    const category: Category = { id: row.id, groupId: row.group_id, name: row.name };
+    if (row.parent_id !== null) category.parentId = row.parent_id;
+    return Promise.resolve(category);
+  }
+
+  updateCategory(id: Id, patch: { name?: string; parentId?: Id }): Promise<Category> {
+    try {
+      const existing = this.db.prepare('SELECT id FROM categories WHERE id = ?').get(id) as
+        | { id: string }
+        | undefined;
+      if (!existing) {
+        throw new StorageError('NOT_FOUND', `category ${id} not found`);
+      }
+      if (patch.name !== undefined) {
+        this.db.prepare('UPDATE categories SET name = ? WHERE id = ?').run(patch.name, id);
+      }
+      if (patch.parentId !== undefined) {
+        this.db
+          .prepare('UPDATE categories SET parent_id = ? WHERE id = ?')
+          .run(patch.parentId, id);
+      }
+      return this.getCategory(id);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
   listCategories(groupId: Id): Promise<Category[]> {
     const rows = this.db
       .prepare('SELECT * FROM categories WHERE group_id = ? ORDER BY name')

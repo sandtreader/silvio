@@ -257,6 +257,61 @@ describe('admin API', () => {
     expect(self.json().error.code).toBe('INVALID');
   });
 
+  it('admins manage categories; the public reads them', async () => {
+    const created = await app.inject({
+      method: 'POST', url: '/api/v1/admin/categories',
+      headers: { host: HOST, cookie: adminCookie },
+      payload: { name: 'Gardening' },
+    });
+    expect(created.statusCode).toBe(201);
+    const parentId = created.json().category.id;
+
+    // hierarchy via parentId
+    const child = await app.inject({
+      method: 'POST', url: '/api/v1/admin/categories',
+      headers: { host: HOST, cookie: adminCookie },
+      payload: { name: 'Vegetables', parentId },
+    });
+    expect(child.statusCode).toBe(201);
+    expect(child.json().category.parentId).toBe(parentId);
+
+    // rename
+    const renamed = await app.inject({
+      method: 'PATCH', url: `/api/v1/admin/categories/${parentId}`,
+      headers: { host: HOST, cookie: adminCookie },
+      payload: { name: 'Garden & Outdoors' },
+    });
+    expect(renamed.statusCode).toBe(200);
+    expect(renamed.json().category.name).toBe('Garden & Outdoors');
+
+    // non-admins cannot create
+    const denied = await app.inject({
+      method: 'POST', url: '/api/v1/admin/categories',
+      headers: { host: HOST, cookie: aliceCookie },
+      payload: { name: 'Nope' },
+    });
+    expect(denied.statusCode).toBe(403);
+
+    // publicly readable, rename visible
+    const publicList = await app.inject({
+      method: 'GET', url: '/api/v1/categories', headers: { host: HOST },
+    });
+    const names = publicList.json().categories.map((c: { name: string }) => c.name);
+    expect(names).toContain('Garden & Outdoors');
+    expect(names).toContain('Vegetables');
+  });
+
+  it('category edits are tenant-scoped', async () => {
+    const other = await storage.createGroup({ slug: 'other', name: 'Other' });
+    const foreign = await storage.createCategory({ groupId: other.id, name: 'Foreign' });
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/admin/categories/${foreign.id}`,
+      headers: { host: HOST, cookie: adminCookie },
+      payload: { name: 'Hijacked' },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
   it('reverse posts a linked compensating transaction (#5, #6)', async () => {
     const pay = await app.inject({
       method: 'POST', url: '/api/v1/payments', headers: { host: HOST, cookie: aliceCookie },

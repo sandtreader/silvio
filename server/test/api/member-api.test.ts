@@ -60,6 +60,15 @@ describe('member API', () => {
     storage.close();
   });
 
+  it('GET /me accounts include the currency scale (UIs must not guess)', async () => {
+    const cookie = await loginCookie('Alice', 'alice@example.com');
+    const res = await app.inject({
+      method: 'GET', url: '/api/v1/me', headers: { host: HOST, cookie },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().accounts[0].scale).toBe(2);
+  });
+
   it('PATCH /me updates confirm-incoming and display name', async () => {
     const cookie = await loginCookie('Alice', 'alice@example.com');
     const res = await app.inject({
