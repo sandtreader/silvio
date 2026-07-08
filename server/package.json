@@ -6,6 +6,7 @@
   "license": "GPL-3.0",
   "scripts": {
     "build": "tsc",
+    "start": "node dist/src/index.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },
