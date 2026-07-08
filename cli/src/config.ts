@@ -7,6 +7,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 export interface Config {
   server?: string;
   group?: string;
+  email?: string; // remembered for re-login; the password is never stored
   cookie?: string;
 }
 
@@ -28,6 +29,7 @@ export function readConfig(path: string): Config {
   const config: Config = {};
   if (typeof record['server'] === 'string') config.server = record['server'];
   if (typeof record['group'] === 'string') config.group = record['group'];
+  if (typeof record['email'] === 'string') config.email = record['email'];
   if (typeof record['cookie'] === 'string') config.cookie = record['cookie'];
   return config;
 }

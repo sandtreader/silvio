@@ -152,9 +152,11 @@ describe('silvio CLI', () => {
         '--email', 'bob@example.com', '-p', 'bob-password-1'],
       join(dir, 'scratch3.json'),
     );
-    const queue = await cli(['admin', 'members', '--status', 'applied', '--json'], cfgAdmin);
-    const bobId = JSON.parse(queue.stdout)[0].id;
-    await cli(['admin', 'approve', bobId], cfgAdmin);
+    // admins can target members by #no straight off the queue listing —
+    // no UUID copying (bob is the third member: admin, alice, bob)
+    const approve = await cli(['admin', 'approve', '#3'], cfgAdmin);
+    expect(approve.stderr).toBe('');
+    expect(approve.code).toBe(0);
     await cli(
       ['login', '-s', url, '-g', 'cam', '-e', 'bob@example.com', '-p', 'bob-password-1'],
       cfgBob,
@@ -268,6 +270,17 @@ describe('silvio CLI', () => {
     expect(logout.code).toBe(0);
     const me = await cli(['me'], cfgAlice);
     expect(me.code).not.toBe(0);
+  });
+
+  it('re-login needs only the password: server, group and email are remembered', async () => {
+    // cfgAlice retains server/group/email from the earlier login; only the
+    // session cookie was cleared by logout
+    const login = await cli(['login', '-p', 'alice-password'], cfgAlice);
+    expect(login.stderr).toBe('');
+    expect(login.code).toBe(0);
+    const me = await cli(['me', '--json'], cfgAlice);
+    expect(me.code).toBe(0);
+    expect(JSON.parse(me.stdout).member.displayName).toBe('Alice');
   });
 
   it('commands without a session fail cleanly', async () => {

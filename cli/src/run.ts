@@ -131,23 +131,38 @@ export async function run(argv: string[], opts: RunOptions): Promise<RunResult> 
     },
   });
 
+  /** Option value, else the remembered dotfile value, else a clear error. */
+  function remembered(given: string | undefined, key: 'server' | 'group' | 'email'): string {
+    if (given !== undefined) return given;
+    const value = readConfig(configPath)[key];
+    if (value !== undefined) return value;
+    throw new ApiError(`no ${key} known — pass it on the command line (see --help)`);
+  }
+
   program
     .command('login')
-    .description('log in to a group as a member')
-    .requiredOption('-s, --server <url>', 'server base URL')
-    .requiredOption('-g, --group <slug>', 'group slug')
-    .requiredOption('-e, --email <email>', 'account email')
+    .description('log in to a group as a member (server/group/email remembered from last time)')
+    .option('-s, --server <url>', 'server base URL')
+    .option('-g, --group <slug>', 'group slug')
+    .option('-e, --email <email>', 'account email')
     .requiredOption('-p, --password <password>', 'account password')
-    .action(async (options: { server: string; group: string; email: string; password: string }) => {
-      const client = new Client({ server: options.server, group: options.group });
-      const res = await client.request('POST', client.groupUrl('/auth/login'), {
-        email: options.email,
-        password: options.password,
-      });
-      if (res.cookie === undefined) throw new ApiError('login succeeded but set no session cookie');
-      writeConfig(configPath, { server: options.server, group: options.group, cookie: res.cookie });
-      print(`logged in to ${options.group} as ${options.email}`);
-    });
+    .action(
+      async (options: { server?: string; group?: string; email?: string; password: string }) => {
+        const server = remembered(options.server, 'server');
+        const group = remembered(options.group, 'group');
+        const email = remembered(options.email, 'email');
+        const client = new Client({ server, group });
+        const res = await client.request('POST', client.groupUrl('/auth/login'), {
+          email,
+          password: options.password,
+        });
+        if (res.cookie === undefined) {
+          throw new ApiError('login succeeded but set no session cookie');
+        }
+        writeConfig(configPath, { server, group, email, cookie: res.cookie });
+        print(`logged in to ${group} as ${email}`);
+      },
+    );
 
   program
     .command('logout')
@@ -165,6 +180,7 @@ export async function run(argv: string[], opts: RunOptions): Promise<RunResult> 
       const next: Config = {};
       if (config.server !== undefined) next.server = config.server;
       if (config.group !== undefined) next.group = config.group;
+      if (config.email !== undefined) next.email = config.email;
       writeConfig(configPath, next);
       print('logged out');
     });
@@ -375,35 +391,53 @@ export async function run(argv: string[], opts: RunOptions): Promise<RunResult> 
       }
     });
 
+  /**
+   * Admin variant of member resolution: '#<no>' looked up via the admin
+   * members list, which — unlike the public directory — includes applicants
+   * and suspended/closed members.
+   */
+  async function resolveAdminMemberId(client: Client, arg: string): Promise<string> {
+    if (!arg.startsWith('#')) return arg;
+    const no = Number.parseInt(arg.slice(1), 10);
+    if (Number.isNaN(no)) throw new ApiError(`invalid member number '${arg}'`);
+    const res = await client.request('GET', client.groupUrl('/admin/members'));
+    const { members } = res.body as { members: DirectoryMember[] };
+    const member = members.find((candidate) => candidate.memberNo === no);
+    if (!member) throw new ApiError(`no member ${arg} in this group`);
+    return member.id;
+  }
+
   admin
     .command('role')
     .description("set a member's role")
-    .argument('<memberId>', 'member id')
+    .argument('<member>', "member id or '#<no>'")
     .argument('<role>', 'member|committee|admin')
-    .action(async (memberId: string, role: string) => {
+    .action(async (member: string, role: string) => {
       const client = memberClient();
+      const memberId = await resolveAdminMemberId(client, member);
       const res = await client.request(
         'POST',
         client.groupUrl(`/admin/members/${memberId}/role`),
         { role },
       );
-      const { member } = res.body as { member: { displayName: string; role: string } };
-      print(`${member.displayName} is now ${member.role}`);
+      const { member: updated } = res.body as { member: { displayName: string; role: string } };
+      print(`${updated.displayName} is now ${updated.role}`);
     });
 
   for (const action of ['approve', 'suspend', 'reinstate', 'remove'] as const) {
     admin
       .command(action)
       .description(`${action} a member`)
-      .argument('<memberId>', 'member id')
-      .action(async (memberId: string) => {
+      .argument('<member>', "member id or '#<no>'")
+      .action(async (member: string) => {
         const client = memberClient();
+        const memberId = await resolveAdminMemberId(client, member);
         const res = await client.request(
           'POST',
           client.groupUrl(`/admin/members/${memberId}/${action}`),
         );
-        const { member } = res.body as { member: { displayName: string; status: string } };
-        print(`${member.displayName} is now ${member.status}`);
+        const { member: updated } = res.body as { member: { displayName: string; status: string } };
+        print(`${updated.displayName} is now ${updated.status}`);
       });
   }
 
@@ -456,19 +490,21 @@ export async function run(argv: string[], opts: RunOptions): Promise<RunResult> 
   const op = program.command('op').description('platform operator commands');
 
   op.command('login')
-    .description('log in as a platform operator')
-    .requiredOption('-s, --server <url>', 'server base URL')
-    .requiredOption('-e, --email <email>', 'operator email')
+    .description('log in as a platform operator (server/email remembered from last time)')
+    .option('-s, --server <url>', 'server base URL')
+    .option('-e, --email <email>', 'operator email')
     .requiredOption('-p, --password <password>', 'operator password')
-    .action(async (options: { server: string; email: string; password: string }) => {
-      const client = new Client({ server: options.server });
+    .action(async (options: { server?: string; email?: string; password: string }) => {
+      const server = remembered(options.server, 'server');
+      const email = remembered(options.email, 'email');
+      const client = new Client({ server });
       const res = await client.request('POST', client.operatorUrl('/login'), {
-        email: options.email,
+        email,
         password: options.password,
       });
       if (res.cookie === undefined) throw new ApiError('login succeeded but set no session cookie');
-      writeConfig(configPath, { server: options.server, cookie: res.cookie });
-      print(`logged in as operator ${options.email}`);
+      writeConfig(configPath, { server, email, cookie: res.cookie });
+      print(`logged in as operator ${email}`);
     });
 
   const opGroups = op

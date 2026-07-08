@@ -52,11 +52,8 @@ run bob apply -s "$URL" -g demo --name "Bob" --person "Bob Jones" \
 say "Grace reviews the queue and approves them"
 run grace login -s "$URL" -g demo -e grace@demo.org -p grace-password
 run grace admin members --status applied
-QUEUE="$(SILVIO_CONFIG=$TMP/grace.json node "$CLI" admin members --status applied --json)"
-ALICE_ID="$(echo "$QUEUE" | node -pe 'JSON.parse(require("fs").readFileSync(0)).find(m => m.displayName === "Alice").id')"
-BOB_ID="$(echo "$QUEUE" | node -pe 'JSON.parse(require("fs").readFileSync(0)).find(m => m.displayName === "Bob").id')"
-run grace admin approve "$ALICE_ID"
-run grace admin approve "$BOB_ID"
+run grace admin approve '#2'
+run grace admin approve '#3'
 
 say "Members log in and trade: Alice buys a veg box from Bob"
 run alice login -s "$URL" -g demo -e alice@demo.org -p alice-password
