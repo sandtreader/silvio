@@ -4,7 +4,7 @@ Draft v0.2, 2026-07-09. Derives from [decisions.md](decisions.md) #1–#10; deci
 numbers cited throughout. This is a logical model — concrete DDL belongs to the
 storage implementation (#6: balance caching, indexing strategy etc. are the
 storage layer's private decisions). Audited against the implemented SQLite
-schema (migrations 1–7) on 2026-07-09.
+schema on 2026-07-09.
 
 ## Conventions
 

@@ -25,7 +25,7 @@ operator bootstrap, app + scheduler startup, graceful shutdown.
   transaction.
 - **Storage** (`src/storage/interface.ts`, `src/storage/sqlite/*`) — a
   pluggable interface; the SQLite implementation uses WAL mode, foreign keys
-  on, and versioned migrations 1–7 recorded in `schema_version` (a database
+  on, and versioned migrations recorded in `schema_version` (a database
   stamped newer than the build is refused).
 - **MCP** (`src/mcp/server.ts`) — tools for AI agents, implemented as a thin
   client of the REST API: every tool call is re-injected into the same
@@ -44,7 +44,7 @@ graph TD
   SCHED --> DEM["ledger/demurrage"]
   SVC --> ST["Storage interface (incl. Ledger: post, transition, balance, verify)"]
   DEM --> ST
-  ST --> SQL["storage/sqlite (WAL, migrations 1-7)"]
+  ST --> SQL["storage/sqlite (WAL, versioned migrations)"]
   SQL --> HASH["ledger/hash (canonical tx hash, v1)"]
 ```
 
@@ -285,7 +285,8 @@ check applies.
 The schema (groups, currencies, accounts, transactions and entries, members
 and persons, users and sessions, credit policies, listings, API tokens) is
 specified in [../specs/data-model.md](../specs/data-model.md) and implemented
-by migrations 1–7 in `src/storage/sqlite/migrations.ts`. It is not duplicated
+by the schema baseline in `src/storage/sqlite/schema.ts` (applied via
+`migrations.ts`). It is not duplicated
 here.
 
 ## Security

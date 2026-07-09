@@ -1,9 +1,10 @@
-// SQLite DDL for the storage layer (specs/data-model.md §1–3). Only the
-// fields the current domain types need; amounts are INTEGER minor units (#6).
+// SQLite DDL for the storage layer (specs/data-model.md). Only the fields
+// the current domain types need; amounts are INTEGER minor units (#6).
 // This is migration 1 (see migrations.ts) and runs exactly once per database,
 // so no IF NOT EXISTS guards.
 
 export const SCHEMA = `
+-- Tenancy (#2): groups are tenants; group_domains maps hostnames to them.
 CREATE TABLE groups (
   id         TEXT PRIMARY KEY,
   slug       TEXT NOT NULL UNIQUE,
@@ -11,16 +12,94 @@ CREATE TABLE groups (
   created_at TEXT NOT NULL
 );
 
-CREATE TABLE currencies (
+CREATE TABLE group_domains (
+  hostname TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL REFERENCES groups(id)
+);
+
+-- Identity (#2, data-model §1): users are global, members are per-group
+-- (linked via persons.user_id); sessions are server-side and revocable with
+-- the token sha256-hashed at rest. Operators are users, not members; the
+-- flag gates the provisioning API.
+CREATE TABLE users (
+  id            TEXT PRIMARY KEY,
+  email         TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  status        TEXT NOT NULL,
+  is_operator   INTEGER NOT NULL DEFAULT 0,
+  created_at    TEXT NOT NULL,
+  last_login_at TEXT
+);
+
+-- Membership (#7): lifecycle in status, group-level role.
+CREATE TABLE members (
+  id               TEXT PRIMARY KEY,
+  group_id         TEXT NOT NULL REFERENCES groups(id),
+  member_no        INTEGER NOT NULL,
+  type             TEXT NOT NULL,
+  display_name     TEXT NOT NULL,
+  role             TEXT NOT NULL DEFAULT 'member',
+  status           TEXT NOT NULL,
+  confirm_incoming INTEGER NOT NULL DEFAULT 0,
+  applied_at       TEXT NOT NULL,
+  approved_at      TEXT,
+  closed_at        TEXT,
+  UNIQUE (group_id, member_no)
+);
+
+CREATE TABLE persons (
   id         TEXT PRIMARY KEY,
-  group_id   TEXT NOT NULL REFERENCES groups(id),
-  code       TEXT NOT NULL,
+  member_id  TEXT NOT NULL REFERENCES members(id),
+  user_id    TEXT,
+  is_primary INTEGER NOT NULL DEFAULT 0,
   name       TEXT NOT NULL,
-  scale      INTEGER NOT NULL DEFAULT 0,
+  email      TEXT
+);
+
+CREATE TABLE sessions (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id),
+  member_id  TEXT REFERENCES members(id),
+  token_hash TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT
+);
+
+-- Currencies and demurrage (#1): marginal bands per currency, idempotent
+-- monthly runs; demurrage_day null means demurrage off.
+CREATE TABLE currencies (
+  id            TEXT PRIMARY KEY,
+  group_id      TEXT NOT NULL REFERENCES groups(id),
+  code          TEXT NOT NULL,
+  name          TEXT NOT NULL,
+  scale         INTEGER NOT NULL DEFAULT 0,
+  demurrage_day INTEGER,
+  created_at    TEXT NOT NULL,
   UNIQUE (group_id, code)
 );
 
+CREATE TABLE demurrage_bands (
+  currency_id        TEXT NOT NULL REFERENCES currencies(id),
+  from_amount        INTEGER NOT NULL,
+  rate_ppm_per_month INTEGER NOT NULL,
+  UNIQUE (currency_id, from_amount)
+);
+
+CREATE TABLE demurrage_runs (
+  id           TEXT PRIMARY KEY,
+  group_id     TEXT NOT NULL REFERENCES groups(id),
+  currency_id  TEXT NOT NULL REFERENCES currencies(id),
+  period       TEXT NOT NULL,
+  status       TEXT NOT NULL,
+  started_at   TEXT NOT NULL,
+  completed_at TEXT,
+  UNIQUE (currency_id, period)
+);
+
+-- Ledger (#6, #10): append-only double-entry journal; committed transactions
+-- carry a per-group seq and hash chain. member_id on accounts is deliberately
+-- loose (no FK) so the ledger contract can use synthetic member ids.
 CREATE TABLE accounts (
   id               TEXT PRIMARY KEY,
   group_id         TEXT NOT NULL REFERENCES groups(id),
@@ -64,7 +143,82 @@ CREATE TABLE entries (
   amount         INTEGER NOT NULL
 );
 
+-- Credit control (#3): pluggable policies (opaque JSON config) plus the
+-- manual restriction lever.
+CREATE TABLE credit_policies (
+  id          TEXT PRIMARY KEY,
+  group_id    TEXT NOT NULL REFERENCES groups(id),
+  currency_id TEXT NOT NULL REFERENCES currencies(id),
+  type        TEXT NOT NULL,
+  config      TEXT NOT NULL,
+  enabled     INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE restrictions (
+  id         TEXT PRIMARY KEY,
+  member_id  TEXT NOT NULL REFERENCES members(id),
+  reason     TEXT NOT NULL,
+  imposed_by TEXT NOT NULL,
+  imposed_at TEXT NOT NULL,
+  lifted_by  TEXT,
+  lifted_at  TEXT
+);
+
+-- Marketplace (data-model §5).
+CREATE TABLE categories (
+  id        TEXT PRIMARY KEY,
+  group_id  TEXT NOT NULL REFERENCES groups(id),
+  name      TEXT NOT NULL,
+  parent_id TEXT REFERENCES categories(id),
+  UNIQUE (group_id, parent_id, name)
+);
+
+CREATE TABLE listings (
+  id                TEXT PRIMARY KEY,
+  group_id          TEXT NOT NULL REFERENCES groups(id),
+  member_id         TEXT NOT NULL REFERENCES members(id),
+  type              TEXT NOT NULL,
+  title             TEXT NOT NULL,
+  description       TEXT NOT NULL,
+  category_id       TEXT NOT NULL REFERENCES categories(id),
+  price_amount      INTEGER,
+  price_currency_id TEXT,
+  rate_text         TEXT,
+  status            TEXT NOT NULL,
+  expires_at        TEXT,
+  created_at        TEXT NOT NULL,
+  updated_at        TEXT NOT NULL
+);
+
+-- API tokens (#9, data-model §7): a token acts as one membership with
+-- member-granted scopes; the raw value is sha256-hashed at rest like
+-- sessions. No FK on member_id — like accounts, member linkage is loose so
+-- the ledger contract can use synthetic member ids. Rolling spend is derived
+-- from transactions.api_token_id, so no counter column here.
+CREATE TABLE api_tokens (
+  id                TEXT PRIMARY KEY,
+  member_id         TEXT NOT NULL,
+  created_by        TEXT NOT NULL,
+  token_hash        TEXT NOT NULL UNIQUE,
+  label             TEXT NOT NULL,
+  scopes            TEXT NOT NULL,
+  max_tx_amount     INTEGER,
+  max_period_amount INTEGER,
+  period_days       INTEGER,
+  expires_at        TEXT,
+  revoked_at        TEXT,
+  last_used_at      TEXT,
+  created_at        TEXT NOT NULL
+);
+
 CREATE INDEX idx_entries_transaction ON entries(transaction_id);
 CREATE INDEX idx_entries_account ON entries(account_id);
 CREATE INDEX idx_transactions_group_seq ON transactions(group_id, seq);
+CREATE INDEX idx_members_group ON members(group_id);
+CREATE INDEX idx_persons_member ON persons(member_id);
+CREATE INDEX idx_persons_user ON persons(user_id);
+CREATE INDEX idx_sessions_user ON sessions(user_id);
+CREATE INDEX idx_restrictions_member ON restrictions(member_id);
+CREATE INDEX idx_listings_group_status ON listings(group_id, status);
+CREATE INDEX idx_api_tokens_member ON api_tokens(member_id);
 `;
