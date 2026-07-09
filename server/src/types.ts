@@ -334,10 +334,14 @@ export interface NewsItem {
   updatedAt: string;
 }
 
-// Images (decision #14): one general blob store, three owners. This is the
+// Images (decision #14): one general blob store, four owners. This is the
 // metadata projection only — the bytes stay behind the storage interface
-// (imageData) and are never carried on the domain object or the API.
-export type ImageOwnerKind = 'cms' | 'member' | 'listing';
+// (imageData) and are never carried on the domain object or the API. The
+// 'brand' kind (#15) holds group skinning images, keyed by slot.
+export type ImageOwnerKind = 'cms' | 'member' | 'listing' | 'brand';
+
+/** Group skinning slots (#15): brand images' ownerId names the slot. */
+export type BrandSlot = 'logo' | 'header';
 
 export interface Image {
   id: Id;

@@ -22,6 +22,7 @@ import type {
   ApiScope,
   ApiToken,
   Category,
+  BrandSlot,
   CreditPolicyConfig,
   CreditPolicyType,
   DemurrageBand,
@@ -63,9 +64,12 @@ import {
 import { browse, postListing } from '../services/marketplace.js';
 import {
   addListingPhoto,
+  brandingFor,
+  deleteBrandImage,
   deleteMemberPhoto,
   listingPhotoIds,
   removeListingPhoto,
+  setBrandImage,
   setMemberPhoto,
   uploadImage,
 } from '../services/images.js';
@@ -330,7 +334,12 @@ export async function buildApp(
     // (#13) — one chrome either side of the /app/ boundary (decision #12).
     const navPages =
       group === undefined ? [] : await navPagesFor(storage, group.id, member);
-    const shell = appShellFragment(group?.name ?? 'Silvio', member?.displayName, navPages);
+    // Group skin (#15): the app shell carries the same branding as the
+    // brochure; an unknown host is unbranded like an unbranded group.
+    const branding = group === undefined ? {} : await brandingFor(storage, group.id);
+    const shell = appShellFragment(
+      group?.name ?? 'Silvio', member?.displayName, navPages, branding,
+    );
     const html = memberIndexCache.replace('<body>', `<body>\n${shell}`);
     return reply.type('text/html; charset=utf-8').send(html);
   }
@@ -2010,6 +2019,60 @@ export async function buildApp(
           const { id } = request.params as { id: string };
           await targetImage(request, id);
           await storage.deleteImage(id);
+          return { ok: true };
+        },
+      );
+
+      // Group skinning (#15): one brand image per slot (logo | header),
+      // replace-on-upload. The enum params schema makes any other slot a
+      // validation 400, so the handlers only ever see real slots.
+      const BRAND_SLOT_PARAMS = {
+        type: 'object',
+        properties: { slot: { type: 'string', enum: ['logo', 'header'] } },
+        required: ['slot'],
+        additionalProperties: false,
+      } as const;
+
+      scope.put(
+        '/admin/branding/:slot',
+        {
+          preHandler: [requireMember, requireAdmin],
+          // Raw-body route: a JSON body schema cannot describe a binary
+          // upload, so only params and the response are declared.
+          schema: {
+            params: BRAND_SLOT_PARAMS,
+            response: respond(200, body({ image: ref('Image') })),
+          },
+        },
+        async (request) => {
+          if (!Buffer.isBuffer(request.body)) {
+            throw new DomainError('INVALID', 'the request body must be the raw image bytes');
+          }
+          const { slot } = request.params as { slot: BrandSlot };
+          const image = await setBrandImage(
+            storage,
+            request.group!.id,
+            slot,
+            request.headers['content-type'] ?? '',
+            request.body,
+            request.auth!.member.id,
+          );
+          return { image };
+        },
+      );
+
+      scope.delete(
+        '/admin/branding/:slot',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: BRAND_SLOT_PARAMS,
+            response: respond(200, OK_RESPONSE),
+          },
+        },
+        async (request) => {
+          const { slot } = request.params as { slot: BrandSlot };
+          await deleteBrandImage(storage, request.group!.id, slot);
           return { ok: true };
         },
       );

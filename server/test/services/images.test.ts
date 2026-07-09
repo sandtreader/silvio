@@ -162,6 +162,46 @@ describe('uploadImage (#14)', () => {
     });
   });
 
+  describe('brand images (#15): group skinning slots', () => {
+    it('setBrandImage keeps exactly one image per slot, replace-on-upload', async () => {
+      const { setBrandImage, brandingFor } = await import('../../src/services/images.js');
+      const logo = await setBrandImage(storage, group.id, 'logo', 'image/png', png(50), 'admin');
+      expect(logo.ownerKind).toBe('brand');
+      const header = await setBrandImage(
+        storage, group.id, 'header', 'image/png', png(60), 'admin',
+      );
+      const replaced = await setBrandImage(
+        storage, group.id, 'logo', 'image/png', png(70), 'admin',
+      );
+      expect(replaced.id).not.toBe(logo.id);
+      await expect(storage.getImage(logo.id)).rejects.toThrow(); // the old logo is gone
+      expect(await brandingFor(storage, group.id)).toEqual({
+        logoImageId: replaced.id,
+        headerImageId: header.id,
+      });
+    });
+
+    it('deleteBrandImage clears the slot; a no-op when empty', async () => {
+      const { setBrandImage, deleteBrandImage, brandingFor } =
+        await import('../../src/services/images.js');
+      const logo = await setBrandImage(storage, group.id, 'logo', 'image/png', png(), 'admin');
+      await deleteBrandImage(storage, group.id, 'logo');
+      expect(await storage.getImage(logo.id).catch(() => undefined)).toBeUndefined();
+      expect(await brandingFor(storage, group.id)).toEqual({});
+      await deleteBrandImage(storage, group.id, 'logo'); // still empty, still fine
+    });
+
+    it('enforces the brand size cap via sizeCaps.brand', async () => {
+      const { setBrandImage } = await import('../../src/services/images.js');
+      const limits = { sizeCaps: { cms: 100, member: 50, listing: 80, brand: 90 } };
+      await setBrandImage(storage, group.id, 'logo', 'image/png', png(90), 'admin', limits);
+      await expectDomainError(
+        setBrandImage(storage, group.id, 'header', 'image/png', png(91), 'admin', limits),
+        'LIMIT_BREACHED',
+      );
+    });
+  });
+
   it('enforces the group quota across all images', async () => {
     const limits = { groupQuota: 250 };
     await uploadImage(storage, draft({ data: png(100) }), limits);

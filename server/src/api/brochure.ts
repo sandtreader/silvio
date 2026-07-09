@@ -9,7 +9,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Storage } from '../storage/interface.js';
 import type { Group, Listing, Member, NewsItem, Page } from '../types.js';
 import { authenticate } from '../services/auth.js';
-import { listingPhotoIds } from '../services/images.js';
+import { brandingFor, listingPhotoIds, type Branding } from '../services/images.js';
 import { browse } from '../services/marketplace.js';
 import { renderMarkdown } from '../services/markdown.js';
 
@@ -35,6 +35,8 @@ const SHELL_STYLE = `<style>
     padding: 0.75rem 1.25rem; border-bottom: 1px solid #ddd; background: #f6f6f2; }
   .shell-chrome .shell-brand { font-size: 1.25rem; font-weight: 700; color: inherit;
     text-decoration: none; margin-right: auto; }
+  .shell-chrome .shell-brand img { height: 1.5em; vertical-align: middle;
+    margin-right: 0.4rem; }
   .shell-chrome nav { display: flex; flex-wrap: wrap; gap: 1rem; }
   .shell-chrome a { color: #205a3b; }
   .brochure-main { max-width: 46rem; margin: 0 auto; padding: 1.5rem 1.25rem; }
@@ -59,9 +61,8 @@ function shellHeader(
   groupName: string,
   memberName: string | undefined,
   navPages: NavPage[],
+  branding: Branding,
 ): string {
-  // Per-group skin placeholder: brand is the group name; logo and header
-  // image arrive with group.branding (decision #12).
   const session = memberName === undefined
     ? '<a href="/app/login">Log in</a>'
     : `<span>${escapeHtml(memberName)}</span> <a href="/app/">Open the app</a>`;
@@ -69,8 +70,16 @@ function shellHeader(
   const pageLinks = navPages
     .map((page) => `<a href="/p/${page.slug}">${escapeHtml(page.title)}</a>\n    `)
     .join('');
-  return `<header class="shell-chrome">
-  <a class="shell-brand" href="/">${escapeHtml(groupName)}</a>
+  // Group skin (#15): logo before the name, header background when set — an
+  // unbranded group renders exactly the pre-#15 markup (no empty attributes).
+  const logo = branding.logoImageId === undefined
+    ? ''
+    : `<img class="shell-logo" src="/i/${branding.logoImageId}" alt=""> `;
+  const chromeStyle = branding.headerImageId === undefined
+    ? ''
+    : ` style="background-image: url('/i/${branding.headerImageId}'); background-size: cover; background-position: center;"`;
+  return `<header class="shell-chrome"${chromeStyle}>
+  <a class="shell-brand" href="/">${logo}${escapeHtml(groupName)}</a>
   <nav>
     <a href="/">Home</a>
     ${pageLinks}<a href="/news">News</a>
@@ -89,8 +98,9 @@ export function appShellFragment(
   groupName: string,
   memberName: string | undefined,
   navPages: NavPage[] = [],
+  branding: Branding = {},
 ): string {
-  return `${SHELL_STYLE}\n${shellHeader(groupName, memberName, navPages)}`;
+  return `${SHELL_STYLE}\n${shellHeader(groupName, memberName, navPages, branding)}`;
 }
 
 /** A full brochure page in the shared layout. */
@@ -98,6 +108,7 @@ function renderPage(
   group: Group,
   memberName: string | undefined,
   navPages: NavPage[],
+  branding: Branding,
   title: string,
   main: string,
 ): string {
@@ -110,7 +121,7 @@ function renderPage(
 ${SHELL_STYLE}
 </head>
 <body>
-${shellHeader(group.name, memberName, navPages)}
+${shellHeader(group.name, memberName, navPages, branding)}
 <main class="brochure-main">
 ${main}
 </main>
@@ -129,9 +140,14 @@ const NOT_FOUND_PAGE = `<!doctype html>
 </html>`;
 
 /** Placeholder brochure home, shown until an admin authors a `home` page (#13). */
-function renderHome(group: Group, memberName: string | undefined, navPages: NavPage[]): string {
+function renderHome(
+  group: Group,
+  memberName: string | undefined,
+  navPages: NavPage[],
+  branding: Branding,
+): string {
   const name = escapeHtml(group.name);
-  return renderPage(group, memberName, navPages, group.name, `<h1>Welcome to ${name}</h1>
+  return renderPage(group, memberName, navPages, branding, group.name, `<h1>Welcome to ${name}</h1>
 <p>${name} is a local exchange trading system (LETS): a community of
 neighbours who trade skills, goods and time with each other using our own
 community currency instead of money.</p>
@@ -168,6 +184,7 @@ function renderMarket(
   group: Group,
   memberName: string | undefined,
   navPages: NavPage[],
+  branding: Branding,
   listings: Listing[],
   categoryNames: Map<string, string>,
   photosByListing: Map<string, string[]>,
@@ -184,7 +201,7 @@ function renderMarket(
   };
   const offers = listings.filter((listing) => listing.type === 'offer');
   const wants = listings.filter((listing) => listing.type === 'want');
-  return renderPage(group, memberName, navPages, `Market — ${group.name}`, `<h1>Market</h1>
+  return renderPage(group, memberName, navPages, branding, `Market — ${group.name}`, `<h1>Market</h1>
 <p>What members of ${escapeHtml(group.name)} are offering and looking for.
 <a href="/app/apply">Join</a> to get in touch and trade.</p>
 ${section('Offers', offers)}
@@ -207,12 +224,13 @@ function renderNews(
   group: Group,
   memberName: string | undefined,
   navPages: NavPage[],
+  branding: Branding,
   items: NewsItem[],
 ): string {
   const articles = items.length === 0
     ? '<p>No news right now.</p>'
     : items.map((item) => renderNewsItem(item)).join('\n');
-  return renderPage(group, memberName, navPages, `News — ${group.name}`, `<h1>News</h1>
+  return renderPage(group, memberName, navPages, branding, `News — ${group.name}`, `<h1>News</h1>
 ${articles}`);
 }
 
@@ -280,14 +298,17 @@ export function registerBrochureRoutes(app: FastifyInstance, storage: Storage): 
     if (group === undefined) return reply.status(404).type(htmlType).send(NOT_FOUND_PAGE);
     const member = await sessionMember(storage, request, group.id);
     const navPages = await navPagesFor(storage, group.id, member);
+    const branding = await brandingFor(storage, group.id);
     // Home override (#13): a page with slug `home` replaces the placeholder
     // copy. It renders whatever its visibility field says — putting it at
     // `home` is the admin's explicit choice of front page, and a front page
     // that 404s for visitors helps nobody.
     const home = await storage.pageBySlug(group.id, 'home');
     const html = home === undefined
-      ? renderHome(group, member?.displayName, navPages)
-      : renderPage(group, member?.displayName, navPages, home.title, renderMarkdown(home.body));
+      ? renderHome(group, member?.displayName, navPages, branding)
+      : renderPage(
+          group, member?.displayName, navPages, branding, home.title, renderMarkdown(home.body),
+        );
     return reply.type(htmlType).send(html);
   });
 
@@ -304,10 +325,13 @@ export function registerBrochureRoutes(app: FastifyInstance, storage: Storage): 
       return reply.status(404).type(htmlType).send(NOT_FOUND_PAGE);
     }
     const navPages = await navPagesFor(storage, group.id, member);
+    const branding = await brandingFor(storage, group.id);
     // The <h1> comes from the markdown itself; page.title only names the tab.
     return reply
       .type(htmlType)
-      .send(renderPage(group, member?.displayName, navPages, page.title, renderMarkdown(page.body)));
+      .send(renderPage(
+        group, member?.displayName, navPages, branding, page.title, renderMarkdown(page.body),
+      ));
   });
 
   // News (#13): the public noticeboard — items published by now and not yet
@@ -317,10 +341,11 @@ export function registerBrochureRoutes(app: FastifyInstance, storage: Storage): 
     if (group === undefined) return reply.status(404).type(htmlType).send(NOT_FOUND_PAGE);
     const member = await sessionMember(storage, request, group.id);
     const navPages = await navPagesFor(storage, group.id, member);
+    const branding = await brandingFor(storage, group.id);
     const items = await storage.listNews(group.id, { currentAt: new Date().toISOString() });
     return reply
       .type(htmlType)
-      .send(renderNews(group, member?.displayName, navPages, items));
+      .send(renderNews(group, member?.displayName, navPages, branding, items));
   });
 
   // Image serving (decision #14): bytes by opaque id. No group or session
@@ -346,6 +371,7 @@ export function registerBrochureRoutes(app: FastifyInstance, storage: Storage): 
     if (group === undefined) return reply.status(404).type(htmlType).send(NOT_FOUND_PAGE);
     const member = await sessionMember(storage, request, group.id);
     const navPages = await navPagesFor(storage, group.id, member);
+    const branding = await brandingFor(storage, group.id);
     const listings = await browse(storage, group.id, {});
     const categories = await storage.listCategories(group.id);
     const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
@@ -353,8 +379,8 @@ export function registerBrochureRoutes(app: FastifyInstance, storage: Storage): 
     const photosByListing = await listingPhotoIds(storage, group.id);
     return reply
       .type(htmlType)
-      .send(
-        renderMarket(group, member?.displayName, navPages, listings, categoryNames, photosByListing),
-      );
+      .send(renderMarket(
+        group, member?.displayName, navPages, branding, listings, categoryNames, photosByListing,
+      ));
   });
 }

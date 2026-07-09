@@ -45,7 +45,7 @@ const LISTING_TYPE = ['offer', 'want'] as const;
 const PAGE_VISIBILITY = ['public', 'members', 'admin'] as const;
 const LISTING_STATUS = ['active', 'hidden', 'expired'] as const;
 const CREDIT_POLICY_TYPE = ['soft_threshold', 'hard_limit'] as const;
-const IMAGE_OWNER_KIND = ['cms', 'member', 'listing'] as const;
+const IMAGE_OWNER_KIND = ['cms', 'member', 'listing', 'brand'] as const;
 const API_SCOPE = [
   'marketplace:read',
   'directory:read',

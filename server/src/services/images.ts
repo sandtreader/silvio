@@ -5,12 +5,16 @@
 // build 500MB buffers; the defaults are #14's numbers.
 
 import type { Storage } from '../storage/interface.js';
-import type { Image, ImageOwnerKind } from '../types.js';
+import type { BrandSlot, Image, ImageOwnerKind } from '../types.js';
 import { DomainError } from './errors.js';
 
-/** Per-owner-kind byte caps and the group-wide quota (decision #14). */
+/**
+ * Per-owner-kind byte caps and the group-wide quota (decision #14). Caps are
+ * Partial so callers may override just the kinds they care about; anything
+ * omitted falls back to the default for that kind.
+ */
 export interface ImageLimits {
-  sizeCaps?: Record<ImageOwnerKind, number>;
+  sizeCaps?: Partial<Record<ImageOwnerKind, number>>;
   groupQuota?: number;
 }
 
@@ -18,6 +22,7 @@ const DEFAULT_SIZE_CAPS: Record<ImageOwnerKind, number> = {
   cms: 2 * 1024 * 1024, // 2MB
   member: 256 * 1024, // 256KB
   listing: 1024 * 1024, // 1MB
+  brand: 1024 * 1024, // 1MB (#15)
 };
 
 // Group quota: a constant for now, a per-group plan setting later (#2, #14).
@@ -71,7 +76,7 @@ export async function uploadImage(
     );
   }
 
-  const cap = (limits.sizeCaps ?? DEFAULT_SIZE_CAPS)[input.ownerKind];
+  const cap = limits.sizeCaps?.[input.ownerKind] ?? DEFAULT_SIZE_CAPS[input.ownerKind];
   if (input.data.length > cap) {
     throw new DomainError(
       'LIMIT_BREACHED',
@@ -218,6 +223,65 @@ export async function listingPhotoIds(
     byListing.set(image.ownerId, ids);
   }
   return byListing;
+}
+
+/**
+ * Set a group's brand image for a slot (#15): exactly one per slot,
+ * replace-on-upload. Create-first-delete-after, exactly as setMemberPhoto —
+ * a failed upload never loses the old image. The 1MB brand cap applies via
+ * sizeCaps.brand.
+ */
+export async function setBrandImage(
+  storage: Storage,
+  groupId: string,
+  slot: BrandSlot,
+  mime: string,
+  data: Buffer,
+  createdBy: string,
+  limits: ImageLimits = {},
+): Promise<Image> {
+  const previous = await storage.listImages(groupId, {
+    ownerKind: 'brand',
+    ownerId: slot,
+  });
+  const image = await uploadImage(
+    storage,
+    { groupId, ownerKind: 'brand', ownerId: slot, mime, data, createdBy },
+    limits,
+  );
+  for (const old of previous) await storage.deleteImage(old.id);
+  return image;
+}
+
+/** Clear a group's brand slot (#15); a no-op when the slot is empty. */
+export async function deleteBrandImage(
+  storage: Storage,
+  groupId: string,
+  slot: BrandSlot,
+): Promise<void> {
+  const images = await storage.listImages(groupId, { ownerKind: 'brand', ownerId: slot });
+  for (const image of images) await storage.deleteImage(image.id);
+}
+
+/** A group's skin (#15): the image id per slot, keys absent for empty slots. */
+export interface Branding {
+  logoImageId?: string;
+  headerImageId?: string;
+}
+
+/**
+ * The group's branding in one query (#15): every brand-owned image, mapped
+ * slot -> id. Keys are set conditionally (exactOptionalPropertyTypes) so an
+ * unbranded group is exactly {}.
+ */
+export async function brandingFor(storage: Storage, groupId: string): Promise<Branding> {
+  const images = await storage.listImages(groupId, { ownerKind: 'brand' });
+  const branding: Branding = {};
+  for (const image of images) {
+    if (image.ownerId === 'logo') branding.logoImageId = image.id;
+    if (image.ownerId === 'header') branding.headerImageId = image.id;
+  }
+  return branding;
 }
 
 /** Delete a member's profile photo(s) (#14 phase 2); a no-op when none. */
