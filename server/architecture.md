@@ -143,7 +143,7 @@ sequenceDiagram
   TR->>S: ensureMemberAccount for payer and payee
   alt payee has confirmIncoming
     TR->>S: post pending 'payment' (expiresAt +14d auto-accept)
-    Note over TR,S: no balance effect yet; payee must accept
+    Note over TR,S: no balance effect yet — payee must accept
   else normal case
     TR->>S: hard-limit policies vs resulting balances
     TR->>S: post committed trade (legs -amount / +amount)
@@ -213,7 +213,7 @@ sequenceDiagram
     alt mismatch or error
       TK->>TK: alert("JOURNAL VERIFICATION FAILED ...")
     end
-    TK->>S: sweepDue: auto-accept due held payments (re-authorised;<br/>denial expires them), expire due invoices
+    TK->>S: sweepDue: auto-accept due held payments (re-authorised —<br/>denial expires them), expire due invoices
     TK->>S: sweepListings: expire listings past expiresAt
     loop each currency with demurrageDay <= today (UTC)
       TK->>D: runDemurrage(group, currency, "YYYY-MM")
@@ -260,17 +260,17 @@ sequenceDiagram
   API->>M: buildMcpServer(scopes, rest client)
   M->>M: register only tools the scopes allow
   M->>API: rest.call -> app.inject POST {tenancy}/payments<br/>(same Authorization + Host)
-  API->>API: requireMember: bearer wins over cookie; route's<br/>scopes config must include a token scope
+  API->>API: requireMember: bearer wins over cookie, and route's<br/>scopes config must include a token scope
   alt token has trade:request only
     API->>TR: requestPayment (payment as pending invoice-flow item,<br/>token's member as payer)
-    Note over TR: the member confirms with accept in the web UI;<br/>no balance moves until then
+    Note over TR: the member confirms with accept in the web UI —<br/>no balance moves until then
   else token has trade:autonomous
     API->>API: checkTokenCaps: amount <= maxTxAmount, and rolling<br/>periodDays spend (journal-derived via api_token_id)<br/>+ amount <= maxPeriodAmount
     API->>TR: sendPayment — commits (unless payee holds incoming)
   end
   TR-->>API: transaction
   API-->>M: 201 body
-  M-->>AG: tool result (status line + pretty JSON; non-2xx becomes a tool error)
+  M-->>AG: tool result (status line + pretty JSON — non-2xx becomes a tool error)
 ```
 
 Tools: `search_marketplace` and `list_categories` (always),
