@@ -1,7 +1,10 @@
-# App-shell chrome: known gap and options (open)
+# App-shell chrome: known gap and options (resolved)
 
-Status: **open question** — parked 2026-07-09 after image-store phase 3;
-decision #12 needs a follow-up ruling. See specs/decisions.md #12.
+Status: **decided 2026-07-09** — option 1, client-rendered chrome, adopted
+as decision #15 (specs/decisions.md). The React app renders its own slim
+header from the public `GET /shell` endpoint; server-side injection into
+the app's index.html is dropped. The analysis below is kept as the record
+of why.
 
 ## What #12 intended
 

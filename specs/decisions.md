@@ -553,6 +553,10 @@ name, your logo).
   bundle.
 - Admin app is untouched at `/admin/`.
 
+*(Amended by #15: the app's shell chrome is client-rendered by the React
+app from a public `/shell` endpoint, not injected server-side; #15 also
+fixes how the skinning images are stored.)*
+
 ## 13. CMS content format — DECIDED 2026-07-09
 
 **Markdown in, HTML out, server-side, via markdown-it.** CMS bodies (`page`,
@@ -631,3 +635,59 @@ dependency, fine for single-file uploads.
 **Phasing**: (1) images storage + `/i/` serving + CMS admin screen (with
 copy-the-markdown-snippet affordance) + the markdown allowlist; (2) member
 profile photo; (3) listing photos.
+
+## 15. Group skinning storage & app-shell chrome — DECIDED 2026-07-09
+
+The two #12 follow-ups, resolved together.
+
+**Skinning storage**: the logo and header background image are a fourth
+owner kind in the #14 image store — `brand`, `owner_id` naming the slot
+(`logo` | `header`), 1MB cap, exactly one image per slot with
+replace-on-upload (the member-photo pattern). No new tables, no columns on
+`groups`: branding is derived from the images table exactly as `photoId`
+is. Admin routes `PUT/DELETE /admin/branding/{slot}` take the raw image
+body; serving stays `GET /i/{id}` with the same immutable caching.
+
+**App-shell chrome is client-rendered** (amends #12's server-side
+injection; see ui/shell-chrome.md for the evidence). Two mechanisms defeat
+injection in practice: the service worker answers every post-first-visit
+`/app/*` navigation from its precached raw index.html, and within one
+served page the static header ignores SPA login state. So the React app
+renders the same slim chrome itself — brand and nav from a new public,
+session-aware `GET /shell` endpoint (group name, branding image ids, the
+viewer's visible nav pages, the member's name), session corner from the
+auth state it already holds. Present on every load including offline,
+always truthful about the session, hidden in the installed PWA by the same
+`display-mode: standalone` media query. The cost accepted: the chrome
+exists twice (server template for brochure pages, React component for the
+app) and must stay visually in step. Server-side injection into the app's
+index.html is dropped entirely.
+
+## 16. Group-editable email templates — DECIDED 2026-07-09
+
+**Every notification kind has a built-in default template; groups override
+per kind** (the "per-group email sender" line in #12, mechanised via #13's
+markdown pathway).
+
+- **Templates are markdown with `{{placeholder}}` substitution** (e.g.
+  `{{memberName}}`, `{{groupName}}`, `{{amount}}`, `{{payerName}}`,
+  `{{reason}}`). Substitution is plain string replacement before markdown
+  rendering — markdown-it's escaping then applies to the substituted
+  values, so member-supplied names can't inject markup. An unknown
+  placeholder passes through literally: visible in the admin preview, honest
+  in a sent mail, never a crash.
+- **Storage**: `email_templates (group_id, kind, subject, body)`, unique
+  per (group, kind). A row is an override; deleting it reverts to the
+  built-in default. Defaults live in code, not seeded rows — new
+  notification kinds appear for every group without data migration.
+- **Delivery is multipart**: the substituted markdown source is the
+  `text/plain` part (markdown degrades to readable plain text, #13's bet)
+  and its rendered HTML the `text/html` part. Rendering happens at
+  delivery, so `email_events.body` keeps storing the readable source.
+- **Per-group sender**: `groups.email_from`, editable by group admins,
+  snapshotted onto each queued event (`email_events.from_email`) at
+  enqueue time; delivery falls back to the instance-wide
+  `SILVIO_EMAIL_FROM` when unset. Deliverability (SPF/DKIM for the chosen
+  domain) is the operator's problem to configure, documented, not policed.
+- **Editing UI** reuses the #13 pattern: subject field + markdown body with
+  live preview, plus a substitutable-placeholder reference per kind.
