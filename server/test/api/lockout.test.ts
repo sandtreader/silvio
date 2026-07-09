@@ -1,7 +1,13 @@
 // Login lockout through the API: per-email and per-IP sliding windows,
 // 429 + Retry-After when locked, success resets the email counter.
+//
+// Every test here burns real argon2 verifications — fast alone, flaky at
+// the default 5s when the whole suite competes for CPU — hence the
+// file-wide timeout.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
+const SLOW_HASHING = { timeout: 30_000 };
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/api/app.js';
 import { register } from '../../src/services/auth.js';
@@ -12,7 +18,7 @@ import type { Group } from '../../src/types.js';
 
 const HOST = 'cam.example.org';
 
-describe('login lockout', () => {
+describe('login lockout', SLOW_HASHING, () => {
   let storage: SqliteStorage;
   let app: FastifyInstance;
   let group: Group;
@@ -55,8 +61,6 @@ describe('login lockout', () => {
     });
   }
 
-  // Ten real argon2 verifications: comfortably inside the default 5s alone,
-  // but flaky when the whole suite competes for CPU — hence the long timeout.
   it('locks an email after 10 failures, even with the right password', async () => {
     for (let i = 0; i < 10; i += 1) {
       const res = await loginAttempt('alice@example.com', 'wrong-password');
@@ -66,7 +70,7 @@ describe('login lockout', () => {
     expect(locked.statusCode).toBe(429);
     expect(locked.json().error.code).toBe('RATE_LIMITED');
     expect(Number(locked.headers['retry-after'])).toBeGreaterThan(0);
-  }, 30_000);
+  });
 
   it('lockout is per email, not global', async () => {
     for (let i = 0; i < 10; i += 1) {
