@@ -328,6 +328,22 @@ export interface NewsItem {
   updatedAt: string;
 }
 
+// Images (decision #14): one general blob store, three owners. This is the
+// metadata projection only — the bytes stay behind the storage interface
+// (imageData) and are never carried on the domain object or the API.
+export type ImageOwnerKind = 'cms' | 'member' | 'listing';
+
+export interface Image {
+  id: Id;
+  groupId: Id;
+  ownerKind: ImageOwnerKind;
+  ownerId?: Id; // absent for cms images; member/listing id otherwise
+  mime: string;
+  size: number; // bytes
+  createdBy: Id;
+  createdAt: string;
+}
+
 export interface StatementLine {
   seq: number;
   transactionId: Id;

@@ -4,6 +4,7 @@
 import { vi } from 'vitest';
 import type {
   Currency,
+  Image,
   Me,
   Member,
   NewsItem,
@@ -87,6 +88,19 @@ export function makeNewsItem(overrides: Partial<NewsItem> = {}): NewsItem {
   };
 }
 
+export function makeImage(overrides: Partial<Image> = {}): Image {
+  return {
+    id: 'img-1',
+    groupId: 'g-1',
+    ownerKind: 'cms',
+    mime: 'image/jpeg',
+    size: 35021,
+    createdBy: 'm-admin',
+    createdAt: '2026-07-06T10:00:00Z',
+    ...overrides,
+  };
+}
+
 export type MockAdminApi = { [K in keyof AdminApi]: ReturnType<typeof vi.fn> };
 
 export function makeMockApi(): MockAdminApi {
@@ -114,6 +128,9 @@ export function makeMockApi(): MockAdminApi {
     adminCreatePage: vi.fn().mockResolvedValue(undefined),
     adminUpdatePage: vi.fn().mockResolvedValue(undefined),
     adminDeletePage: vi.fn().mockResolvedValue(true),
+    adminImages: vi.fn().mockResolvedValue([]),
+    adminUploadImage: vi.fn().mockResolvedValue(undefined),
+    adminDeleteImage: vi.fn().mockResolvedValue(true),
     adminNews: vi.fn().mockResolvedValue([]),
     adminCreateNews: vi.fn().mockResolvedValue(undefined),
     adminUpdateNews: vi.fn().mockResolvedValue(undefined),

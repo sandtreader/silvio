@@ -9,9 +9,11 @@ import type {
   CreateAccountInput,
   CreateCurrencyInput,
   CreateGroupInput,
+  CreateImageInput,
   CreateNewsItemInput,
   CreatePageInput,
   EnqueueEmailInput,
+  ImageFilter,
   Storage,
   TransactionFilter,
 } from '../interface.js';
@@ -31,6 +33,8 @@ import type {
   Entry,
   Group,
   Id,
+  Image,
+  ImageOwnerKind,
   Listing,
   ListingStatus,
   ListingType,
@@ -265,6 +269,23 @@ interface NewsItemRow {
   created_at: string;
   updated_at: string;
 }
+
+// Metadata columns only (#14): the blob is deliberately absent — it leaves
+// storage exclusively via imageData().
+interface ImageRow {
+  id: string;
+  group_id: string;
+  owner_kind: string;
+  owner_id: string | null;
+  mime: string;
+  size: number;
+  created_by: string;
+  created_at: string;
+}
+
+/** The images metadata columns (#14): everything but the blob. */
+const IMAGE_COLUMNS =
+  'id, group_id, owner_kind, owner_id, mime, size, created_by, created_at';
 
 function now(): string {
   return new Date().toISOString();
@@ -1946,6 +1967,85 @@ export class SqliteStorage implements Storage {
     return Promise.resolve();
   }
 
+  // --- Images (decision #14) ---------------------------------------------------
+
+  createImage(input: CreateImageInput): Promise<Image> {
+    try {
+      const id = uuidv7();
+      this.db
+        .prepare(
+          `INSERT INTO images (
+             id, group_id, owner_kind, owner_id, mime, size, blob,
+             created_by, created_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          id,
+          input.groupId,
+          input.ownerKind,
+          input.ownerId ?? null,
+          input.mime,
+          input.data.length,
+          input.data,
+          input.createdBy,
+          now(),
+        );
+      return Promise.resolve(this.loadImage(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  getImage(id: Id): Promise<Image> {
+    try {
+      return Promise.resolve(this.loadImage(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  imageData(id: Id): Promise<Buffer> {
+    const row = this.db
+      .prepare('SELECT blob FROM images WHERE id = ?')
+      .get(id) as { blob: Buffer } | undefined;
+    if (!row) return Promise.reject(new StorageError('NOT_FOUND', `image ${id} not found`));
+    return Promise.resolve(row.blob);
+  }
+
+  listImages(groupId: Id, filter: ImageFilter): Promise<Image[]> {
+    const conditions = ['group_id = ?'];
+    const values: string[] = [groupId];
+    if (filter.ownerKind !== undefined) {
+      conditions.push('owner_kind = ?');
+      values.push(filter.ownerKind);
+    }
+    if (filter.ownerId !== undefined) {
+      conditions.push('owner_id = ?');
+      values.push(filter.ownerId);
+    }
+    // Metadata columns only, never the blob (#14): a list query must not
+    // drag every image's bytes through memory.
+    const rows = this.db
+      .prepare(
+        `SELECT ${IMAGE_COLUMNS} FROM images WHERE ${conditions.join(' AND ')}
+         ORDER BY created_at, id`,
+      )
+      .all(...values) as ImageRow[];
+    return Promise.resolve(rows.map((row) => this.imageFromRow(row)));
+  }
+
+  deleteImage(id: Id): Promise<void> {
+    this.db.prepare('DELETE FROM images WHERE id = ?').run(id);
+    return Promise.resolve();
+  }
+
+  imagesTotalSize(groupId: Id): Promise<number> {
+    const row = this.db
+      .prepare('SELECT COALESCE(SUM(size), 0) AS total FROM images WHERE group_id = ?')
+      .get(groupId) as { total: number };
+    return Promise.resolve(row.total);
+  }
+
   close(): void {
     this.db.close();
   }
@@ -2117,6 +2217,29 @@ export class SqliteStorage implements Storage {
       .get(id) as NewsItemRow | undefined;
     if (!row) throw new StorageError('NOT_FOUND', `news item ${id} not found`);
     return this.newsItemFromRow(row);
+  }
+
+  private imageFromRow(row: ImageRow): Image {
+    const image: Image = {
+      id: row.id,
+      groupId: row.group_id,
+      ownerKind: row.owner_kind as ImageOwnerKind,
+      mime: row.mime,
+      size: row.size,
+      createdBy: row.created_by,
+      createdAt: row.created_at,
+    };
+    if (row.owner_id !== null) image.ownerId = row.owner_id;
+    return image;
+  }
+
+  /** Image metadata by id (#14): the blob column is never selected here. */
+  private loadImage(id: Id): Image {
+    const row = this.db
+      .prepare(`SELECT ${IMAGE_COLUMNS} FROM images WHERE id = ?`)
+      .get(id) as ImageRow | undefined;
+    if (!row) throw new StorageError('NOT_FOUND', `image ${id} not found`);
+    return this.imageFromRow(row);
   }
 
   private runFromRow(row: DemurrageRunRow): DemurrageRun {

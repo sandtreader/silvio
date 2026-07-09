@@ -12,6 +12,7 @@ import type {
   DirectoryMember,
   Flag,
   Group,
+  Image,
   Listing,
   ListingType,
   Me,
@@ -138,12 +139,31 @@ export class ApiClient {
     return this.group === undefined ? '/api/v1' : `/api/v1/g/${this.group}`;
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const init: RequestInit = { method, credentials: 'include' };
     if (body !== undefined) {
       init.headers = { 'content-type': 'application/json' };
       init.body = JSON.stringify(body);
     }
+    return this.send<T>(path, init);
+  }
+
+  /** Raw (non-JSON) request body, e.g. an image Blob (decision #14). */
+  private rawRequest<T>(
+    method: string,
+    path: string,
+    body: BodyInit,
+    contentType: string,
+  ): Promise<T> {
+    return this.send<T>(path, {
+      method,
+      credentials: 'include',
+      headers: { 'content-type': contentType },
+      body,
+    });
+  }
+
+  private async send<T>(path: string, init: RequestInit): Promise<T> {
     let response: Response;
     try {
       response = await fetch(this.baseUrl + path, init);
@@ -373,6 +393,21 @@ export class ApiClient {
 
   adminDeletePage(id: string): Promise<{ ok: boolean }> {
     return this.tenant('DELETE', `/admin/pages/${encodeURIComponent(id)}`);
+  }
+
+  // CMS images (decision #14): upload sends the raw image bytes as the request
+  // body with the image's content type — not JSON, not multipart.
+
+  adminImages(): Promise<{ images: Image[] }> {
+    return this.tenant('GET', '/admin/images');
+  }
+
+  adminUploadImage(data: Blob, mime: string): Promise<{ image: Image }> {
+    return this.rawRequest('POST', `${this.groupPath()}/admin/images`, data, mime);
+  }
+
+  adminDeleteImage(id: string): Promise<{ ok: boolean }> {
+    return this.tenant('DELETE', `/admin/images/${encodeURIComponent(id)}`);
   }
 
   adminNews(): Promise<{ news: NewsItem[] }> {

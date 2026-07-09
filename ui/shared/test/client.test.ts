@@ -163,6 +163,27 @@ describe('path construction', () => {
     expect(lastCall(mock).init.method).toBe('DELETE');
   });
 
+  it('routes admin images: list, raw-body upload, delete (decision #14)', async () => {
+    const mock = stubFetch(200, { images: [] });
+    const client = new ApiClient({ group: 'g1' });
+    await client.adminImages();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/images');
+    expect(lastCall(mock).init.method).toBe('GET');
+
+    const blob = new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: 'image/jpeg' });
+    await client.adminUploadImage(blob, 'image/jpeg');
+    const { url, init } = lastCall(mock);
+    expect(url).toBe('/api/v1/g/g1/admin/images');
+    expect(init.method).toBe('POST');
+    expect(init.headers).toEqual({ 'content-type': 'image/jpeg' });
+    expect(init.body).toBe(blob); // raw body, never JSON-stringified
+    expect(init.credentials).toBe('include');
+
+    await client.adminDeleteImage('img/1');
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/images/img%2F1');
+    expect(lastCall(mock).init.method).toBe('DELETE');
+  });
+
   it('lists active restrictions on the admin route', async () => {
     const mock = stubFetch(200, { restrictions: [] });
     const client = new ApiClient({ group: 'g1' });

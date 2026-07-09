@@ -874,6 +874,73 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
     });
   });
 
+  describe('images (decision #14)', () => {
+    const PNG = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(100, 1),
+    ]);
+
+    function draft(overrides: Record<string, unknown> = {}) {
+      return {
+        groupId: f.group.id,
+        ownerKind: 'cms' as const,
+        mime: 'image/png',
+        data: PNG,
+        createdBy: 'person-alice',
+        ...overrides,
+      };
+    }
+
+    it('stores and fetches an image; metadata and bytes separately', async () => {
+      const image = await f.storage.createImage(draft());
+      expect(image.id).toBeTruthy();
+      expect(image.groupId).toBe(f.group.id);
+      expect(image.ownerKind).toBe('cms');
+      expect(image.ownerId).toBeUndefined();
+      expect(image.mime).toBe('image/png');
+      expect(image.size).toBe(PNG.length);
+      expect(image.createdAt).toBeTruthy();
+      expect('data' in image).toBe(false); // metadata only, blobs stay in storage
+
+      const fetched = await f.storage.getImage(image.id);
+      expect(fetched.size).toBe(PNG.length);
+      const data = await f.storage.imageData(image.id);
+      expect(Buffer.compare(data, PNG)).toBe(0);
+    });
+
+    it('lists group images, filtered by owner', async () => {
+      await f.storage.createImage(draft());
+      await f.storage.createImage(
+        draft({ ownerKind: 'listing', ownerId: 'listing-1' }),
+      );
+      await f.storage.createImage(draft({ groupId: f.otherGroup.id }));
+
+      expect(await f.storage.listImages(f.group.id, {})).toHaveLength(2);
+      const cms = await f.storage.listImages(f.group.id, { ownerKind: 'cms' });
+      expect(cms).toHaveLength(1);
+      expect(cms[0]!.ownerKind).toBe('cms');
+      const owned = await f.storage.listImages(f.group.id, {
+        ownerKind: 'listing', ownerId: 'listing-1',
+      });
+      expect(owned).toHaveLength(1);
+    });
+
+    it('deletes; unknown ids are NOT_FOUND', async () => {
+      const image = await f.storage.createImage(draft());
+      await f.storage.deleteImage(image.id);
+      await expectStorageError(f.storage.getImage(image.id), 'NOT_FOUND');
+      await expectStorageError(f.storage.imageData(image.id), 'NOT_FOUND');
+    });
+
+    it('imagesTotalSize sums the group’s bytes', async () => {
+      expect(await f.storage.imagesTotalSize(f.group.id)).toBe(0);
+      await f.storage.createImage(draft());
+      await f.storage.createImage(draft({ ownerKind: 'member', ownerId: 'member-alice' }));
+      await f.storage.createImage(draft({ groupId: f.otherGroup.id }));
+      expect(await f.storage.imagesTotalSize(f.group.id)).toBe(2 * PNG.length);
+    });
+  });
+
   describe('email events (outbound log, data-model §6)', () => {
     function draft(overrides: Record<string, string> = {}) {
       return {

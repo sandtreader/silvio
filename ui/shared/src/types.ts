@@ -47,6 +47,9 @@ export type PageVisibility = Page['visibility'];
 /** CMS news item: body is markdown source, like Page. */
 export type NewsItem = Schemas['NewsItem'];
 
+/** Stored image metadata (decision #14); the blob itself serves at GET /i/{id}. */
+export type Image = Schemas['Image'];
+
 // --- Credit control (decision #3) -------------------------------------------
 
 export type Policy = Schemas['CreditPolicy'];

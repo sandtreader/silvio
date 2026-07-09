@@ -21,6 +21,8 @@ import type {
   EmailEvent,
   Group,
   Id,
+  Image,
+  ImageOwnerKind,
   Listing,
   ListingStatus,
   ListingType,
@@ -95,6 +97,22 @@ export interface CreateNewsItemInput {
   body: string;
   publishedAt: string;
   expiresAt?: string;
+}
+
+/** Image to store (decision #14). size is derived from data.length. */
+export interface CreateImageInput {
+  groupId: Id;
+  ownerKind: ImageOwnerKind;
+  ownerId?: Id; // absent for cms images
+  mime: string;
+  data: Buffer;
+  createdBy: Id;
+}
+
+/** listImages filter (decision #14). AND-composed; {} lists the whole group. */
+export interface ImageFilter {
+  ownerKind?: ImageOwnerKind;
+  ownerId?: Id;
 }
 
 /** Admin transaction search (todo: API polish). All fields optional; AND-composed. */
@@ -374,6 +392,18 @@ export interface Storage extends Ledger {
     }>,
   ): Promise<NewsItem>;
   deleteNewsItem(id: Id): Promise<void>;
+
+  // Images (decision #14): one general blob store, three owners. Blobs stay
+  // behind this interface — domain objects carry metadata only, and the
+  // bytes surface exclusively via imageData for the /i/ serving route.
+  createImage(input: CreateImageInput): Promise<Image>;
+  getImage(id: Id): Promise<Image>; // metadata only
+  imageData(id: Id): Promise<Buffer>;
+  /** Group images, metadata only, upload order (never selects the blob). */
+  listImages(groupId: Id, filter: ImageFilter): Promise<Image[]>;
+  deleteImage(id: Id): Promise<void>;
+  /** Sum of the group's image sizes in bytes; 0 when none (quota check, #14). */
+  imagesTotalSize(groupId: Id): Promise<number>;
 
   close(): void;
 }

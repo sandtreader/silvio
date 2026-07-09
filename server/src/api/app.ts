@@ -26,6 +26,7 @@ import type {
   CreditPolicyType,
   DemurrageBand,
   Group,
+  Image,
   ListingType,
   Member,
   MemberRole,
@@ -60,6 +61,7 @@ import {
   notifyRestrictionLifted,
 } from '../services/notifications.js';
 import { browse, postListing } from '../services/marketplace.js';
+import { uploadImage } from '../services/images.js';
 import { LoginThrottle } from '../services/ratelimit.js';
 import { buildMcpServer, type RestClient } from '../mcp/server.js';
 import {
@@ -186,6 +188,17 @@ export async function buildApp(
   opts: BuildAppOptions = {},
 ): Promise<FastifyInstance> {
   const app = Fastify();
+
+  // Raw image upload bodies (decision #14): the whole image/* range parses
+  // as a Buffer so every claimed image type reaches the upload service,
+  // whose magic-byte whitelist is the real gate — an unregistered subtype
+  // would bounce as an unhelpful 415 before validation could say why. The
+  // CSRF hook below is onRequest, so it still runs before any body parsing.
+  app.addContentTypeParser(
+    /^image\/.*/,
+    { parseAs: 'buffer' },
+    (_request, payload, done) => done(null, payload),
+  );
 
   // CSRF defence in depth (todo: "CSRF protection for cookie sessions").
   // Sessions are already SameSite=Lax, which blocks cross-site POSTs in
@@ -1788,6 +1801,72 @@ export async function buildApp(
           const { id } = request.params as { id: string };
           await targetNewsItem(request, id);
           await storage.deleteNewsItem(id);
+          return { ok: true };
+        },
+      );
+
+      // --- CMS images (decision #14): admin-uploaded, referenced from page
+      // and news markdown as /i/{id}. Uploads are raw request bodies (the
+      // file's own content type, no multipart); responses carry metadata
+      // only — the bytes are served by GET /i/{id} in brochure.ts.
+
+      /** Assert the image exists in the request's group (tenancy isolation). */
+      async function targetImage(request: FastifyRequest, id: string): Promise<Image> {
+        const image = await storage.getImage(id);
+        if (image.groupId !== request.group!.id) {
+          throw new DomainError('NOT_FOUND', `image ${id} not found in this group`);
+        }
+        return image;
+      }
+
+      scope.post(
+        '/admin/images',
+        {
+          preHandler: [requireMember, requireAdmin],
+          // Raw-body route: a JSON body schema cannot describe a binary
+          // upload, so only the response is declared.
+          schema: { response: respond(201, body({ image: ref('Image') })) },
+        },
+        async (request, reply) => {
+          if (!Buffer.isBuffer(request.body)) {
+            throw new DomainError('INVALID', 'the request body must be the raw image bytes');
+          }
+          const image = await uploadImage(storage, {
+            groupId: request.group!.id,
+            ownerKind: 'cms',
+            mime: request.headers['content-type'] ?? '',
+            data: request.body,
+            createdBy: request.auth!.member.id,
+          });
+          reply.status(201);
+          return { image };
+        },
+      );
+
+      scope.get(
+        '/admin/images',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: { response: respond(200, body({ images: arrayOf('Image') })) },
+        },
+        async (request) => {
+          return { images: await storage.listImages(request.group!.id, { ownerKind: 'cms' }) };
+        },
+      );
+
+      scope.delete(
+        '/admin/images/:id',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            response: respond(200, OK_RESPONSE),
+          },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          await targetImage(request, id);
+          await storage.deleteImage(id);
           return { ok: true };
         },
       );

@@ -1,0 +1,108 @@
+// Image upload validation (decision #14): the client resizes, the server
+// validates — magic-byte sniff against a jpeg/png/webp whitelist, per-kind
+// size caps, and a per-group quota. Limits are injectable so tests don't
+// build 500MB buffers.
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { uploadImage } from '../../src/services/images.js';
+import { DomainError } from '../../src/services/errors.js';
+import { SqliteStorage } from '../../src/storage/sqlite/index.js';
+import type { Group } from '../../src/types.js';
+
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff]);
+const WEBP = Buffer.concat([
+  Buffer.from('RIFF'), Buffer.alloc(4, 0), Buffer.from('WEBP'), Buffer.alloc(50, 0),
+]);
+const GIF = Buffer.concat([Buffer.from('GIF89a'), Buffer.alloc(50, 0)]);
+
+function png(size = 100): Buffer {
+  return Buffer.concat([PNG_MAGIC, Buffer.alloc(size - PNG_MAGIC.length, 1)]);
+}
+
+async function expectDomainError(promise: Promise<unknown>, code: string): Promise<void> {
+  await expect(promise).rejects.toSatisfy(
+    (e: unknown) => e instanceof DomainError && e.code === code,
+    `expected DomainError ${code}`,
+  );
+}
+
+describe('uploadImage (#14)', () => {
+  let storage: SqliteStorage;
+  let group: Group;
+
+  function draft(overrides: Record<string, unknown> = {}) {
+    return {
+      groupId: group.id,
+      ownerKind: 'cms' as const,
+      mime: 'image/png',
+      data: png(),
+      createdBy: 'person-alice',
+      ...overrides,
+    };
+  }
+
+  beforeEach(async () => {
+    storage = new SqliteStorage(':memory:');
+    group = await storage.createGroup({ slug: 'g', name: 'G' });
+  });
+
+  afterEach(() => {
+    storage.close();
+  });
+
+  it('accepts png, jpeg and webp whose bytes match the claimed mime', async () => {
+    const stored = await uploadImage(storage, draft());
+    expect(stored.mime).toBe('image/png');
+    await uploadImage(storage, draft({
+      mime: 'image/jpeg', data: Buffer.concat([JPEG_MAGIC, Buffer.alloc(50, 0)]),
+    }));
+    await uploadImage(storage, draft({ mime: 'image/webp', data: WEBP }));
+    expect(await storage.listImages(group.id, {})).toHaveLength(3);
+  });
+
+  it('rejects a mime/magic mismatch', async () => {
+    await expectDomainError(
+      uploadImage(storage, draft({ mime: 'image/jpeg' })), // png bytes
+      'INVALID',
+    );
+  });
+
+  it('rejects types outside the whitelist, whatever they claim', async () => {
+    await expectDomainError(
+      uploadImage(storage, draft({ mime: 'image/gif', data: GIF })),
+      'INVALID',
+    );
+    await expectDomainError(
+      uploadImage(storage, draft({ mime: 'image/svg+xml', data: Buffer.from('<svg/>') })),
+      'INVALID',
+    );
+  });
+
+  it('enforces the per-kind size cap', async () => {
+    const limits = { sizeCaps: { cms: 100, member: 50, listing: 80 } };
+    await uploadImage(storage, draft({ data: png(100) }), limits);
+    await expectDomainError(
+      uploadImage(storage, draft({ data: png(101) }), limits),
+      'LIMIT_BREACHED',
+    );
+    await expectDomainError(
+      uploadImage(
+        storage,
+        draft({ ownerKind: 'member', ownerId: 'm1', data: png(60) }),
+        limits,
+      ),
+      'LIMIT_BREACHED',
+    );
+  });
+
+  it('enforces the group quota across all images', async () => {
+    const limits = { groupQuota: 250 };
+    await uploadImage(storage, draft({ data: png(100) }), limits);
+    await uploadImage(storage, draft({ data: png(100) }), limits);
+    await expectDomainError(
+      uploadImage(storage, draft({ data: png(100) }), limits),
+      'LIMIT_BREACHED',
+    );
+  });
+});

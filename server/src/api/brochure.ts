@@ -305,6 +305,24 @@ export function registerBrochureRoutes(app: FastifyInstance, storage: Storage): 
       .send(renderNews(group, member?.displayName, navPages, items));
   });
 
+  // Image serving (decision #14): bytes by opaque id. No group or session
+  // check — the unguessable UUID is the access control (CMS and listing
+  // images are public-brochure content anyway). An id's content never
+  // changes (re-upload mints a new id), hence the immutable cache header;
+  // nosniff because the bytes are member-supplied.
+  app.get('/i/:id', hidden, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const image = await storage.getImage(id).catch(() => undefined);
+    if (image === undefined) {
+      return reply.status(404).type(htmlType).send(NOT_FOUND_PAGE);
+    }
+    return reply
+      .type(image.mime)
+      .header('cache-control', 'public, max-age=31536000, immutable')
+      .header('x-content-type-options', 'nosniff')
+      .send(await storage.imageData(id));
+  });
+
   app.get('/market', hidden, async (request, reply) => {
     const group = await resolveGroupFromHost(storage, request);
     if (group === undefined) return reply.status(404).type(htmlType).send(NOT_FOUND_PAGE);

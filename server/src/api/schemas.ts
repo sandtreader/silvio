@@ -20,6 +20,7 @@ import type {
   DemurrageBand,
   Entry,
   Group,
+  Image,
   Listing,
   Member,
   NewsItem,
@@ -44,6 +45,7 @@ const LISTING_TYPE = ['offer', 'want'] as const;
 const PAGE_VISIBILITY = ['public', 'members', 'admin'] as const;
 const LISTING_STATUS = ['active', 'hidden', 'expired'] as const;
 const CREDIT_POLICY_TYPE = ['soft_threshold', 'hard_limit'] as const;
+const IMAGE_OWNER_KIND = ['cms', 'member', 'listing'] as const;
 const API_SCOPE = [
   'marketplace:read',
   'directory:read',
@@ -387,6 +389,24 @@ const NEWS_ITEM = {
   },
 } as const;
 
+// Image metadata (decision #14): the API only ever carries metadata — the
+// bytes are served by GET /i/{id}, outside the JSON API.
+const IMAGE = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'groupId', 'ownerKind', 'mime', 'size', 'createdBy', 'createdAt'],
+  properties: {
+    id: { type: 'string' },
+    groupId: { type: 'string' },
+    ownerKind: { type: 'string', enum: IMAGE_OWNER_KIND },
+    ownerId: { type: 'string' },
+    mime: { type: 'string' },
+    size: { type: 'integer' },
+    createdBy: { type: 'string' },
+    createdAt: { type: 'string' },
+  },
+} as const;
+
 const RESTRICTION = {
   type: 'object',
   additionalProperties: false,
@@ -460,6 +480,7 @@ export const sharedSchemas = [
   { $id: 'DemurrageBand', ...DEMURRAGE_BAND },
   { $id: 'Page', ...PAGE },
   { $id: 'NewsItem', ...NEWS_ITEM },
+  { $id: 'Image', ...IMAGE },
   { $id: 'Restriction', ...RESTRICTION },
   { $id: 'AccountFlag', ...ACCOUNT_FLAG },
   { $id: 'ErrorResponse', ...ERROR_RESPONSE },
@@ -494,6 +515,7 @@ type _DriftGuards = [
   Expect<Equal<FromSchema<typeof DEMURRAGE_BAND>, DemurrageBand>>,
   Expect<Equal<FromSchema<typeof PAGE>, Page>>,
   Expect<Equal<FromSchema<typeof NEWS_ITEM>, NewsItem>>,
+  Expect<Equal<FromSchema<typeof IMAGE>, Image>>,
   Expect<Equal<FromSchema<typeof RESTRICTION>, Restriction>>,
   Expect<Equal<FromSchema<typeof ACCOUNT_FLAG>, AccountFlag>>,
 ];

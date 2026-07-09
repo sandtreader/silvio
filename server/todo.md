@@ -72,7 +72,7 @@ Remaining server-side work, grouped by area. References are to
 - [x] `news_item` storage + API: admin CRUD, published/expires window,
       markdown body (#13); brochure noticeboard at /news (public — news has
       no visibility tiers)
-- [ ] Image store phase 1 (#14): `images` table + `GET /i/{id}` (immutable
+- [x] Image store phase 1 (#14): `images` table + `GET /i/{id}` (immutable
       cache headers), CMS admin upload/list/delete with markdown snippet,
       markdown-it image allowlist for `/i/` sources only, magic-byte + size
       + quota validation (client resizes before upload)

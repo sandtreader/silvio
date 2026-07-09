@@ -39,11 +39,26 @@ describe('renderMarkdown (#13)', () => {
     expect(html).toContain('[click me]');
   });
 
-  it('never produces an img tag (image syntax disabled until the group image store)', () => {
-    const html = renderMarkdown('![kittens](https://example.com/tracking.png)');
-    expect(html).not.toContain('<img');
-    // The alt text is not silently lost.
-    expect(html).toContain('kittens');
+  it('renders images only from the local image store (#14 allowlist)', () => {
+    const html = renderMarkdown('![our stall](/i/01890a5d-ac96-774b-bcce-b302099a8057)');
+    expect(html).toContain('<img');
+    expect(html).toContain('src="/i/01890a5d-ac96-774b-bcce-b302099a8057"');
+    expect(html).toContain('alt="our stall"');
+  });
+
+  it('never produces an img for external or malformed sources', () => {
+    for (const source of [
+      '![kittens](https://example.com/tracking.png)',
+      '![x](//evil.example/x.png)',
+      '![x](/i/../../etc/passwd)',
+      '![x](/i/not-a-uuid)',
+      '![x](/images/other.png)',
+    ]) {
+      const html = renderMarkdown(source);
+      expect(html, source).not.toContain('<img');
+    }
+    // The alt text is not silently lost when an image is refused.
+    expect(renderMarkdown('![kittens](https://example.com/x.png)')).toContain('kittens');
   });
 
   it('empty and whitespace-only input renders to empty output', () => {

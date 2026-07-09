@@ -1,0 +1,100 @@
+// Image upload validation (decision #14): the client resizes, the server
+// validates. Magic-byte sniff against a jpeg/png/webp whitelist (the claimed
+// mime must match what the bytes actually are), hard per-owner-kind byte
+// caps, and a per-group total quota. Limits are injectable so tests don't
+// build 500MB buffers; the defaults are #14's numbers.
+
+import type { Storage } from '../storage/interface.js';
+import type { Image, ImageOwnerKind } from '../types.js';
+import { DomainError } from './errors.js';
+
+/** Per-owner-kind byte caps and the group-wide quota (decision #14). */
+export interface ImageLimits {
+  sizeCaps?: Record<ImageOwnerKind, number>;
+  groupQuota?: number;
+}
+
+const DEFAULT_SIZE_CAPS: Record<ImageOwnerKind, number> = {
+  cms: 2 * 1024 * 1024, // 2MB
+  member: 256 * 1024, // 256KB
+  listing: 1024 * 1024, // 1MB
+};
+
+// Group quota: a constant for now, a per-group plan setting later (#2, #14).
+const DEFAULT_GROUP_QUOTA = 500 * 1024 * 1024; // 500MB
+
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff]);
+
+/**
+ * What the bytes actually are, by magic number — png/jpeg/webp only, the
+ * whole whitelist (#14). Anything else (gif, svg, non-images) is undefined.
+ */
+function sniff(data: Buffer): string | undefined {
+  if (data.subarray(0, PNG_MAGIC.length).equals(PNG_MAGIC)) return 'image/png';
+  if (data.subarray(0, JPEG_MAGIC.length).equals(JPEG_MAGIC)) return 'image/jpeg';
+  // webp: a RIFF container whose form type (bytes 8-11) is WEBP.
+  if (
+    data.length >= 12 &&
+    data.toString('latin1', 0, 4) === 'RIFF' &&
+    data.toString('latin1', 8, 12) === 'WEBP'
+  ) {
+    return 'image/webp';
+  }
+  return undefined;
+}
+
+export interface UploadImageInput {
+  groupId: string;
+  ownerKind: ImageOwnerKind;
+  ownerId?: string;
+  mime: string;
+  data: Buffer;
+  createdBy: string;
+}
+
+/**
+ * Validate and store an image (#14): the sniffed type must equal the claimed
+ * mime and be whitelisted (INVALID otherwise); the bytes must fit the
+ * owner-kind cap and the group quota (LIMIT_BREACHED, stating the rule).
+ */
+export async function uploadImage(
+  storage: Storage,
+  input: UploadImageInput,
+  limits: ImageLimits = {},
+): Promise<Image> {
+  const sniffed = sniff(input.data);
+  if (sniffed === undefined || sniffed !== input.mime) {
+    throw new DomainError(
+      'INVALID',
+      'images must be PNG, JPEG or WebP, and the file content must match its declared type',
+    );
+  }
+
+  const cap = (limits.sizeCaps ?? DEFAULT_SIZE_CAPS)[input.ownerKind];
+  if (input.data.length > cap) {
+    throw new DomainError(
+      'LIMIT_BREACHED',
+      `this image is ${input.data.length} bytes; ${input.ownerKind} images may be at most ${cap} bytes`,
+    );
+  }
+
+  const quota = limits.groupQuota ?? DEFAULT_GROUP_QUOTA;
+  const used = await storage.imagesTotalSize(input.groupId);
+  if (used + input.data.length > quota) {
+    throw new DomainError(
+      'LIMIT_BREACHED',
+      `this image would take the group's image storage over its ${quota}-byte quota (${used} bytes already used)`,
+    );
+  }
+
+  const create: Parameters<typeof storage.createImage>[0] = {
+    groupId: input.groupId,
+    ownerKind: input.ownerKind,
+    mime: input.mime,
+    data: input.data,
+    createdBy: input.createdBy,
+  };
+  if (input.ownerId !== undefined) create.ownerId = input.ownerId;
+  return storage.createImage(create);
+}

@@ -11,6 +11,7 @@ import {
   type Currency,
   type DemurrageBand,
   type Flag,
+  type Image,
   type Me,
   type Member,
   type MemberAction,
@@ -101,6 +102,9 @@ export interface AdminApi {
   adminCreatePage(input: PageInput): Promise<Page | undefined>;
   adminUpdatePage(id: string, patch: Partial<PageInput>): Promise<Page | undefined>;
   adminDeletePage(id: string): Promise<boolean>;
+  adminImages(): Promise<Image[] | undefined>;
+  adminUploadImage(data: Blob, mime: string): Promise<Image | undefined>;
+  adminDeleteImage(id: string): Promise<boolean>;
   adminNews(): Promise<NewsItem[] | undefined>;
   adminCreateNews(input: NewsInput): Promise<NewsItem | undefined>;
   adminUpdateNews(
@@ -146,6 +150,10 @@ export const api: AdminApi = {
   adminUpdatePage: async (id, patch) =>
     (await call(client.adminUpdatePage(id, patch)))?.page,
   adminDeletePage: async (id) => (await call(client.adminDeletePage(id)))?.ok ?? false,
+  adminImages: async () => (await call(client.adminImages()))?.images,
+  adminUploadImage: async (data, mime) =>
+    (await call(client.adminUploadImage(data, mime)))?.image,
+  adminDeleteImage: async (id) => (await call(client.adminDeleteImage(id)))?.ok ?? false,
   adminNews: async () => (await call(client.adminNews()))?.news,
   adminCreateNews: async (input) =>
     (await call(client.adminCreateNews(input)))?.newsItem,

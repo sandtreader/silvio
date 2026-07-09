@@ -258,6 +258,22 @@ CREATE TABLE news_items (
   updated_at   TEXT NOT NULL
 );
 
+-- Images (decision #14): one general blob store behind opaque uuids — the
+-- bytes live in the blob column and only ever leave storage via imageData;
+-- metadata queries must not touch it. owner_id is deliberately loose (no
+-- FK), like accounts.member_id: cms images have no owner row at all.
+CREATE TABLE images (
+  id         TEXT PRIMARY KEY,
+  group_id   TEXT NOT NULL REFERENCES groups(id),
+  owner_kind TEXT NOT NULL,
+  owner_id   TEXT,
+  mime       TEXT NOT NULL,
+  size       INTEGER NOT NULL,
+  blob       BLOB NOT NULL,
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 CREATE INDEX idx_entries_transaction ON entries(transaction_id);
 CREATE INDEX idx_entries_account ON entries(account_id);
 CREATE INDEX idx_transactions_group_seq ON transactions(group_id, seq);
@@ -275,4 +291,6 @@ CREATE INDEX idx_email_events_pending ON email_events(created_at)
 CREATE INDEX idx_pages_group_position ON pages(group_id, position);
 -- Matches the listNews ordering (newest publishedAt first) per group.
 CREATE INDEX idx_news_items_group_published ON news_items(group_id, published_at DESC);
+-- Matches the listImages filter (group, then owner kind/id) (#14).
+CREATE INDEX idx_images_group_owner ON images(group_id, owner_kind, owner_id);
 `;
