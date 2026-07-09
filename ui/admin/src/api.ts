@@ -64,6 +64,7 @@ export interface AdminApi {
   adminMembers(status?: MemberStatus): Promise<Member[] | undefined>;
   adminMemberAction(id: string, action: MemberAction): Promise<Member | undefined>;
   adminSetRole(id: string, role: MemberRole): Promise<Member | undefined>;
+  adminRestrictions(): Promise<Restriction[] | undefined>;
   adminRestrict(memberId: string, reason: string): Promise<Restriction | undefined>;
   adminUnrestrict(memberId: string): Promise<boolean>;
   adminPolicies(): Promise<Policy[] | undefined>;
@@ -102,6 +103,8 @@ export const api: AdminApi = {
   adminMemberAction: async (id, action) =>
     (await call(client.adminMemberAction(id, action)))?.member,
   adminSetRole: async (id, role) => (await call(client.adminSetRole(id, role)))?.member,
+  adminRestrictions: async () =>
+    (await call(client.adminRestrictions()))?.restrictions,
   adminRestrict: async (memberId, reason) =>
     (await call(client.adminRestrict(memberId, reason)))?.restriction,
   adminUnrestrict: async (memberId) =>

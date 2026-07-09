@@ -560,6 +560,43 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
     });
   });
 
+  describe('restrictions read (#3)', () => {
+    // Restrictions reference real members, so this block creates them
+    // (unlike the ledger tests, which use loose synthetic member ids).
+    async function makeRealMember(name: string): Promise<string> {
+      const member = await f.storage.createMember({
+        groupId: f.group.id, displayName: name,
+      });
+      return member.id;
+    }
+
+    it('lists only active restrictions for the group, oldest first', async () => {
+      const restricted = await makeRealMember('Restricted');
+      const lifted = await makeRealMember('Lifted');
+      const clean = await makeRealMember('Clean');
+      await f.storage.imposeRestriction(restricted, 'runaway balance', 'admin-1');
+      await f.storage.imposeRestriction(lifted, 'temporary', 'admin-1');
+      await f.storage.liftRestriction(lifted, 'admin-2');
+
+      const active = await f.storage.activeRestrictions(f.group.id);
+      expect(active).toHaveLength(1);
+      expect(active[0]!.memberId).toBe(restricted);
+      expect(active[0]!.reason).toBe('runaway balance');
+      expect(active[0]!.imposedBy).toBe('admin-1');
+      expect(active[0]!.liftedAt).toBeUndefined();
+      expect(active.map((r) => r.memberId)).not.toContain(clean);
+    });
+
+    it('is group-scoped', async () => {
+      const other = await f.storage.createMember({
+        groupId: f.otherGroup.id, displayName: 'Elsewhere',
+      });
+      await f.storage.imposeRestriction(other.id, 'other group', 'admin-1');
+      expect(await f.storage.activeRestrictions(f.group.id)).toEqual([]);
+      expect(await f.storage.activeRestrictions(f.otherGroup.id)).toHaveLength(1);
+    });
+  });
+
   describe('statement (#6)', () => {
     it('returns committed lines in seq order with running balance', async () => {
       await f.storage.post(trade(f)); // alice -100

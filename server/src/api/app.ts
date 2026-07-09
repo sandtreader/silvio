@@ -1266,6 +1266,19 @@ export async function buildApp(
         },
       );
 
+      scope.get(
+        '/admin/restrictions',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            response: respond(200, body({ restrictions: arrayOf('Restriction') })),
+          },
+        },
+        async (request) => {
+          return { restrictions: await storage.activeRestrictions(request.group!.id) };
+        },
+      );
+
       scope.post(
         '/admin/restrictions',
         {

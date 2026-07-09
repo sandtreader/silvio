@@ -1,8 +1,9 @@
 // Members admin page (decisions #3, #7): full member list with lifecycle
 // actions (suspend/reinstate/remove), role changes, and manual payment
 // restrictions. Action-shaped, so a custom page rather than ListEditPage.
-// LIMITATION: the API exposes no way to list current restrictions, so both
-// Restrict and Unrestrict are always offered (server gap).
+// Active restrictions are fetched alongside the member list: restricted
+// members get a "restricted" chip (reason as tooltip) and only the
+// applicable Restrict/Unrestrict action is offered.
 
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -25,11 +26,12 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import type { Member, MemberRole, MemberStatus } from '@silvio/ui-shared';
+import type { Member, MemberRole, MemberStatus, Restriction } from '@silvio/ui-shared';
 import { api as realApi, type AdminApi } from '../api';
 
 const STATUS_COLOURS: Record<MemberStatus, 'default' | 'success' | 'warning' | 'error'> =
@@ -45,6 +47,7 @@ const ROLES: MemberRole[] = ['member', 'committee', 'admin'];
 
 export function MembersPage({ api = realApi }: { api?: AdminApi }) {
   const [members, setMembers] = useState<Member[]>();
+  const [restrictions, setRestrictions] = useState<Restriction[]>([]);
 
   // Per-row action menu state
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement>();
@@ -57,8 +60,12 @@ export function MembersPage({ api = realApi }: { api?: AdminApi }) {
   const [reason, setReason] = useState('');
 
   const refresh = useCallback(async () => {
-    const listed = await api.adminMembers();
+    const [listed, restricted] = await Promise.all([
+      api.adminMembers(),
+      api.adminRestrictions(),
+    ]);
     if (listed !== undefined) setMembers(listed);
+    if (restricted !== undefined) setRestrictions(restricted);
   }, [api]);
 
   useEffect(() => {
@@ -77,7 +84,11 @@ export function MembersPage({ api = realApi }: { api?: AdminApi }) {
     await refresh();
   };
 
+  const restrictionFor = (memberId: string): Restriction | undefined =>
+    restrictions.find((r) => r.memberId === memberId);
+
   const member = menuMember;
+  const memberRestriction = member === undefined ? undefined : restrictionFor(member.id);
 
   return (
     <Stack spacing={2} sx={{ marginTop: 2 }}>
@@ -103,11 +114,18 @@ export function MembersPage({ api = realApi }: { api?: AdminApi }) {
                   <TableCell>{row.memberNo}</TableCell>
                   <TableCell>{row.displayName}</TableCell>
                   <TableCell>
-                    <Chip
-                      label={row.status}
-                      size="small"
-                      color={STATUS_COLOURS[row.status]}
-                    />
+                    <Stack direction="row" spacing={1}>
+                      <Chip
+                        label={row.status}
+                        size="small"
+                        color={STATUS_COLOURS[row.status]}
+                      />
+                      {restrictionFor(row.id) !== undefined && (
+                        <Tooltip title={restrictionFor(row.id)!.reason}>
+                          <Chip label="restricted" size="small" color="error" />
+                        </Tooltip>
+                      )}
+                    </Stack>
                   </TableCell>
                   <TableCell>{row.role}</TableCell>
                   <TableCell align="right">
@@ -167,7 +185,7 @@ export function MembersPage({ api = realApi }: { api?: AdminApi }) {
         <MenuItem onClick={(e) => setRoleAnchor(e.currentTarget)}>
           Role <ChevronRightIcon fontSize="small" sx={{ marginLeft: 'auto' }} />
         </MenuItem>
-        {member !== undefined && (
+        {member !== undefined && memberRestriction === undefined && (
           <MenuItem
             onClick={() => {
               closeMenus();
@@ -178,7 +196,7 @@ export function MembersPage({ api = realApi }: { api?: AdminApi }) {
             Restrict…
           </MenuItem>
         )}
-        {member !== undefined && (
+        {member !== undefined && memberRestriction !== undefined && (
           <MenuItem onClick={() => void act(() => api.adminUnrestrict(member.id))}>
             Unrestrict
           </MenuItem>

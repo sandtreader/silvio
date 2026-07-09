@@ -1187,6 +1187,22 @@ export class SqliteStorage implements Storage {
       )
       .get(memberId) as RestrictionRow | undefined;
     if (!row) return Promise.resolve(undefined);
+    return Promise.resolve(this.restrictionFromRow(row));
+  }
+
+  activeRestrictions(groupId: Id): Promise<Restriction[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT r.* FROM restrictions r
+         JOIN members m ON m.id = r.member_id
+         WHERE m.group_id = ? AND r.lifted_at IS NULL
+         ORDER BY r.imposed_at ASC`,
+      )
+      .all(groupId) as RestrictionRow[];
+    return Promise.resolve(rows.map((row) => this.restrictionFromRow(row)));
+  }
+
+  private restrictionFromRow(row: RestrictionRow): Restriction {
     const restriction: Restriction = {
       id: row.id,
       memberId: row.member_id,
@@ -1196,7 +1212,7 @@ export class SqliteStorage implements Storage {
     };
     if (row.lifted_by !== null) restriction.liftedBy = row.lifted_by;
     if (row.lifted_at !== null) restriction.liftedAt = row.lifted_at;
-    return Promise.resolve(restriction);
+    return restriction;
   }
 
   createApiToken(input: {

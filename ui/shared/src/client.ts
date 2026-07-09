@@ -286,6 +286,10 @@ export class ApiClient {
     });
   }
 
+  adminRestrictions(): Promise<{ restrictions: Restriction[] }> {
+    return this.tenant('GET', '/admin/restrictions');
+  }
+
   adminRestrict(memberId: string, reason: string): Promise<{ restriction: Restriction }> {
     return this.tenant('POST', '/admin/restrictions', { memberId, reason });
   }

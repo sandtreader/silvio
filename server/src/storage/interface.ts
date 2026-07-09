@@ -202,6 +202,7 @@ export interface Storage extends Ledger {
   imposeRestriction(memberId: Id, reason: string, imposedBy: Id): Promise<Restriction>;
   liftRestriction(memberId: Id, liftedBy: Id): Promise<void>;
   activeRestriction(memberId: Id): Promise<Restriction | undefined>;
+  activeRestrictions(groupId: Id): Promise<Restriction[]>; // unlifted, for group members, oldest first
 
   // API tokens (decision #9, data-model §7). Hashing is the token service's
   // job; storage stores/matches hashes only, like sessions.

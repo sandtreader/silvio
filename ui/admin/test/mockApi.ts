@@ -2,7 +2,7 @@
 // resolving undefined ("call failed") unless a test overrides it.
 
 import { vi } from 'vitest';
-import type { Currency, Me, Member } from '@silvio/ui-shared';
+import type { Currency, Me, Member, Restriction } from '@silvio/ui-shared';
 import type { AdminApi } from '../src/api';
 
 export function makeMember(overrides: Partial<Member> = {}): Member {
@@ -29,6 +29,17 @@ export function makeMe(): Me {
   };
 }
 
+export function makeRestriction(overrides: Partial<Restriction> = {}): Restriction {
+  return {
+    id: 'r-1',
+    memberId: 'm-1',
+    reason: 'runaway balance',
+    imposedBy: 'm-admin',
+    imposedAt: '2026-07-02T12:00:00Z',
+    ...overrides,
+  };
+}
+
 export function makeCurrency(overrides: Partial<Currency> = {}): Currency {
   return {
     id: 'c-1',
@@ -49,6 +60,7 @@ export function makeMockApi(): MockAdminApi {
     adminMembers: vi.fn().mockResolvedValue([]),
     adminMemberAction: vi.fn().mockResolvedValue(makeMember()),
     adminSetRole: vi.fn().mockResolvedValue(makeMember()),
+    adminRestrictions: vi.fn().mockResolvedValue([]),
     adminRestrict: vi.fn().mockResolvedValue(undefined),
     adminUnrestrict: vi.fn().mockResolvedValue(true),
     adminPolicies: vi.fn().mockResolvedValue([]),

@@ -95,7 +95,7 @@ Remaining server-side work, grouped by area. References are to
 - [x] Transaction list/search for admins (GET /admin/transactions with
       member/currency/type/state/text filters and limit/offset paging;
       storage listTransactions returns full transactions plus a total)
-- [ ] List active restrictions (impose/lift exist; no read)
+- [x] List active restrictions (impose/lift exist; no read)
 - [x] Categories API (admin create/rename; public read existed)
 
 ## Operator & deployment

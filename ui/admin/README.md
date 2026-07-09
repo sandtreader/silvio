@@ -16,9 +16,9 @@ session even though the cookie survives (Rafiki has no restore hook yet).
 - **Approval queue** — members in the `applied` state with approve/reject
   actions (reject uses the API's `remove` action).
 - **Members** — full member list with lifecycle actions (suspend, reinstate,
-  remove), role changes, and manual payment restrictions.
-  Limitation: the API has no way to list current restrictions, so both
-  Restrict and Unrestrict are always offered.
+  remove), role changes, and manual payment restrictions. Restricted members
+  are marked with a chip (reason on hover); Restrict is offered only to
+  unrestricted members and Unrestrict only to restricted ones.
 - **Credit policies** — per-currency policy table with an enable/disable
   switch and an add dialog. Currency choices come from the group's public
   `GET /currencies` endpoint.

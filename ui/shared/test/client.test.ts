@@ -163,6 +163,15 @@ describe('path construction', () => {
     expect(lastCall(mock).init.method).toBe('DELETE');
   });
 
+  it('lists active restrictions on the admin route', async () => {
+    const mock = stubFetch(200, { restrictions: [] });
+    const client = new ApiClient({ group: 'g1' });
+    const { restrictions } = await client.adminRestrictions();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/restrictions');
+    expect(lastCall(mock).init.method).toBe('GET');
+    expect(restrictions).toEqual([]);
+  });
+
   it('keeps operator routes outside any tenant, even with a group set', async () => {
     const mock = stubFetch(200, { groups: [] });
     await new ApiClient({ group: 'camlets' }).operatorGroups();
