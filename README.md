@@ -44,4 +44,7 @@ Then see [server/README.md](server/README.md) for configuration and
 
 ## License
 
-GPL-3.0
+[AGPL-3.0-or-later](LICENSE.md). The Affero clause matters here: Silvio is
+designed to be hosted (white-label SaaS is a target deployment), and AGPL
+ensures that anyone offering a modified Silvio as a network service must
+offer its users the modified source.

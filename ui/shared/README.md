@@ -52,4 +52,4 @@ npm test        # vitest run
 
 ## License
 
-GPL-3.0
+AGPL-3.0-or-later — see [LICENSE.md](../../LICENSE.md) at the repository root.

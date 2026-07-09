@@ -4,7 +4,7 @@
   "description": "Silvio LETS admin UI: desktop app on the Rafiki framework",
   "private": true,
   "type": "module",
-  "license": "GPL-3.0",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

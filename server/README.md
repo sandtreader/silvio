@@ -60,4 +60,4 @@ bearer-token agents, is a thin client of the same REST API. See
 
 ## License
 
-GPL-3.0.
+AGPL-3.0-or-later — see [LICENSE.md](../LICENSE.md) at the repository root.
