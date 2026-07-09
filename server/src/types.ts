@@ -280,6 +280,24 @@ export interface ApiToken {
   createdAt: string;
 }
 
+// Outbound email log (data-model §6): one row per composed email. dedup_key
+// makes enqueueing idempotent, so sweeps and retries never double-send; the
+// row doubles as a troubleshooting trail (attempts, lastError).
+export interface EmailEvent {
+  id: Id;
+  groupId: Id;
+  personId: Id;
+  kind: string; // e.g. 'welcome', 'invoice_received', 'restriction_imposed'
+  dedupKey: string;
+  toEmail: string;
+  subject: string;
+  body: string;
+  createdAt: string;
+  sentAt?: string;
+  attempts: number;
+  lastError?: string;
+}
+
 export interface StatementLine {
   seq: number;
   transactionId: Id;

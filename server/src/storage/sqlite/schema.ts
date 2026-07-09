@@ -211,6 +211,24 @@ CREATE TABLE api_tokens (
   created_at        TEXT NOT NULL
 );
 
+-- Outbound email log (data-model §6): dedup_key makes enqueueing idempotent
+-- so sweeps never double-send. person_id is deliberately loose (no FK), like
+-- accounts.member_id, so tests and tooling can use synthetic person ids.
+CREATE TABLE email_events (
+  id         TEXT PRIMARY KEY,
+  group_id   TEXT NOT NULL REFERENCES groups(id),
+  person_id  TEXT NOT NULL,
+  kind       TEXT NOT NULL,
+  dedup_key  TEXT NOT NULL UNIQUE,
+  to_email   TEXT NOT NULL,
+  subject    TEXT NOT NULL,
+  body       TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  sent_at    TEXT,
+  attempts   INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT
+);
+
 CREATE INDEX idx_entries_transaction ON entries(transaction_id);
 CREATE INDEX idx_entries_account ON entries(account_id);
 CREATE INDEX idx_transactions_group_seq ON transactions(group_id, seq);
@@ -221,4 +239,7 @@ CREATE INDEX idx_sessions_user ON sessions(user_id);
 CREATE INDEX idx_restrictions_member ON restrictions(member_id);
 CREATE INDEX idx_listings_group_status ON listings(group_id, status);
 CREATE INDEX idx_api_tokens_member ON api_tokens(member_id);
+-- Partial index matching the pending-delivery query exactly.
+CREATE INDEX idx_email_events_pending ON email_events(created_at)
+  WHERE sent_at IS NULL AND attempts < 3;
 `;

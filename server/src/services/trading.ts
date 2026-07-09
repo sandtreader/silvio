@@ -4,6 +4,7 @@
 import type { Actor, Storage } from '../storage/interface.js';
 import type { Account, Channel, Id, Member, NewTransaction, Transaction } from '../types.js';
 import { DomainError } from './errors.js';
+import { notifyTrade } from './notifications.js';
 
 const PAYMENT_AUTO_ACCEPT_DAYS = 14;
 const INVOICE_EXPIRY_DAYS = 30;
@@ -205,7 +206,10 @@ export async function sendPayment(storage: Storage, input: SendPaymentInput): Pr
   if (input.description !== undefined) tx.description = input.description;
   if (input.apiTokenId !== undefined) tx.apiTokenId = input.apiTokenId;
   if (hold) tx.expiresAt = input.expiresAt ?? daysFromNow(PAYMENT_AUTO_ACCEPT_DAYS);
-  return storage.post(tx);
+  const posted = await storage.post(tx);
+  // Tell the payee (#5): a hold awaits their confirmation, a commit landed.
+  await notifyTrade(storage, posted, hold ? 'payment_held' : 'payment_received');
+  return posted;
 }
 
 /**
@@ -241,7 +245,9 @@ export async function requestPayment(
   };
   if (input.description !== undefined) tx.description = input.description;
   if (input.apiTokenId !== undefined) tx.apiTokenId = input.apiTokenId;
-  return storage.post(tx);
+  const posted = await storage.post(tx);
+  await notifyTrade(storage, posted, 'invoice_received');
+  return posted;
 }
 
 /** The responding party: the payee of a held payment, the payer of an invoice. */
@@ -264,7 +270,9 @@ export async function accept(storage: Storage, txId: Id, actorMemberId: Id): Pro
     );
   }
   await authoriseCommit(storage, legs.tx.groupId, legs.payerAccount, legs.payeeAccount, legs.amount);
-  return storage.transition(txId, 'committed', { personId: actorMemberId });
+  const committed = await storage.transition(txId, 'committed', { personId: actorMemberId });
+  await notifyTrade(storage, committed, 'payment_accepted'); // to the initiator
+  return committed;
 }
 
 /** Decline a pending transaction — same role rules as accept. */
@@ -278,7 +286,9 @@ export async function decline(storage: Storage, txId: Id, actorMemberId: Id): Pr
         : 'only the payee may decline a held payment',
     );
   }
-  return storage.transition(txId, 'declined', { personId: actorMemberId });
+  const declined = await storage.transition(txId, 'declined', { personId: actorMemberId });
+  await notifyTrade(storage, declined, 'payment_declined'); // to the initiator
+  return declined;
 }
 
 /** Only the initiator may cancel: the payer of a payment, the payee of an invoice. */
@@ -343,7 +353,10 @@ export async function sweepDue(storage: Storage, groupId: Id, asOf: string): Pro
           legs.payeeAccount,
           legs.amount,
         );
-        await storage.transition(tx.id, 'committed', systemActor());
+        const committed = await storage.transition(tx.id, 'committed', systemActor());
+        // Both parties learn of the auto-accept; dedup keys make the
+        // repeated sweep re-notification a no-op (#5).
+        await notifyTrade(storage, committed, 'payment_auto_accepted', asOf);
         autoAccepted += 1;
         continue;
       } catch (err) {
@@ -351,7 +364,10 @@ export async function sweepDue(storage: Storage, groupId: Id, asOf: string): Pro
         // Denied at commit: the hold lapses instead of committing.
       }
     }
-    await storage.transition(tx.id, 'expired', systemActor());
+    const lapsed = await storage.transition(tx.id, 'expired', systemActor());
+    if (lapsed.flow === 'invoice') {
+      await notifyTrade(storage, lapsed, 'invoice_expired', asOf); // to the initiator
+    }
     expired += 1;
   }
   return { autoAccepted, expired };

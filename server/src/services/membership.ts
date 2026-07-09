@@ -5,6 +5,7 @@
 import type { Storage } from '../storage/interface.js';
 import type { Id, Member, MemberStatus, MemberType, Person } from '../types.js';
 import { DomainError } from './errors.js';
+import { notifyWelcome } from './notifications.js';
 
 export interface ApplyInput {
   groupId: Id;
@@ -66,6 +67,7 @@ export async function approve(storage: Storage, memberId: Id): Promise<Member> {
   for (const currency of await storage.listCurrencies(member.groupId)) {
     await storage.ensureMemberAccount(memberId, currency.id);
   }
+  await notifyWelcome(storage, member);
   return member;
 }
 

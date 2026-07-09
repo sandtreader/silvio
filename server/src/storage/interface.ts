@@ -18,6 +18,7 @@ import type {
   Currency,
   DemurrageBand,
   DemurrageRun,
+  EmailEvent,
   Group,
   Id,
   Listing,
@@ -60,6 +61,18 @@ export interface CreateAccountInput {
 
 export interface Actor {
   personId: Id; // or 'system'
+}
+
+/** Outbound email to enqueue (data-model §6). */
+export interface EnqueueEmailInput {
+  groupId: Id;
+  personId: Id;
+  kind: string;
+  dedupKey: string;
+  toEmail: string;
+  subject: string;
+  body: string;
+  createdAt: string;
 }
 
 /** Admin transaction search (todo: API polish). All fields optional; AND-composed. */
@@ -239,6 +252,16 @@ export interface Storage extends Ledger {
     groupId: Id,
     filter?: TransactionFilter,
   ): Promise<{ transactions: Transaction[]; total: number }>;
+
+  // Outbound email log (data-model §6). Composition is the notification
+  // service's job; storage only queues, lists and stamps events.
+  /** Insert an email event; a duplicate dedupKey is a silent no-op returning undefined. */
+  enqueueEmail(input: EnqueueEmailInput): Promise<EmailEvent | undefined>;
+  /** Unsent events with fewer than 3 attempts, oldest first, up to limit. */
+  pendingEmails(limit: number): Promise<EmailEvent[]>;
+  markEmailSent(id: Id, sentAt: string): Promise<void>;
+  /** Count a failed attempt; after 3 the event is no longer offered for delivery. */
+  markEmailFailed(id: Id, error: string): Promise<void>;
 
   /** Pending transactions with expiresAt <= asOf (decision #5 sweeps). */
   pendingDue(groupId: Id, asOf: string): Promise<Transaction[]>;

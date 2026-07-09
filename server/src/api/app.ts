@@ -50,6 +50,10 @@ import {
 import { authenticateApiToken, checkTokenCaps, issueApiToken } from '../services/tokens.js';
 import { OK_RESPONSE, sharedSchemas } from './schemas.js';
 import { evaluateFlags } from '../services/creditcontrol.js';
+import {
+  notifyRestrictionImposed,
+  notifyRestrictionLifted,
+} from '../services/notifications.js';
 import { browse, postListing } from '../services/marketplace.js';
 import { LoginThrottle } from '../services/ratelimit.js';
 import { buildMcpServer, type RestClient } from '../mcp/server.js';
@@ -194,7 +198,10 @@ export async function buildApp(
         .send(errorBody('NOT_AUTHORISED', 'request origin is not acceptable'));
     }
     const host = request.headers.host ?? '';
-    if (originHost.toLowerCase() !== host.toLowerCase()) {
+    // Default ports are equivalent to none (and scheme is ignored, so both
+    // 80 and 443 count): 'localhost' and 'localhost:80' are the same host.
+    const normalise = (value: string): string => value.toLowerCase().replace(/:(80|443)$/, '');
+    if (normalise(originHost) !== normalise(host)) {
       return reply
         .status(403)
         .send(errorBody('NOT_AUTHORISED', 'request origin does not match this host'));
@@ -1303,6 +1310,7 @@ export async function buildApp(
             body.reason,
             request.auth!.member.id,
           );
+          await notifyRestrictionImposed(storage, restriction);
           reply.status(201);
           return { restriction };
         },
@@ -1324,6 +1332,7 @@ export async function buildApp(
         async (request) => {
           const { memberId } = request.params as { memberId: string };
           await storage.liftRestriction(memberId, request.auth!.member.id);
+          await notifyRestrictionLifted(storage, memberId);
           return { ok: true };
         },
       );

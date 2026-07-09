@@ -9,6 +9,7 @@ import type {
   CreateAccountInput,
   CreateCurrencyInput,
   CreateGroupInput,
+  EnqueueEmailInput,
   Storage,
   TransactionFilter,
 } from '../interface.js';
@@ -24,6 +25,7 @@ import type {
   Currency,
   DemurrageBand,
   DemurrageRun,
+  EmailEvent,
   Entry,
   Group,
   Id,
@@ -123,6 +125,21 @@ interface PersonRow {
   is_primary: number;
   name: string;
   email: string | null;
+}
+
+interface EmailEventRow {
+  id: string;
+  group_id: string;
+  person_id: string;
+  kind: string;
+  dedup_key: string;
+  to_email: string;
+  subject: string;
+  body: string;
+  created_at: string;
+  sent_at: string | null;
+  attempts: number;
+  last_error: string | null;
 }
 
 interface CurrencyRow {
@@ -1309,6 +1326,88 @@ export class SqliteStorage implements Storage {
       )
       .get(tokenId, sinceIso, tokenId) as { spent: number };
     return Promise.resolve(row.spent);
+  }
+
+  enqueueEmail(input: EnqueueEmailInput): Promise<EmailEvent | undefined> {
+    try {
+      const id = uuidv7();
+      // OR IGNORE: a duplicate dedup_key means this event was already
+      // enqueued (a sweep re-notifying) — a silent no-op by design.
+      const result = this.db
+        .prepare(
+          `INSERT OR IGNORE INTO email_events (
+             id, group_id, person_id, kind, dedup_key, to_email, subject, body,
+             created_at, attempts
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+        )
+        .run(
+          id,
+          input.groupId,
+          input.personId,
+          input.kind,
+          input.dedupKey,
+          input.toEmail,
+          input.subject,
+          input.body,
+          input.createdAt,
+        );
+      if (result.changes === 0) return Promise.resolve(undefined);
+      return Promise.resolve({
+        id,
+        groupId: input.groupId,
+        personId: input.personId,
+        kind: input.kind,
+        dedupKey: input.dedupKey,
+        toEmail: input.toEmail,
+        subject: input.subject,
+        body: input.body,
+        createdAt: input.createdAt,
+        attempts: 0,
+      });
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  pendingEmails(limit: number): Promise<EmailEvent[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM email_events
+         WHERE sent_at IS NULL AND attempts < 3
+         ORDER BY created_at, id LIMIT ?`,
+      )
+      .all(limit) as EmailEventRow[];
+    return Promise.resolve(rows.map((row) => this.emailEventFromRow(row)));
+  }
+
+  markEmailSent(id: Id, sentAt: string): Promise<void> {
+    this.db.prepare('UPDATE email_events SET sent_at = ? WHERE id = ?').run(sentAt, id);
+    return Promise.resolve();
+  }
+
+  markEmailFailed(id: Id, error: string): Promise<void> {
+    this.db
+      .prepare('UPDATE email_events SET attempts = attempts + 1, last_error = ? WHERE id = ?')
+      .run(error, id);
+    return Promise.resolve();
+  }
+
+  private emailEventFromRow(row: EmailEventRow): EmailEvent {
+    const event: EmailEvent = {
+      id: row.id,
+      groupId: row.group_id,
+      personId: row.person_id,
+      kind: row.kind,
+      dedupKey: row.dedup_key,
+      toEmail: row.to_email,
+      subject: row.subject,
+      body: row.body,
+      createdAt: row.created_at,
+      attempts: row.attempts,
+    };
+    if (row.sent_at !== null) event.sentAt = row.sent_at;
+    if (row.last_error !== null) event.lastError = row.last_error;
+    return event;
   }
 
   pendingDue(groupId: Id, asOf: string): Promise<Transaction[]> {

@@ -9,6 +9,7 @@ import { SqliteStorage } from './storage/sqlite/index.js';
 import { buildApp, type BuildAppOptions } from './api/app.js';
 import { bootstrapOperator } from './services/bootstrap.js';
 import { startScheduler } from './services/scheduler.js';
+import { createSmtpMailer, startEmailDelivery } from './services/email.js';
 import { promptOperatorCredentials } from './prompt.js';
 
 const dbPath = process.env['SILVIO_DB'] ?? 'silvio.sqlite';
@@ -52,9 +53,21 @@ if (adminDist !== undefined) ui.adminDist = adminDist;
 const app = await buildApp(storage, { ui });
 const stopScheduler = startScheduler(storage);
 
+// Outbound email: with SMTP configured emails are delivered in the
+// background; without it they queue in email_events until it is.
+const smtpUrl = process.env['SILVIO_SMTP_URL'];
+const emailFrom = process.env['SILVIO_EMAIL_FROM'];
+let stopEmailDelivery = (): void => {};
+if (smtpUrl !== undefined && emailFrom !== undefined) {
+  stopEmailDelivery = startEmailDelivery(storage, createSmtpMailer(smtpUrl, emailFrom));
+} else {
+  console.log('SILVIO_SMTP_URL/SILVIO_EMAIL_FROM not set — emails queue but are not sent');
+}
+
 async function shutdown(signal: string): Promise<void> {
   console.log(`${signal} received, shutting down`);
   stopScheduler();
+  stopEmailDelivery();
   await app.close();
   storage.close();
   process.exit(0);

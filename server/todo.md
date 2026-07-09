@@ -52,9 +52,12 @@ Remaining server-side work, grouped by area. References are to
 
 ## Email & notifications
 
-- [ ] Outbound email infrastructure (SMTP config, `email_event` log, dedup)
-- [ ] Transactional: welcome/approval, invoice received, payment held/received,
-      accepted/declined, expiry warnings, restriction imposed/lifted
+- [x] Outbound email infrastructure (SMTP config via SILVIO_SMTP_URL/_EMAIL_FROM,
+      `email_events` queue + log, dedup keys, retry with 3-attempt cap,
+      background delivery loop)
+- [x] Transactional: welcome/approval, invoice received, payment held/received,
+      accepted/declined, auto-accept/invoice-expiry, restriction imposed/lifted
+      (no member notification preferences yet — everyone with an email gets them)
 - [ ] Offers & wants digest per member frequency (weekly/monthly/never) —
       scheduler job; `member.digestFrequency` exists but is unused
 - [ ] Admin broadcast (email all members)

@@ -737,4 +737,79 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
       expect(await f.storage.tokenSpend(token.id, '2100-01-01T00:00:00.000Z')).toBe(0);
     });
   });
+
+  describe('email events (outbound log, data-model §6)', () => {
+    function draft(overrides: Record<string, string> = {}) {
+      return {
+        groupId: f.group.id,
+        personId: 'person-alice',
+        kind: 'welcome',
+        dedupKey: 'welcome:member-alice:person-alice',
+        toEmail: 'alice@example.com',
+        subject: 'Welcome to Test LETS',
+        body: 'Hello Alice',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        ...overrides,
+      };
+    }
+
+    it('enqueues an email and returns the stored event', async () => {
+      const event = await f.storage.enqueueEmail(draft());
+      expect(event).toBeDefined();
+      expect(event!.id).toBeTruthy();
+      expect(event!.groupId).toBe(f.group.id);
+      expect(event!.personId).toBe('person-alice');
+      expect(event!.kind).toBe('welcome');
+      expect(event!.dedupKey).toBe('welcome:member-alice:person-alice');
+      expect(event!.toEmail).toBe('alice@example.com');
+      expect(event!.subject).toBe('Welcome to Test LETS');
+      expect(event!.body).toBe('Hello Alice');
+      expect(event!.createdAt).toBe('2026-01-01T00:00:00.000Z');
+      expect(event!.sentAt).toBeUndefined();
+      expect(event!.attempts).toBe(0);
+    });
+
+    it('a duplicate dedup key is a silent no-op returning undefined', async () => {
+      await f.storage.enqueueEmail(draft());
+      const dup = await f.storage.enqueueEmail(draft({ subject: 'Different subject' }));
+      expect(dup).toBeUndefined();
+      const pending = await f.storage.pendingEmails(10);
+      expect(pending).toHaveLength(1);
+      expect(pending[0]!.subject).toBe('Welcome to Test LETS');
+    });
+
+    it('pendingEmails returns unsent emails oldest first, up to the limit', async () => {
+      await f.storage.enqueueEmail(
+        draft({ dedupKey: 'k2', createdAt: '2026-01-02T00:00:00.000Z' }),
+      );
+      await f.storage.enqueueEmail(
+        draft({ dedupKey: 'k1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      );
+      await f.storage.enqueueEmail(
+        draft({ dedupKey: 'k3', createdAt: '2026-01-03T00:00:00.000Z' }),
+      );
+      const pending = await f.storage.pendingEmails(2);
+      expect(pending.map((e) => e.dedupKey)).toEqual(['k1', 'k2']);
+    });
+
+    it('markEmailSent stamps sentAt and removes it from pending', async () => {
+      const event = await f.storage.enqueueEmail(draft());
+      await f.storage.markEmailSent(event!.id, '2026-01-01T00:05:00.000Z');
+      expect(await f.storage.pendingEmails(10)).toEqual([]);
+    });
+
+    it('markEmailFailed records the error and keeps it pending until 3 attempts', async () => {
+      const event = await f.storage.enqueueEmail(draft());
+      await f.storage.markEmailFailed(event!.id, 'connection refused');
+      let pending = await f.storage.pendingEmails(10);
+      expect(pending).toHaveLength(1);
+      expect(pending[0]!.attempts).toBe(1);
+      expect(pending[0]!.lastError).toBe('connection refused');
+
+      await f.storage.markEmailFailed(event!.id, 'connection refused');
+      await f.storage.markEmailFailed(event!.id, 'still down');
+      // Three failed attempts: given up, no longer offered for delivery.
+      expect(await f.storage.pendingEmails(10)).toEqual([]);
+    });
+  });
 }
