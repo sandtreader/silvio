@@ -18,6 +18,9 @@ import type {
   Member,
   MemberRole,
   MemberStatus,
+  NewsItem,
+  Page,
+  PageVisibility,
   PendingItem,
   Policy,
   Restriction,
@@ -96,6 +99,21 @@ export interface TransactionFilter {
   state?: TxState;
   limit?: number;
   offset?: number;
+}
+
+export interface PageInput {
+  slug: string;
+  title: string;
+  body: string; // markdown source (decision #13)
+  visibility: PageVisibility;
+  position?: number;
+}
+
+export interface NewsInput {
+  title: string;
+  body: string; // markdown source (decision #13)
+  publishedAt?: string; // server defaults to now when omitted
+  expiresAt?: string;
 }
 
 export interface CreateGroupInput {
@@ -337,6 +355,43 @@ export class ApiClient {
     patch: { name?: string; parentId?: string },
   ): Promise<{ category: Category }> {
     return this.tenant('PATCH', `/admin/categories/${encodeURIComponent(id)}`, patch);
+  }
+
+  // --- CMS content (decision #13) --------------------------------------------
+
+  adminPages(): Promise<{ pages: Page[] }> {
+    return this.tenant('GET', '/admin/pages');
+  }
+
+  adminCreatePage(input: PageInput): Promise<{ page: Page }> {
+    return this.tenant('POST', '/admin/pages', input);
+  }
+
+  adminUpdatePage(id: string, patch: Partial<PageInput>): Promise<{ page: Page }> {
+    return this.tenant('PATCH', `/admin/pages/${encodeURIComponent(id)}`, patch);
+  }
+
+  adminDeletePage(id: string): Promise<{ ok: boolean }> {
+    return this.tenant('DELETE', `/admin/pages/${encodeURIComponent(id)}`);
+  }
+
+  adminNews(): Promise<{ news: NewsItem[] }> {
+    return this.tenant('GET', '/admin/news');
+  }
+
+  adminCreateNews(input: NewsInput): Promise<{ newsItem: NewsItem }> {
+    return this.tenant('POST', '/admin/news', input);
+  }
+
+  adminUpdateNews(
+    id: string,
+    patch: Partial<NewsInput>,
+  ): Promise<{ newsItem: NewsItem }> {
+    return this.tenant('PATCH', `/admin/news/${encodeURIComponent(id)}`, patch);
+  }
+
+  adminDeleteNews(id: string): Promise<{ ok: boolean }> {
+    return this.tenant('DELETE', `/admin/news/${encodeURIComponent(id)}`);
   }
 
   // --- Operator (platform level, outside any tenant) -------------------------

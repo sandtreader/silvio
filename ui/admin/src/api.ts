@@ -16,6 +16,10 @@ import {
   type MemberAction,
   type MemberRole,
   type MemberStatus,
+  type NewsInput,
+  type NewsItem,
+  type Page,
+  type PageInput,
   type Policy,
   type PolicyInput,
   type Restriction,
@@ -93,6 +97,17 @@ export interface AdminApi {
     id: string,
     patch: { name?: string; parentId?: string },
   ): Promise<Category | undefined>;
+  adminPages(): Promise<Page[] | undefined>;
+  adminCreatePage(input: PageInput): Promise<Page | undefined>;
+  adminUpdatePage(id: string, patch: Partial<PageInput>): Promise<Page | undefined>;
+  adminDeletePage(id: string): Promise<boolean>;
+  adminNews(): Promise<NewsItem[] | undefined>;
+  adminCreateNews(input: NewsInput): Promise<NewsItem | undefined>;
+  adminUpdateNews(
+    id: string,
+    patch: Partial<NewsInput>,
+  ): Promise<NewsItem | undefined>;
+  adminDeleteNews(id: string): Promise<boolean>;
 }
 
 /** The real implementation over the shared ApiClient. */
@@ -126,4 +141,15 @@ export const api: AdminApi = {
     (await call(client.adminCreateCategory(input)))?.category,
   adminUpdateCategory: async (id, patch) =>
     (await call(client.adminUpdateCategory(id, patch)))?.category,
+  adminPages: async () => (await call(client.adminPages()))?.pages,
+  adminCreatePage: async (input) => (await call(client.adminCreatePage(input)))?.page,
+  adminUpdatePage: async (id, patch) =>
+    (await call(client.adminUpdatePage(id, patch)))?.page,
+  adminDeletePage: async (id) => (await call(client.adminDeletePage(id)))?.ok ?? false,
+  adminNews: async () => (await call(client.adminNews()))?.news,
+  adminCreateNews: async (input) =>
+    (await call(client.adminCreateNews(input)))?.newsItem,
+  adminUpdateNews: async (id, patch) =>
+    (await call(client.adminUpdateNews(id, patch)))?.newsItem,
+  adminDeleteNews: async (id) => (await call(client.adminDeleteNews(id)))?.ok ?? false,
 };

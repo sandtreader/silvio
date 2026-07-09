@@ -7,6 +7,8 @@ import { MenuStructure, StaticMenuProvider } from '@sandtreader/rafiki';
 import { ApprovalQueuePage } from './pages/ApprovalQueuePage';
 import { CategoriesPage } from './pages/CategoriesPage';
 import { MembersPage } from './pages/MembersPage';
+import { NewsPage } from './pages/NewsPage';
+import { PagesPage } from './pages/PagesPage';
 import { PoliciesPage } from './pages/PoliciesPage';
 import { DemurragePage } from './pages/DemurragePage';
 import { FlagsPage } from './pages/FlagsPage';
@@ -69,6 +71,21 @@ const pages: PageDefinition[] = [
     icon: 'category',
     content: <CategoriesPage />,
     requirements: ['admin.*'],
+  },
+  // CMS content (decision #13)
+  {
+    id: 'pages',
+    name: 'Pages',
+    icon: 'article',
+    content: <PagesPage />,
+    requirements: ['admin.content'],
+  },
+  {
+    id: 'news',
+    name: 'News',
+    icon: 'campaign',
+    content: <NewsPage />,
+    requirements: ['admin.content'],
   },
 ];
 

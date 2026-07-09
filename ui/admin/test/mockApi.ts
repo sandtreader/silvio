@@ -2,7 +2,14 @@
 // resolving undefined ("call failed") unless a test overrides it.
 
 import { vi } from 'vitest';
-import type { Currency, Me, Member, Restriction } from '@silvio/ui-shared';
+import type {
+  Currency,
+  Me,
+  Member,
+  NewsItem,
+  Page,
+  Restriction,
+} from '@silvio/ui-shared';
 import type { AdminApi } from '../src/api';
 
 export function makeMember(overrides: Partial<Member> = {}): Member {
@@ -52,6 +59,34 @@ export function makeCurrency(overrides: Partial<Currency> = {}): Currency {
   };
 }
 
+export function makePage(overrides: Partial<Page> = {}): Page {
+  return {
+    id: 'p-1',
+    groupId: 'g-1',
+    slug: 'about',
+    title: 'About us',
+    body: 'We are a *local* exchange.',
+    visibility: 'public',
+    position: 0,
+    createdAt: '2026-07-01T12:00:00Z',
+    updatedAt: '2026-07-01T12:00:00Z',
+    ...overrides,
+  };
+}
+
+export function makeNewsItem(overrides: Partial<NewsItem> = {}): NewsItem {
+  return {
+    id: 'n-1',
+    groupId: 'g-1',
+    title: 'Summer market day',
+    body: 'Bring your *best* produce.',
+    publishedAt: '2026-07-05T09:00:00Z',
+    createdAt: '2026-07-05T09:00:00Z',
+    updatedAt: '2026-07-05T09:00:00Z',
+    ...overrides,
+  };
+}
+
 export type MockAdminApi = { [K in keyof AdminApi]: ReturnType<typeof vi.fn> };
 
 export function makeMockApi(): MockAdminApi {
@@ -75,5 +110,13 @@ export function makeMockApi(): MockAdminApi {
     currencies: vi.fn().mockResolvedValue([makeCurrency()]),
     adminCreateCategory: vi.fn().mockResolvedValue(undefined),
     adminUpdateCategory: vi.fn().mockResolvedValue(undefined),
+    adminPages: vi.fn().mockResolvedValue([]),
+    adminCreatePage: vi.fn().mockResolvedValue(undefined),
+    adminUpdatePage: vi.fn().mockResolvedValue(undefined),
+    adminDeletePage: vi.fn().mockResolvedValue(true),
+    adminNews: vi.fn().mockResolvedValue([]),
+    adminCreateNews: vi.fn().mockResolvedValue(undefined),
+    adminUpdateNews: vi.fn().mockResolvedValue(undefined),
+    adminDeleteNews: vi.fn().mockResolvedValue(true),
   };
 }

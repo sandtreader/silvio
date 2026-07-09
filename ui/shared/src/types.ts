@@ -38,6 +38,15 @@ export type Listing = Schemas['Listing'];
 
 export type ApiToken = Schemas['ApiToken'];
 
+// --- CMS content (decision #13) -----------------------------------------------
+
+/** CMS page: body is markdown source, rendered server-side on the brochure. */
+export type Page = Schemas['Page'];
+export type PageVisibility = Page['visibility'];
+
+/** CMS news item: body is markdown source, like Page. */
+export type NewsItem = Schemas['NewsItem'];
+
 // --- Credit control (decision #3) -------------------------------------------
 
 export type Policy = Schemas['CreditPolicy'];
