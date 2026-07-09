@@ -48,6 +48,7 @@ import {
   sendPayment,
 } from '../services/trading.js';
 import { authenticateApiToken, checkTokenCaps, issueApiToken } from '../services/tokens.js';
+import { OK_RESPONSE, sharedSchemas } from './schemas.js';
 import { evaluateFlags } from '../services/creditcontrol.js';
 import { browse, postListing } from '../services/marketplace.js';
 import { LoginThrottle } from '../services/ratelimit.js';
@@ -99,8 +100,36 @@ const ID_PARAM_SCHEMA = {
   properties: { id: { type: 'string' } },
 } as const;
 
+// Response-schema plumbing (todo: API polish): success shapes reference the
+// shared schemas in schemas.ts; every route also documents the one error
+// shape under '4XX' so clients see it in the OpenAPI document. The '4XX'
+// serializer doubles as a guarantee that error bodies stay { error: { code,
+// message } } and nothing else.
+const ERROR_REF = { $ref: 'ErrorResponse#' } as const;
+
+function ref(name: string): { $ref: string } {
+  return { $ref: `${name}#` };
+}
+
+function arrayOf(name: string): object {
+  return { type: 'array', items: ref(name) };
+}
+
+/** An object response body; all listed properties required unless overridden. */
+function body(
+  properties: Record<string, unknown>,
+  required: string[] = Object.keys(properties),
+): object {
+  return { type: 'object', additionalProperties: false, required, properties };
+}
+
+/** The `response` section for a route: one success status + shared errors. */
+function respond(status: number, schema: object): Record<string, object> {
+  return { [status]: schema, '4XX': ERROR_REF };
+}
+
 /** Directory projection: public profile fields only (no private settings). */
-interface PublicMember {
+export interface PublicMember {
   id: string;
   memberNo: number;
   displayName: string;
@@ -119,7 +148,7 @@ function publicMember(member: Member): PublicMember {
 }
 
 /** A pending transaction from one member's point of view (decision #5). */
-interface PendingItem {
+export interface PendingItem {
   id: string;
   type: TxType;
   flow?: TxFlow;
@@ -221,7 +250,17 @@ export async function buildApp(
   await app.register(cookie);
   await app.register(swagger, {
     openapi: { info: { title: 'Silvio', version: '0.1' } },
+    // Name components after each schema's $id instead of the def-N default,
+    // so the document exposes #/components/schemas/Member etc.
+    refResolver: {
+      buildLocalReference: (json, _baseUri, _fragment, i) =>
+        typeof json.$id === 'string' ? json.$id : `def-${i}`,
+    },
   });
+
+  // Shared response schemas, registered once at app level: the tenancy
+  // plugin below is registered twice, and a duplicate $id would throw.
+  for (const schema of sharedSchemas) app.addSchema(schema);
 
   // Same-origin UI serving (decision #11): static files + SPA fallback per
   // app; /api/* is never swallowed by the fallback.
@@ -380,6 +419,7 @@ export async function buildApp(
                 password: { type: 'string' },
               },
             },
+            response: respond(200, OK_RESPONSE),
           },
         },
         async (request, reply) => {
@@ -400,16 +440,32 @@ export async function buildApp(
         },
       );
 
-      scope.post('/auth/logout', async (request, reply) => {
-        const token = request.cookies[SESSION_COOKIE];
-        if (token !== undefined) await logout(storage, token);
-        reply.clearCookie(SESSION_COOKIE, { path: '/' });
-        return { ok: true };
-      });
+      scope.post(
+        '/auth/logout',
+        { schema: { response: respond(200, OK_RESPONSE) } },
+        async (request, reply) => {
+          const token = request.cookies[SESSION_COOKIE];
+          if (token !== undefined) await logout(storage, token);
+          reply.clearCookie(SESSION_COOKIE, { path: '/' });
+          return { ok: true };
+        },
+      );
 
       // account:read (decision #9): a token may see its member's own state.
       const accountRead: ApiScope[] = ['account:read'];
-      scope.get('/me', { preHandler: requireMember, config: { scopes: accountRead } }, async (request) => {
+      scope.get(
+        '/me',
+        {
+          preHandler: requireMember,
+          config: { scopes: accountRead },
+          schema: {
+            response: respond(
+              200,
+              body({ member: ref('Member'), accounts: arrayOf('AccountBalance') }),
+            ),
+          },
+        },
+        async (request) => {
         const member = request.auth!.member;
         const currencies = new Map(
           (await storage.listCurrencies(request.group!.id)).map((currency) => [
@@ -443,6 +499,7 @@ export async function buildApp(
                 displayName: { type: 'string' },
               },
             },
+            response: respond(200, body({ member: ref('Member') })),
           },
         },
         async (request) => {
@@ -466,6 +523,7 @@ export async function buildApp(
               required: ['currencyId'],
               properties: { currencyId: { type: 'string' } },
             },
+            response: respond(200, body({ lines: arrayOf('StatementLine') })),
           },
         },
         async (request) => {
@@ -477,7 +535,19 @@ export async function buildApp(
         },
       );
 
-      scope.get('/me/pending', { preHandler: requireMember, config: { scopes: accountRead } }, async (request) => {
+      scope.get(
+        '/me/pending',
+        {
+          preHandler: requireMember,
+          config: { scopes: accountRead },
+          schema: {
+            response: respond(
+              200,
+              body({ pending: arrayOf('PendingItem'), items: arrayOf('PendingItem') }),
+            ),
+          },
+        },
+        async (request) => {
         const member = request.auth!.member;
         const pending: PendingItem[] = [];
         for (const tx of await storage.pendingForMember(member.id)) {
@@ -517,7 +587,11 @@ export async function buildApp(
       const directoryRead: ApiScope[] = ['directory:read'];
       scope.get(
         '/members',
-        { preHandler: requireMember, config: { scopes: directoryRead } },
+        {
+          preHandler: requireMember,
+          config: { scopes: directoryRead },
+          schema: { response: respond(200, body({ members: arrayOf('PublicMember') })) },
+        },
         async (request) => {
           const members = await storage.listMembers(request.group!.id, 'active');
           return { members: members.map(publicMember) };
@@ -529,7 +603,13 @@ export async function buildApp(
         {
           preHandler: requireMember,
           config: { scopes: directoryRead },
-          schema: { params: ID_PARAM_SCHEMA },
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            response: respond(
+              200,
+              body({ member: ref('PublicMember'), stats: ref('TradeStats') }),
+            ),
+          },
         },
         async (request) => {
           const { id } = request.params as { id: string };
@@ -555,6 +635,7 @@ export async function buildApp(
                 password: { type: 'string' },
               },
             },
+            response: respond(201, body({ member: ref('Member') })),
           },
         },
         async (request, reply) => {
@@ -597,6 +678,7 @@ export async function buildApp(
                 description: { type: 'string' },
               },
             },
+            response: respond(201, body({ transaction: ref('Transaction') })),
           },
         },
         async (request, reply) => {
@@ -669,6 +751,7 @@ export async function buildApp(
                 description: { type: 'string' },
               },
             },
+            response: respond(201, body({ transaction: ref('Transaction') })),
           },
         },
         async (request, reply) => {
@@ -703,7 +786,13 @@ export async function buildApp(
       for (const [action, service] of Object.entries(transitions)) {
         scope.post(
           `/transactions/:id/${action}`,
-          { preHandler: requireMember, schema: { params: ID_PARAM_SCHEMA } },
+          {
+            preHandler: requireMember,
+            schema: {
+              params: ID_PARAM_SCHEMA,
+              response: respond(200, body({ transaction: ref('Transaction') })),
+            },
+          },
           async (request) => {
             const { id } = request.params as { id: string };
             const transaction = await service(storage, id, request.auth!.member.id);
@@ -723,6 +812,7 @@ export async function buildApp(
                 categoryId: { type: 'string' },
               },
             },
+            response: respond(200, body({ listings: arrayOf('Listing') })),
           },
         },
         async (request) => {
@@ -754,6 +844,7 @@ export async function buildApp(
                 expiresAt: { type: 'string' },
               },
             },
+            response: respond(201, body({ listing: ref('Listing') })),
           },
         },
         async (request, reply) => {
@@ -783,9 +874,13 @@ export async function buildApp(
         },
       );
 
-      scope.get('/categories', async (request) => {
-        return { categories: await storage.listCategories(request.group!.id) };
-      });
+      scope.get(
+        '/categories',
+        { schema: { response: respond(200, body({ categories: arrayOf('Category') })) } },
+        async (request) => {
+          return { categories: await storage.listCategories(request.group!.id) };
+        },
+      );
 
       // --- MCP endpoint (decision #9) ---------------------------------------
       // A Streamable HTTP MCP server at {tenancy}/mcp whose tools are a thin
@@ -885,6 +980,10 @@ export async function buildApp(
                 expiresAt: { type: 'string' },
               },
             },
+            response: respond(
+              201,
+              body({ token: { type: 'string' }, apiToken: ref('ApiToken') }),
+            ),
           },
         },
         async (request, reply) => {
@@ -919,13 +1018,23 @@ export async function buildApp(
         },
       );
 
-      scope.get('/me/tokens', { preHandler: requireMember }, async (request) => {
-        return { tokens: await storage.listApiTokens(request.auth!.member.id) };
-      });
+      scope.get(
+        '/me/tokens',
+        {
+          preHandler: requireMember,
+          schema: { response: respond(200, body({ tokens: arrayOf('ApiToken') })) },
+        },
+        async (request) => {
+          return { tokens: await storage.listApiTokens(request.auth!.member.id) };
+        },
+      );
 
       scope.delete(
         '/me/tokens/:id',
-        { preHandler: requireMember, schema: { params: ID_PARAM_SCHEMA } },
+        {
+          preHandler: requireMember,
+          schema: { params: ID_PARAM_SCHEMA, response: respond(200, OK_RESPONSE) },
+        },
         async (request) => {
           const { id } = request.params as { id: string };
           // Ownership check doubles as existence check: 404 either way, so
@@ -964,6 +1073,7 @@ export async function buildApp(
                 },
               },
             },
+            response: respond(200, body({ members: arrayOf('Member') })),
           },
         },
         async (request) => {
@@ -978,7 +1088,13 @@ export async function buildApp(
       for (const [action, service] of Object.entries(memberActions)) {
         scope.post(
           `/admin/members/:id/${action}`,
-          { preHandler: [requireMember, requireAdmin], schema: { params: ID_PARAM_SCHEMA } },
+          {
+            preHandler: [requireMember, requireAdmin],
+            schema: {
+              params: ID_PARAM_SCHEMA,
+              response: respond(200, body({ member: ref('Member') })),
+            },
+          },
           async (request) => {
             const { id } = request.params as { id: string };
             await targetMember(request, id);
@@ -1002,6 +1118,7 @@ export async function buildApp(
                 role: { type: 'string', enum: ['member', 'committee', 'admin'] },
               },
             },
+            response: respond(200, body({ member: ref('Member') })),
           },
         },
         async (request) => {
@@ -1017,7 +1134,10 @@ export async function buildApp(
 
       scope.get(
         '/admin/policies',
-        { preHandler: [requireMember, requireAdmin] },
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: { response: respond(200, body({ policies: arrayOf('CreditPolicy') })) },
+        },
         async (request) => {
           return { policies: await storage.listCreditPolicies(request.group!.id) };
         },
@@ -1037,6 +1157,7 @@ export async function buildApp(
                 config: { type: 'object' },
               },
             },
+            response: respond(201, body({ policy: ref('CreditPolicy') })),
           },
         },
         async (request, reply) => {
@@ -1069,6 +1190,7 @@ export async function buildApp(
                 config: { type: 'object' },
               },
             },
+            response: respond(200, body({ policy: ref('CreditPolicy') })),
           },
         },
         async (request) => {
@@ -1089,7 +1211,13 @@ export async function buildApp(
 
       scope.get(
         '/admin/demurrage/:currencyId/bands',
-        { preHandler: [requireMember, requireAdmin], schema: { params: CURRENCY_PARAM_SCHEMA } },
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: CURRENCY_PARAM_SCHEMA,
+            response: respond(200, body({ bands: arrayOf('DemurrageBand') })),
+          },
+        },
         async (request) => {
           const { currencyId } = request.params as { currencyId: string };
           return { bands: await storage.demurrageBands(currencyId) };
@@ -1119,6 +1247,7 @@ export async function buildApp(
                 },
               },
             },
+            response: respond(200, body({ bands: arrayOf('DemurrageBand') })),
           },
         },
         async (request) => {
@@ -1142,6 +1271,7 @@ export async function buildApp(
                 reason: { type: 'string' },
               },
             },
+            response: respond(201, body({ restriction: ref('Restriction') })),
           },
         },
         async (request, reply) => {
@@ -1167,6 +1297,7 @@ export async function buildApp(
               required: ['memberId'],
               properties: { memberId: { type: 'string' } },
             },
+            response: respond(200, OK_RESPONSE),
           },
         },
         async (request) => {
@@ -1186,6 +1317,7 @@ export async function buildApp(
               required: ['currencyId'],
               properties: { currencyId: { type: 'string' } },
             },
+            response: respond(200, body({ flags: arrayOf('AccountFlag') })),
           },
         },
         async (request) => {
@@ -1196,7 +1328,13 @@ export async function buildApp(
 
       scope.post(
         '/admin/transactions/:id/reverse',
-        { preHandler: [requireMember, requireAdmin], schema: { params: ID_PARAM_SCHEMA } },
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            response: respond(201, body({ transaction: ref('Transaction') })),
+          },
+        },
         async (request, reply) => {
           const { id } = request.params as { id: string };
           const original = await storage.getTransaction(id);
@@ -1231,6 +1369,7 @@ export async function buildApp(
                 parentId: { type: 'string' },
               },
             },
+            response: respond(201, body({ category: ref('Category') })),
           },
         },
         async (request, reply) => {
@@ -1262,6 +1401,7 @@ export async function buildApp(
                 parentId: { type: 'string' },
               },
             },
+            response: respond(200, body({ category: ref('Category') })),
           },
         },
         async (request) => {
@@ -1329,6 +1469,7 @@ export async function buildApp(
             password: { type: 'string' },
           },
         },
+        response: respond(200, OK_RESPONSE),
       },
     },
     async (request, reply) => {
@@ -1386,6 +1527,13 @@ export async function buildApp(
             },
           },
         },
+        response: respond(
+          201,
+          body(
+            { group: ref('Group'), currency: ref('Currency'), admin: ref('Member') },
+            ['group', 'currency'], // admin only when an initial admin was provisioned
+          ),
+        ),
       },
     },
     async (request, reply) => {
@@ -1409,12 +1557,29 @@ export async function buildApp(
     },
   );
 
-  app.get('/api/v1/operator/groups', { preHandler: requireOperator }, async () => {
-    return { groups: await storage.listGroups() };
-  });
+  app.get(
+    '/api/v1/operator/groups',
+    {
+      preHandler: requireOperator,
+      schema: { response: respond(200, body({ groups: arrayOf('Group') })) },
+    },
+    async () => {
+      return { groups: await storage.listGroups() };
+    },
+  );
 
   // Served as an ordinary route so it reflects everything registered above.
-  app.get('/api/v1/openapi.json', async () => app.swagger());
+  // The response schema is deliberately permissive: a typed schema would make
+  // the serializer filter the OpenAPI document down to declared fields.
+  app.get(
+    '/api/v1/openapi.json',
+    {
+      schema: {
+        response: { 200: { type: 'object', additionalProperties: true } },
+      },
+    },
+    async () => app.swagger(),
+  );
 
   return app;
 }
