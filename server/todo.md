@@ -64,11 +64,15 @@ Remaining server-side work, grouped by area. References are to
 
 ## Content, brochure site & CMS-lite (#12, data-model §6, first-review)
 
-- [ ] `page` storage + API: slug, title, body, visibility (public | members |
-      admin), position; admin CRUD, visibility-tiered read (agreement,
-      constitution, help)
+- [ ] `page` storage + API: slug, title, body (markdown, #13), visibility
+      (public | members | admin), position; admin CRUD, visibility-tiered
+      read (agreement, constitution, help); brochure renders via markdown-it
+      (html:false, images off until the group image store exists)
 - [ ] `news_item` storage + API: admin CRUD, published/expires window,
-      member read
+      member read; markdown body (#13)
+- [ ] General group image store (#13): admin-uploaded blobs (size/count
+      limits) usable from CMS markdown; shares the blob posture with member/
+      listing photos and #12 branding
 - [x] Brochure site at `/` (#12): server-rendered placeholder (group name
       header, welcome copy, public market browse, session-aware log-in/open-app
       link) — pages/news rendering waits on the CMS tables above

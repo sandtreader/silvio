@@ -552,3 +552,38 @@ name, your logo).
   logged-out visitors (fresh public content wins); precache only the app
   bundle.
 - Admin app is untouched at `/admin/`.
+
+## 13. CMS content format — DECIDED 2026-07-09
+
+**Markdown in, HTML out, server-side, via markdown-it.** CMS bodies (`page`,
+`news_item`, data-model §6) are authored and stored as markdown source only —
+never HTML. We can't assume volunteer admins write valid HTML, and accepting
+HTML means sanitising it forever; markdown's genius is that plain paragraphs
+are already valid input.
+
+**Rendering**
+- `markdown-it` with defaults: `html: false` escapes any raw HTML in the
+  source (output can only contain markup generated from markdown constructs
+  — no sanitiser pass), and link destinations are validated (`javascript:`
+  blocked). One small dependency, safe unconfigured — fits the minimal-VPS
+  posture (#7).
+- Rendered at request time in the brochure (#12); source is canonical, edits
+  round-trip losslessly, renderer upgrades need no data migration. Caching
+  only if it ever measures slow (it won't at page sizes).
+- **Images disabled for now**: markdown image syntax is off until a general
+  group image store exists (blob storage, same posture as photos/branding
+  #12) to serve as the image source. External image URLs stay blocked even
+  then — broken/tracking third-party images on a public brochure are worse
+  than none.
+- **Deliberately small formatting surface** — no extensions, no embeds, no
+  footnotes. These are info pages and notices, not a blogging platform.
+
+**Editing**: admin UI textarea with live preview, running markdown-it in the
+browser with the same options as the server. If volunteers struggle, the
+upgrade path is a markdown-*emitting* editor — the stored format never
+changes to HTML.
+
+**Scope**: pages and news now; group-editable email templates later reuse the
+same pathway (renders to HTML for a future multipart email, degrades to
+readable plain text for today's). Listing descriptions stay plain text —
+listings should stay simple.
