@@ -1,5 +1,6 @@
 // Login: email + password -> POST /auth/login -> reload /me. Logged-out
-// visitors can still browse the market, or apply to join.
+// visitors can apply to join here; public browsing lives on the brochure
+// site at the group root (decision #12), not in the app.
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Link from '@mui/material/Link';
@@ -63,9 +64,6 @@ export function Login() {
       <Stack spacing={1} sx={{ mt: 3 }}>
         <Link component={RouterLink} to="/apply">
           Join this LETS
-        </Link>
-        <Link component={RouterLink} to="/market">
-          Browse the market
         </Link>
       </Stack>
     </Box>

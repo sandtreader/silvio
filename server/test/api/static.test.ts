@@ -1,5 +1,6 @@
-// Same-origin UI serving (decision #11): member app at /, admin at /admin/,
-// SPA fallback for client-side routes, API untouched at /api/v1.
+// Same-origin UI serving (decision #11, revised by #12): member app under
+// /app/, admin at /admin/, SPA fallback for client-side routes, API
+// untouched at /api/v1. The root belongs to the brochure (brochure.test.ts).
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -36,17 +37,17 @@ describe('static UI serving', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('serves the member app at / and its assets', async () => {
-    const index = await app.inject({ method: 'GET', url: '/' });
+  it('serves the member app at /app/ and its assets', async () => {
+    const index = await app.inject({ method: 'GET', url: '/app/' });
     expect(index.statusCode).toBe(200);
     expect(index.body).toContain('MEMBER-APP');
-    const asset = await app.inject({ method: 'GET', url: '/app.js' });
+    const asset = await app.inject({ method: 'GET', url: '/app/app.js' });
     expect(asset.statusCode).toBe(200);
     expect(asset.body).toBe('member-js');
   });
 
   it('SPA fallback: client-side member routes serve the member index', async () => {
-    for (const url of ['/market', '/activity', '/pay']) {
+    for (const url of ['/app/activity', '/app/pay']) {
       const res = await app.inject({ method: 'GET', url });
       expect(res.statusCode).toBe(200);
       expect(res.body).toContain('MEMBER-APP');

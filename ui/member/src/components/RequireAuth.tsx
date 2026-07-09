@@ -1,5 +1,6 @@
 // Route guard: spinner while the initial /me is in flight, redirect to
-// /login when logged out. Market is deliberately not guarded (public browse).
+// /login when logged out. Every tab is guarded (decision #12: the app is
+// logged-in-only; public browsing lives on the brochure site).
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import type { ReactNode } from 'react';

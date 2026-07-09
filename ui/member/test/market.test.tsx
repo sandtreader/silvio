@@ -1,18 +1,14 @@
-// Market page: public browse renders listing cards even when logged out.
+// Market page: authenticated browse (decision #12 — public browse moved to
+// the brochure site) renders listing cards with the post-listing FAB.
 import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Market } from '../src/pages/Market';
-import { notAuthorised, renderWithClient } from './helpers';
+import { renderWithClient, testMe } from './helpers';
 
 describe('Market', () => {
-  it('renders listings from browse() while logged out', async () => {
+  it('renders listings from browse() with the post-listing FAB', async () => {
     const client = {
-      me: vi.fn().mockRejectedValue(notAuthorised()),
-      currencies: vi.fn().mockResolvedValue({
-        currencies: [
-          { id: 'c1', groupId: 'g1', code: 'CAM', name: 'Cams', scale: 2, createdAt: '2026-01-01T00:00:00Z' },
-        ],
-      }),
+      me: vi.fn().mockResolvedValue(testMe),
       browse: vi.fn().mockResolvedValue({
         listings: [
           {
@@ -44,6 +40,7 @@ describe('Market', () => {
           },
         ],
       }),
+      categories: vi.fn().mockResolvedValue({ categories: [] }),
     };
     renderWithClient(<Market />, client);
 
@@ -53,23 +50,24 @@ describe('Market', () => {
     expect(screen.getByText('Want')).toBeTruthy();
     expect(screen.getByText('5.00')).toBeTruthy(); // priceAmount at scale 2
     expect(screen.getByText('negotiable')).toBeTruthy(); // rateText fallback
-    // Logged out: no post-listing FAB
-    expect(screen.queryByLabelText('post listing')).toBeNull();
+    // The app is logged-in-only: the FAB is always present
+    expect(screen.getByLabelText('post listing')).toBeTruthy();
   });
 });
 
-// Public browse must format prices at the currency's real scale from
-// GET /currencies — not the logged-in viewer's accounts (there is no
-// viewer), and not the fallback guess.
+// Prices must be formatted at the currency's real scale from the viewer's
+// /me account summaries (members hold an account per group currency) — not
+// the fallback guess.
 describe('Market price scale', () => {
-  it('uses the group currency scale when logged out', async () => {
+  it('uses the account scale for the listing currency', async () => {
+    const me = {
+      ...testMe,
+      accounts: [
+        { id: 'a1', currencyId: 'c1', currencyCode: 'HRS', scale: 0, balance: 3 },
+      ],
+    };
     const client = {
-      me: vi.fn().mockRejectedValue(notAuthorised()),
-      currencies: vi.fn().mockResolvedValue({
-        currencies: [
-          { id: 'c1', groupId: 'g1', code: 'HRS', name: 'Hours', scale: 0, createdAt: '2026-01-01T00:00:00Z' },
-        ],
-      }),
+      me: vi.fn().mockResolvedValue(me),
       browse: vi.fn().mockResolvedValue({
         listings: [
           {
@@ -88,6 +86,7 @@ describe('Market price scale', () => {
           },
         ],
       }),
+      categories: vi.fn().mockResolvedValue({ categories: [] }),
     };
     renderWithClient(<Market />, client);
 

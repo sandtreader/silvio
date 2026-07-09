@@ -12,6 +12,8 @@ import type {
   FastifyReply,
   FastifyRequest,
 } from 'fastify';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import cookie from '@fastify/cookie';
 import swagger from '@fastify/swagger';
 import fastifyStatic from '@fastify/static';
@@ -58,12 +60,17 @@ import { browse, postListing } from '../services/marketplace.js';
 import { LoginThrottle } from '../services/ratelimit.js';
 import { buildMcpServer, type RestClient } from '../mcp/server.js';
 import {
+  SESSION_COOKIE,
+  appShellFragment,
+  registerBrochureRoutes,
+  resolveGroupFromHost,
+  sessionMemberName,
+} from './brochure.js';
+import {
   StreamableHTTPServerTransport,
   type StreamableHTTPServerTransportOptions,
 } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-
-const SESSION_COOKIE = 'silvio_session';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -165,7 +172,7 @@ export interface PendingItem {
 
 export interface BuildAppOptions {
   ui?: {
-    memberDist?: string; // built member app, served at / (decision #11)
+    memberDist?: string; // built member app, served at /app/ (decision #12)
     adminDist?: string; // built admin app, served at /admin/
   };
 }
@@ -269,12 +276,40 @@ export async function buildApp(
   // plugin below is registered twice, and a duplicate $id would throw.
   for (const schema of sharedSchemas) app.addSchema(schema);
 
-  // Same-origin UI serving (decision #11): static files + SPA fallback per
-  // app; /api/* is never swallowed by the fallback.
+  // Same-origin UI serving, revised by decision #12: the brochure owns /,
+  // the member app's assets live under /app/, admin stays at /admin/, and
+  // /api/* is never swallowed by any fallback. index: false on the member
+  // dist so /app/ navigations fall through to the shell-wrapped index below
+  // rather than the raw file.
   const memberDist = opts.ui?.memberDist;
   const adminDist = opts.ui?.adminDist;
+
+  // The member app's index.html, read once; every /app navigation serves it
+  // with the shell chrome injected after <body> (decision #12). An unknown
+  // host still serves the app — under a generic brand — and lets login fail
+  // gracefully there.
+  let memberIndexCache: string | undefined;
+  async function serveAppShell(
+    dist: string,
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<unknown> {
+    memberIndexCache ??= await readFile(join(dist, 'index.html'), 'utf8');
+    const group = await resolveGroupFromHost(storage, request);
+    const memberName =
+      group === undefined ? undefined : await sessionMemberName(storage, request, group.id);
+    const shell = appShellFragment(group?.name ?? 'Silvio', memberName);
+    const html = memberIndexCache.replace('<body>', `<body>\n${shell}`);
+    return reply.type('text/html; charset=utf-8').send(html);
+  }
+
   if (memberDist !== undefined) {
-    await app.register(fastifyStatic, { root: memberDist, prefix: '/' });
+    // index: false so the wildcard never serves the raw index.html; the
+    // explicit /app/ route below wins over the static /app/* wildcard and
+    // deep links fall through to the not-found handler — both shell-wrapped.
+    await app.register(fastifyStatic, { root: memberDist, prefix: '/app/', index: false });
+    app.get('/app/', { schema: { hide: true } }, (request, reply) =>
+      serveAppShell(memberDist, request, reply));
   }
   if (adminDist !== undefined) {
     await app.register(fastifyStatic, {
@@ -283,14 +318,19 @@ export async function buildApp(
       decorateReply: memberDist === undefined,
     });
   }
-  app.setNotFoundHandler((request, reply) => {
+
+  // Public brochure site (decision #12): server-rendered / and /market,
+  // registered whether or not the built member app is available.
+  registerBrochureRoutes(app, storage);
+
+  app.setNotFoundHandler(async (request, reply) => {
     const path = request.url.split('?')[0] ?? request.url;
-    if (!path.startsWith('/api/')) {
+    if (request.method === 'GET' && !path.startsWith('/api/')) {
       if (adminDist !== undefined && path.startsWith('/admin')) {
         return reply.sendFile('index.html', adminDist);
       }
-      if (memberDist !== undefined) {
-        return reply.sendFile('index.html', memberDist);
+      if (memberDist !== undefined && path.startsWith('/app')) {
+        return serveAppShell(memberDist, request, reply);
       }
     }
     return reply.status(404).send(errorBody('NOT_FOUND', `no such route: ${path}`));

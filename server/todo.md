@@ -69,12 +69,13 @@ Remaining server-side work, grouped by area. References are to
       constitution, help)
 - [ ] `news_item` storage + API: admin CRUD, published/expires window,
       member read
-- [ ] Brochure site at `/` (#12): server-rendered per-group layout template
-      over pages/news + read-only public marketplace browse; session-aware
-      (members-visibility pages render when logged in)
-- [ ] App-in-shell serving (#12): app routes serve the brochure shell + React
-      bundle; member app drops its logged-out public market; service worker
-      precaches only the app bundle, never brochure HTML
+- [x] Brochure site at `/` (#12): server-rendered placeholder (group name
+      header, welcome copy, public market browse, session-aware log-in/open-app
+      link) — pages/news rendering waits on the CMS tables above
+- [x] App-in-shell serving (#12): member app at `/app/` (base, basename,
+      manifest start_url/scope), shell chrome injected server-side and hidden
+      in standalone display mode; logged-out public market removed from the
+      app; SW precaches only the app bundle
 - [ ] Group skinning (#12): `group.branding` logo + header image as SQLite
       blobs with size limits, admin upload routes, public asset route
 - [ ] Group-editable email templates + per-group sender address (decisions

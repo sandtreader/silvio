@@ -527,8 +527,9 @@ wrong vehicle for a public face regardless of screen size.
   the bundle, and client-side routing keeps the chrome. Same origin means the
   cookie session is shared: the brochure header knows who you are, and
   members-visibility pages render when logged in.
-- **One PWA, direct mobile access**: single manifest and service worker
-  scoped at root; `start_url` is the app home with `display: standalone`, so
+- **One PWA, direct mobile access**: single manifest, service worker scoped
+  to the app paths (which by itself keeps brochure HTML out of its reach);
+  `start_url` is the app home with `display: standalone`, so
   installing gives home-screen-linkable access straight into the app. The
   brochure wrapper is **progressive chrome**, not an iframe: full nav on a
   desktop browser, a slim logo/name banner on a mobile browser, and hidden

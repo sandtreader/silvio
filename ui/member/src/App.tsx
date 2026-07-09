@@ -1,5 +1,6 @@
-// Router + theme + providers. Market is public (browse works logged out);
-// everything else behind RequireAuth.
+// Router + theme + providers. The app is logged-in-only (decision #12):
+// every tab sits behind RequireAuth; served at /app/ inside the brochure
+// shell, so the router basename is /app.
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { createBrowserRouter, RouterProvider } from 'react-router';
@@ -22,7 +23,7 @@ const theme = createTheme({
   },
 });
 
-const router = createBrowserRouter([
+const routes = [
   {
     element: <Layout />,
     children: [
@@ -34,7 +35,14 @@ const router = createBrowserRouter([
           </RequireAuth>
         ),
       },
-      { path: '/market', element: <Market /> },
+      {
+        path: '/market',
+        element: (
+          <RequireAuth>
+            <Market />
+          </RequireAuth>
+        ),
+      },
       {
         path: '/pay',
         element: (
@@ -63,7 +71,9 @@ const router = createBrowserRouter([
   },
   { path: '/login', element: <Login /> },
   { path: '/apply', element: <Apply /> },
-]);
+];
+
+const router = createBrowserRouter(routes, { basename: '/app' });
 
 export function App() {
   return (

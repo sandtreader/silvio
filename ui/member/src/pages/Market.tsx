@@ -1,5 +1,6 @@
-// Market: browse active listings (public — works logged out); logged-in
-// members can post a new listing via the FAB.
+// Market: browse active listings and post a new one via the FAB. An
+// authenticated tab like the rest (decision #12: public browse lives on the
+// brochure site, not in the app).
 import AddIcon from '@mui/icons-material/Add';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -22,7 +23,6 @@ import { formatAmount, parseAmount } from '@silvio/ui-shared';
 import type {
   AccountSummary,
   Category,
-  Currency,
   Listing,
   ListingInput,
   ListingType,
@@ -33,7 +33,7 @@ import { useClient } from '../api/client';
 import { useFeedback } from '../api/feedback';
 import { useApi } from '../api/useApi';
 import { PageContainer } from '../components/PageContainer';
-import { scaleForCurrency, scaleFromCurrencies, scaleOf } from '../scale';
+import { scaleForCurrency, scaleOf } from '../scale';
 
 type Filter = 'all' | ListingType;
 
@@ -43,23 +43,7 @@ export function Market() {
   const { run } = useApi();
   const [filter, setFilter] = useState<Filter>('all');
   const [listings, setListings] = useState<Listing[] | null>(null);
-  const [currencies, setCurrencies] = useState<Currency[] | undefined>(undefined);
   const [posting, setPosting] = useState(false);
-
-  // Public GET /currencies gives the real per-currency scale even when
-  // logged out; on failure we keep the accounts/fallback path below.
-  useEffect(() => {
-    let cancelled = false;
-    client
-      .currencies()
-      .then((result) => {
-        if (!cancelled) setCurrencies(result.currencies);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [client]);
 
   const load = useCallback(async () => {
     const result = await run(() =>
@@ -71,6 +55,8 @@ export function Market() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  if (me === null) return null;
 
   return (
     <PageContainer title="Market">
@@ -113,8 +99,7 @@ export function Market() {
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                   {formatAmount(
                     listing.priceAmount,
-                    scaleFromCurrencies(currencies, listing.priceCurrencyId) ??
-                      scaleForCurrency(me?.accounts, listing.priceCurrencyId),
+                    scaleForCurrency(me.accounts, listing.priceCurrencyId),
                   )}
                 </Typography>
               ) : listing.rateText !== undefined ? (
@@ -130,27 +115,23 @@ export function Market() {
         ))
       )}
 
-      {me !== null && (
-        <>
-          <Fab
-            color="primary"
-            aria-label="post listing"
-            onClick={() => setPosting(true)}
-            sx={{ position: 'fixed', right: 16, bottom: 72 }}
-          >
-            <AddIcon />
-          </Fab>
-          <PostListingDialog
-            open={posting}
-            onClose={() => setPosting(false)}
-            onPosted={() => {
-              setPosting(false);
-              void load();
-            }}
-            priceAccount={me.accounts[0]}
-          />
-        </>
-      )}
+      <Fab
+        color="primary"
+        aria-label="post listing"
+        onClick={() => setPosting(true)}
+        sx={{ position: 'fixed', right: 16, bottom: 72 }}
+      >
+        <AddIcon />
+      </Fab>
+      <PostListingDialog
+        open={posting}
+        onClose={() => setPosting(false)}
+        onPosted={() => {
+          setPosting(false);
+          void load();
+        }}
+        priceAccount={me.accounts[0]}
+      />
     </PageContainer>
   );
 }

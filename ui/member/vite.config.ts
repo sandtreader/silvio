@@ -1,21 +1,26 @@
 /// <reference types="vitest/config" />
-// Member PWA build (decision #11): served at the site root by the Fastify
-// server in production; the dev server proxies /api to the local server.
+// Member PWA build (decisions #11/#12): served at /app/ inside the
+// server-rendered brochure shell by the Fastify server in production; the
+// dev server proxies /api to the local server.
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  base: '/',
+  base: '/app/',
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        // The service worker's scope is the site root, but /admin (the admin
-        // app) and /api must never be answered from the member app's cache —
-        // without this the SPA navigation fallback hijacks them offline-style.
-        navigateFallbackDenylist: [/^\/admin/, /^\/api\//],
+        // The service worker is scoped to /app/, so brochure pages
+        // (/, /market), /admin and /api are outside its reach and are never
+        // answered from the app's cache — brochure HTML must always come
+        // fresh from the server (decision #12). The explicit fallback keeps
+        // SPA navigations within /app/; the /api denylist is belt-and-braces
+        // should anything ever route API-shaped navigations under scope.
+        navigateFallback: '/app/index.html',
+        navigateFallbackDenylist: [/^\/api\//],
       },
       manifest: {
         name: 'Silvio',
@@ -24,7 +29,8 @@ export default defineConfig({
         theme_color: '#2e7d32',
         background_color: '#ffffff',
         display: 'standalone',
-        start_url: '/',
+        start_url: '/app/',
+        scope: '/app/',
         icons: [
           {
             src: 'icon.svg',
