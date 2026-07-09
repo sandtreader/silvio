@@ -62,6 +62,25 @@ Remaining server-side work, grouped by area. References are to
       scheduler job; `member.digestFrequency` exists but is unused
 - [ ] Admin broadcast (email all members)
 
+## Content, brochure site & CMS-lite (#12, data-model §6, first-review)
+
+- [ ] `page` storage + API: slug, title, body, visibility (public | members |
+      admin), position; admin CRUD, visibility-tiered read (agreement,
+      constitution, help)
+- [ ] `news_item` storage + API: admin CRUD, published/expires window,
+      member read
+- [ ] Brochure site at `/` (#12): server-rendered per-group layout template
+      over pages/news + read-only public marketplace browse; session-aware
+      (members-visibility pages render when logged in)
+- [ ] App-in-shell serving (#12): app routes serve the brochure shell + React
+      bundle; member app drops its logged-out public market; service worker
+      precaches only the app bundle, never brochure HTML
+- [ ] Group skinning (#12): `group.branding` logo + header image as SQLite
+      blobs with size limits, admin upload routes, public asset route
+- [ ] Group-editable email templates + per-group sender address (decisions
+      line: per-group "CMS pages/news, email sender") — bodies are currently
+      hard-coded strings in services/notifications.ts
+
 ## Admin & governance
 
 - [ ] Audit-event log (data-model §8): admin actions, MCP grants, lifecycle
@@ -115,6 +134,8 @@ Remaining server-side work, grouped by area. References are to
 ## Later / speculative
 
 - [ ] Credit Commons federation (#4)
+- [ ] Events calendar (first-review reference-standard; needs a data-model
+      decision first)
 - [ ] Passkey-signed payment authorisations (non-repudiation, #10)
 - [ ] Optional private-feedback plugin (#8 — only if a group demands it)
 - [ ] i18n

@@ -497,3 +497,57 @@ branded app). One process on the minimal VPS (#2, #7). Dev mode: Vite proxy to
 (`openapi-typescript`) so types cannot drift from the server; falls back to
 hand-written interfaces only if the route schemas prove too thin to generate
 useful response types.
+
+*(Amended by #12: the public market browse moves out of the member app to the
+brochure site; the app becomes logged-in-only and is served inside the
+brochure shell.)*
+
+## 12. Public brochure site & app shell — DECIDED 2026-07-09
+
+Each group's site root is a **public brochure site** — the group's face to the
+world — and the member app renders **inside it** when logged in. One origin,
+one PWA, one visual shell.
+
+**Why a brochure site**: every LETS site is half community noticeboard
+(first-review), and it's how groups recruit. That content — what the group is,
+how to join, agreement/constitution, news, and the public marketplace browse —
+wants to be **server-rendered HTML**: indexable, link-previewable, readable on
+anything, near-zero JS. A client-rendered SPA behind a service worker is the
+wrong vehicle for a public face regardless of screen size.
+
+**Shape**
+- **Brochure at `/`**: Fastify renders CMS content (`page`, `news_item`,
+  data-model §6) plus a read-only public marketplace browse through a simple
+  per-group layout template. Oriented to PC, responsive down to mobile.
+- **App is logged-in-only** (amends #11): the public market browse leaves the
+  member app; Market becomes an authenticated tab like the rest.
+- **The app renders in the brochure, not linked from it**: the same
+  server-rendered layout (header with group skin, nav) wraps both brochure
+  page bodies and the React app's mount point; app routes serve the shell plus
+  the bundle, and client-side routing keeps the chrome. Same origin means the
+  cookie session is shared: the brochure header knows who you are, and
+  members-visibility pages render when logged in.
+- **One PWA, direct mobile access**: single manifest and service worker
+  scoped at root; `start_url` is the app home with `display: standalone`, so
+  installing gives home-screen-linkable access straight into the app. The
+  brochure wrapper is **progressive chrome**, not an iframe: full nav on a
+  desktop browser, a slim logo/name banner on a mobile browser, and hidden
+  entirely in the installed app (`@media (display-mode: standalone)`). Deep
+  links to app routes work everywhere — every app URL serves shell + bundle.
+
+**Per-group skinning — deliberately lightweight** ("no more than a Facebook
+page"): display name, logo, header background image. Stored behind opaque
+blob refs on `group.branding` (same storage-layer posture as member/listing
+photos: SQLite blobs first, enforced size limits), uploaded via admin routes,
+served to the shell as template variables + a public asset route. No custom
+CSS, no theme builder — white-label beyond this stays a later concern (#2's
+branded-domain story already covers the important part: your domain, your
+name, your logo).
+
+**Consequences**
+- Member-app IA in #11 loses "public browse when logged out"; login/apply
+  remain app routes served within the shell.
+- The service worker must not cache brochure HTML as an app shell for
+  logged-out visitors (fresh public content wins); precache only the app
+  bundle.
+- Admin app is untouched at `/admin/`.
