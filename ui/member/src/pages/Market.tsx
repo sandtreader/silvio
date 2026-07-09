@@ -22,6 +22,7 @@ import { formatAmount, parseAmount } from '@silvio/ui-shared';
 import type {
   AccountSummary,
   Category,
+  Currency,
   Listing,
   ListingInput,
   ListingType,
@@ -32,7 +33,7 @@ import { useClient } from '../api/client';
 import { useFeedback } from '../api/feedback';
 import { useApi } from '../api/useApi';
 import { PageContainer } from '../components/PageContainer';
-import { scaleForCurrency, scaleOf } from '../scale';
+import { scaleForCurrency, scaleFromCurrencies, scaleOf } from '../scale';
 
 type Filter = 'all' | ListingType;
 
@@ -42,7 +43,23 @@ export function Market() {
   const { run } = useApi();
   const [filter, setFilter] = useState<Filter>('all');
   const [listings, setListings] = useState<Listing[] | null>(null);
+  const [currencies, setCurrencies] = useState<Currency[] | undefined>(undefined);
   const [posting, setPosting] = useState(false);
+
+  // Public GET /currencies gives the real per-currency scale even when
+  // logged out; on failure we keep the accounts/fallback path below.
+  useEffect(() => {
+    let cancelled = false;
+    client
+      .currencies()
+      .then((result) => {
+        if (!cancelled) setCurrencies(result.currencies);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
 
   const load = useCallback(async () => {
     const result = await run(() =>
@@ -96,7 +113,8 @@ export function Market() {
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                   {formatAmount(
                     listing.priceAmount,
-                    scaleForCurrency(me?.accounts, listing.priceCurrencyId),
+                    scaleFromCurrencies(currencies, listing.priceCurrencyId) ??
+                      scaleForCurrency(me?.accounts, listing.priceCurrencyId),
                   )}
                 </Typography>
               ) : listing.rateText !== undefined ? (
