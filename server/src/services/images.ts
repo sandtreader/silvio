@@ -133,6 +133,93 @@ export async function setMemberPhoto(
   return image;
 }
 
+// Listing photo ceiling (#14 phase 3): up to five photos per listing.
+const MAX_LISTING_PHOTOS = 5;
+
+/**
+ * Attach a photo to a listing (#14 phase 3): only the listing's owner may,
+ * at most five per listing, and the 1MB listing cap applies via
+ * sizeCaps.listing.
+ */
+export async function addListingPhoto(
+  storage: Storage,
+  listingId: string,
+  actorMemberId: string,
+  mime: string,
+  data: Buffer,
+  limits: ImageLimits = {},
+): Promise<Image> {
+  const listing = await storage.getListing(listingId);
+  if (listing.memberId !== actorMemberId) {
+    throw new DomainError('NOT_AUTHORISED', 'only the listing owner may manage its photos');
+  }
+  const existing = await storage.listImages(listing.groupId, {
+    ownerKind: 'listing',
+    ownerId: listingId,
+  });
+  if (existing.length >= MAX_LISTING_PHOTOS) {
+    throw new DomainError(
+      'LIMIT_BREACHED',
+      `a listing may carry at most ${MAX_LISTING_PHOTOS} photos`,
+    );
+  }
+  return uploadImage(
+    storage,
+    {
+      groupId: listing.groupId,
+      ownerKind: 'listing',
+      ownerId: listingId,
+      mime,
+      data,
+      createdBy: actorMemberId,
+    },
+    limits,
+  );
+}
+
+/**
+ * Remove a listing photo (#14 phase 3): owner-only, and the image must
+ * actually belong to that listing (NOT_FOUND otherwise — a foreign image id
+ * looks exactly like a missing one).
+ */
+export async function removeListingPhoto(
+  storage: Storage,
+  listingId: string,
+  imageId: string,
+  actorMemberId: string,
+): Promise<void> {
+  const listing = await storage.getListing(listingId);
+  if (listing.memberId !== actorMemberId) {
+    throw new DomainError('NOT_AUTHORISED', 'only the listing owner may manage its photos');
+  }
+  const image = await storage.getImage(imageId);
+  if (image.ownerKind !== 'listing' || image.ownerId !== listingId) {
+    throw new DomainError('NOT_FOUND', `image ${imageId} not found on this listing`);
+  }
+  await storage.deleteImage(imageId);
+}
+
+/**
+ * Every listing photo in the group, keyed by listing id, in upload order
+ * (#14 phase 3): one query to annotate a whole page of listings with their
+ * derived photoIds. listImages orders by created_at then id (uuidv7), so
+ * each list is deterministic upload order.
+ */
+export async function listingPhotoIds(
+  storage: Storage,
+  groupId: string,
+): Promise<Map<string, string[]>> {
+  const images = await storage.listImages(groupId, { ownerKind: 'listing' });
+  const byListing = new Map<string, string[]>();
+  for (const image of images) {
+    if (image.ownerId === undefined) continue;
+    const ids = byListing.get(image.ownerId) ?? [];
+    ids.push(image.id);
+    byListing.set(image.ownerId, ids);
+  }
+  return byListing;
+}
+
 /** Delete a member's profile photo(s) (#14 phase 2); a no-op when none. */
 export async function deleteMemberPhoto(storage: Storage, memberId: string): Promise<void> {
   const member = await storage.getMember(memberId);

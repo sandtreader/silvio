@@ -1,13 +1,13 @@
-// Client-side profile-photo downscale (decision #14): the server never
-// resizes — the uploading UI shrinks to the profile cap (512px long edge)
-// and re-encodes as JPEG, which also strips EXIF (no GPS coordinates in
-// profile photos) and keeps uploads under the server's 256KB member cap.
+// Client-side image downscale (decision #14): the server never resizes —
+// the uploading UI shrinks to the long-edge cap and re-encodes as JPEG,
+// which also strips EXIF (no GPS coordinates in uploads) and keeps uploads
+// under the server's size caps. Profile photos use the 512px default
+// (256KB cap); listing photos pass 1200 (1MB cap, phase 3).
 //
 // jsdom has no canvas implementation, so tests mock this module instead of
-// exercising it; the flow around it (resize -> setMyPhoto -> refresh) is
-// what the tests assert.
+// exercising it; the flow around it (resize -> upload -> refresh) is what
+// the tests assert.
 
-const MAX_EDGE = 512;
 const JPEG_QUALITY = 0.85;
 
 export interface ResizedImage {
@@ -15,10 +15,10 @@ export interface ResizedImage {
   mime: string;
 }
 
-export async function resizeImage(file: Blob): Promise<ResizedImage> {
+export async function resizeImage(file: Blob, maxEdge = 512): Promise<ResizedImage> {
   const bitmap = await createImageBitmap(file);
   try {
-    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(bitmap.width * scale));
     canvas.height = Math.max(1, Math.round(bitmap.height * scale));

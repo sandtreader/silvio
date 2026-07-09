@@ -285,6 +285,26 @@ export class ApiClient {
     return this.tenant('GET', '/currencies');
   }
 
+  // Listing photos (decision #14 phase 3): upload sends the raw image bytes
+  // as the request body with the image's content type — not JSON, not
+  // multipart. Owner-only; the server caps each listing at 5 photos.
+
+  addListingPhoto(listingId: string, data: Blob, mime: string): Promise<{ image: Image }> {
+    return this.rawRequest(
+      'POST',
+      `${this.groupPath()}/listings/${encodeURIComponent(listingId)}/photos`,
+      data,
+      mime,
+    );
+  }
+
+  removeListingPhoto(listingId: string, imageId: string): Promise<{ ok: boolean }> {
+    return this.tenant(
+      'DELETE',
+      `/listings/${encodeURIComponent(listingId)}/photos/${encodeURIComponent(imageId)}`,
+    );
+  }
+
   apply(input: ApplicationInput): Promise<{ member: Member }> {
     return this.tenant('POST', '/applications', input);
   }

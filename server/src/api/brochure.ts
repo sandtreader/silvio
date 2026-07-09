@@ -9,6 +9,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Storage } from '../storage/interface.js';
 import type { Group, Listing, Member, NewsItem, Page } from '../types.js';
 import { authenticate } from '../services/auth.js';
+import { listingPhotoIds } from '../services/images.js';
 import { browse } from '../services/marketplace.js';
 import { renderMarkdown } from '../services/markdown.js';
 
@@ -39,6 +40,7 @@ const SHELL_STYLE = `<style>
   .brochure-main { max-width: 46rem; margin: 0 auto; padding: 1.5rem 1.25rem; }
   .brochure-main article { border-bottom: 1px solid #eee; padding: 0.75rem 0; }
   .brochure-main .category { color: #555; font-size: 0.9rem; margin: 0.25rem 0; }
+  .brochure-main .photos img { max-height: 6rem; max-width: 100%; border-radius: 0.25rem; }
   .brochure-footer { max-width: 46rem; margin: 0 auto; padding: 1rem 1.25rem;
     color: #777; font-size: 0.85rem; }
   @media (display-mode: standalone) {
@@ -139,14 +141,25 @@ and looking for right now.</p>
 }
 
 /** One listing, escaped, with its category — never member contact details. */
-function renderListing(listing: Listing, categoryNames: Map<string, string>): string {
+function renderListing(
+  listing: Listing,
+  categoryNames: Map<string, string>,
+  photoIds: string[],
+): string {
   const category = categoryNames.get(listing.categoryId);
   const categoryLine = category === undefined
     ? ''
     : `\n<p class="category">${escapeHtml(category)}</p>`;
+  // Listing photos (#14 phase 3): thumbnails by opaque id. alt is empty —
+  // the title just above already names what the photos show.
+  const photoLine = photoIds.length === 0
+    ? ''
+    : `\n<p class="photos">${photoIds
+        .map((id) => `<img src="/i/${id}" alt="" loading="lazy">`)
+        .join(' ')}</p>`;
   return `<article>
 <h3>${escapeHtml(listing.title)}</h3>${categoryLine}
-<p>${escapeHtml(listing.description)}</p>
+<p>${escapeHtml(listing.description)}</p>${photoLine}
 </article>`;
 }
 
@@ -157,11 +170,16 @@ function renderMarket(
   navPages: NavPage[],
   listings: Listing[],
   categoryNames: Map<string, string>,
+  photosByListing: Map<string, string[]>,
 ): string {
   const section = (heading: string, items: Listing[]): string => {
     const bodyHtml = items.length === 0
       ? '<p>Nothing here yet.</p>'
-      : items.map((listing) => renderListing(listing, categoryNames)).join('\n');
+      : items
+          .map((listing) =>
+            renderListing(listing, categoryNames, photosByListing.get(listing.id) ?? []),
+          )
+          .join('\n');
     return `<section>\n<h2>${heading}</h2>\n${bodyHtml}\n</section>`;
   };
   const offers = listings.filter((listing) => listing.type === 'offer');
@@ -331,8 +349,12 @@ export function registerBrochureRoutes(app: FastifyInstance, storage: Storage): 
     const listings = await browse(storage, group.id, {});
     const categories = await storage.listCategories(group.id);
     const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
+    // Listing photos (#14 phase 3): one group-wide query, keyed by listing.
+    const photosByListing = await listingPhotoIds(storage, group.id);
     return reply
       .type(htmlType)
-      .send(renderMarket(group, member?.displayName, navPages, listings, categoryNames));
+      .send(
+        renderMarket(group, member?.displayName, navPages, listings, categoryNames, photosByListing),
+      );
   });
 }

@@ -1,7 +1,10 @@
 // Market: browse active listings and post a new one via the FAB. An
 // authenticated tab like the rest (decision #12: public browse lives on the
-// brochure site, not in the app).
+// brochure site, not in the app). Listing cards carry a photo strip
+// (decision #14 phase 3); owners manage their own photos inline.
 import AddIcon from '@mui/icons-material/Add';
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
+import CloseIcon from '@mui/icons-material/Close';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -13,6 +16,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Fab from '@mui/material/Fab';
+import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
@@ -28,14 +32,21 @@ import type {
   ListingType,
 } from '@silvio/ui-shared';
 import { useCallback, useEffect, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { useAuth } from '../api/auth';
 import { useClient } from '../api/client';
 import { useFeedback } from '../api/feedback';
 import { useApi } from '../api/useApi';
 import { PageContainer } from '../components/PageContainer';
+import { resizeImage } from '../resize';
 import { scaleForCurrency, scaleOf } from '../scale';
 
 type Filter = 'all' | ListingType;
+
+// Listing photos (decision #14 phase 3): server caps at 5 per listing and
+// 1MB each; the client downscales to a 1200px long edge before upload.
+const MAX_LISTING_PHOTOS = 5;
+const LISTING_PHOTO_EDGE = 1200;
 
 export function Market() {
   const client = useClient();
@@ -110,6 +121,11 @@ export function Market() {
               <Typography variant="body2" color="text.secondary">
                 {listing.description}
               </Typography>
+              <ListingPhotos
+                listing={listing}
+                own={listing.memberId === me.member.id}
+                onChanged={() => void load()}
+              />
             </CardContent>
           </Card>
         ))
@@ -133,6 +149,99 @@ export function Market() {
         priceAccount={me.accounts[0]}
       />
     </PageContainer>
+  );
+}
+
+/** Thumbnail strip for a listing card; owners get add/remove controls. */
+function ListingPhotos({
+  listing,
+  own,
+  onChanged,
+}: {
+  listing: Listing;
+  own: boolean;
+  onChanged: () => void;
+}) {
+  const client = useClient();
+  const { run, busy } = useApi();
+  const feedback = useFeedback();
+  const photoIds = listing.photoIds ?? [];
+
+  const addPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // allow re-selecting the same file
+    if (file === undefined) return;
+    // Downscale client-side before upload (decision #14): the server only
+    // validates, it never resizes. Listings use the 1200px cap, not 512.
+    let resized;
+    try {
+      resized = await resizeImage(file, LISTING_PHOTO_EDGE);
+    } catch {
+      feedback.show('Could not read that image', 'error');
+      return;
+    }
+    const result = await run(() =>
+      client.addListingPhoto(listing.id, resized.blob, resized.mime),
+    );
+    if (result !== undefined) onChanged();
+  };
+
+  const removePhoto = async (imageId: string) => {
+    const result = await run(() => client.removeListingPhoto(listing.id, imageId));
+    if (result !== undefined) onChanged();
+  };
+
+  if (photoIds.length === 0 && !own) return null;
+
+  return (
+    <Stack direction="row" spacing={1} sx={{ mt: 1, overflowX: 'auto' }}>
+      {photoIds.map((photoId) => (
+        <Box key={photoId} sx={{ position: 'relative', flexShrink: 0 }}>
+          <Box
+            component="img"
+            src={`/i/${photoId}`}
+            alt=""
+            loading="lazy"
+            sx={{ height: 72, borderRadius: 1, display: 'block' }}
+          />
+          {own && (
+            <IconButton
+              size="small"
+              aria-label="remove photo"
+              disabled={busy}
+              onClick={() => void removePhoto(photoId)}
+              sx={{
+                position: 'absolute',
+                top: 2,
+                right: 2,
+                p: 0.25,
+                bgcolor: 'background.paper',
+                '&:hover': { bgcolor: 'background.paper' },
+              }}
+            >
+              <CloseIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          )}
+        </Box>
+      ))}
+      {own && photoIds.length < MAX_LISTING_PHOTOS && (
+        <Button
+          component="label"
+          size="small"
+          disabled={busy}
+          startIcon={<AddPhotoAlternateIcon />}
+          sx={{ flexShrink: 0, alignSelf: 'center' }}
+        >
+          Add photo
+          <input
+            hidden
+            type="file"
+            accept="image/*"
+            onChange={(event) => void addPhoto(event)}
+          />
+        </Button>
+      )}
+    </Stack>
   );
 }
 

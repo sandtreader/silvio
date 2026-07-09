@@ -61,7 +61,14 @@ import {
   notifyRestrictionLifted,
 } from '../services/notifications.js';
 import { browse, postListing } from '../services/marketplace.js';
-import { deleteMemberPhoto, setMemberPhoto, uploadImage } from '../services/images.js';
+import {
+  addListingPhoto,
+  deleteMemberPhoto,
+  listingPhotoIds,
+  removeListingPhoto,
+  setMemberPhoto,
+  uploadImage,
+} from '../services/images.js';
 import { LoginThrottle } from '../services/ratelimit.js';
 import { buildMcpServer, type RestClient } from '../mcp/server.js';
 import {
@@ -956,7 +963,16 @@ export async function buildApp(
           const filter: { type?: ListingType; categoryId?: string } = {};
           if (query.type !== undefined) filter.type = query.type;
           if (query.categoryId !== undefined) filter.categoryId = query.categoryId;
-          return { listings: await browse(storage, request.group!.id, filter) };
+          const listings = await browse(storage, request.group!.id, filter);
+          // photoIds are derived, not listing columns (#14 phase 3): one
+          // group-wide query, grouped by listing, in upload order.
+          const photos = await listingPhotoIds(storage, request.group!.id);
+          return {
+            listings: listings.map((listing) => ({
+              ...listing,
+              photoIds: photos.get(listing.id) ?? [],
+            })),
+          };
         },
       );
 
@@ -1007,6 +1023,69 @@ export async function buildApp(
           const listing = await postListing(storage, request.auth!.member.id, input);
           reply.status(201);
           return { listing };
+        },
+      );
+
+      // --- Listing photos (#14 phase 3): the owner attaches up to five raw
+      // image bodies (1MB each); photoIds ride on listing responses above
+      // and the bytes are served by GET /i/{id} in brochure.ts.
+
+      /** Assert the listing exists in the request's group (tenancy isolation). */
+      async function targetListing(request: FastifyRequest, id: string): Promise<void> {
+        const listing = await storage.getListing(id);
+        if (listing.groupId !== request.group!.id) {
+          throw new DomainError('NOT_FOUND', `listing ${id} not found in this group`);
+        }
+      }
+
+      scope.post(
+        '/listings/:id/photos',
+        {
+          preHandler: requireMember,
+          // Raw-body route: a JSON body schema cannot describe a binary
+          // upload, so only the response is declared (as /me/photo).
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            response: respond(201, body({ image: ref('Image') })),
+          },
+        },
+        async (request, reply) => {
+          if (!Buffer.isBuffer(request.body)) {
+            throw new DomainError('INVALID', 'the request body must be the raw image bytes');
+          }
+          const { id } = request.params as { id: string };
+          await targetListing(request, id);
+          const image = await addListingPhoto(
+            storage,
+            id,
+            request.auth!.member.id,
+            request.headers['content-type'] ?? '',
+            request.body,
+          );
+          reply.status(201);
+          return { image };
+        },
+      );
+
+      const LISTING_PHOTO_PARAM_SCHEMA = {
+        type: 'object',
+        required: ['id', 'imageId'],
+        properties: { id: { type: 'string' }, imageId: { type: 'string' } },
+      } as const;
+      scope.delete(
+        '/listings/:id/photos/:imageId',
+        {
+          preHandler: requireMember,
+          schema: {
+            params: LISTING_PHOTO_PARAM_SCHEMA,
+            response: respond(200, OK_RESPONSE),
+          },
+        },
+        async (request) => {
+          const { id, imageId } = request.params as { id: string; imageId: string };
+          await targetListing(request, id);
+          await removeListingPhoto(storage, id, imageId, request.auth!.member.id);
+          return { ok: true };
         },
       );
 

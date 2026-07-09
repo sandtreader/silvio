@@ -78,7 +78,7 @@ Remaining server-side work, grouped by area. References are to
       + quota validation (client resizes before upload)
 - [x] Image store phase 2 (#14): member profile photo (single,
       upload-replaces, 256KB) in member app + directory
-- [ ] Image store phase 3 (#14): listing photos (≤5, 1MB each) in app
+- [x] Image store phase 3 (#14): listing photos (≤5, 1MB each) in app
       market + brochure
 - [x] Brochure site at `/` (#12): server-rendered placeholder (group name
       header, welcome copy, public market browse, session-aware log-in/open-app
@@ -112,7 +112,7 @@ Remaining server-side work, grouped by area. References are to
 
 - [ ] Generic search (FTS5) over listings/directory per data-model Search
       interface, visibility-tiered
-- [ ] Listing photos — see Image store phase 3 (#14) under Content
+- [x] Listing photos — done via Image store phase 3 (#14) under Content
 - [ ] Category admin routes (create/edit/delete, recategorise)
 - [ ] Location/neighbourhood field + directory filtering (CamLETS grid pattern)
 - [ ] Qualified/professional flags on listings (#8 — admin-verified badges)

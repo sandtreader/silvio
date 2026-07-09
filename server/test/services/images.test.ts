@@ -114,6 +114,54 @@ describe('uploadImage (#14)', () => {
       .toEqual([]);
   });
 
+  describe('listing photos (#14 phase 3)', () => {
+    async function makeListing() {
+      const { addListingPhoto } = await import('../../src/services/images.js');
+      const member = await storage.createMember({ groupId: group.id, displayName: 'Alice' });
+      await storage.setMemberStatus(member.id, 'active');
+      const category = await storage.createCategory({ groupId: group.id, name: 'Food' });
+      const listing = await storage.createListing({
+        groupId: group.id, memberId: member.id, type: 'offer',
+        title: 'Veg box', description: 'Weekly', categoryId: category.id,
+      });
+      return { addListingPhoto, member, listing };
+    }
+
+    it('the listing owner attaches photos, capped at five', async () => {
+      const { addListingPhoto, member, listing } = await makeListing();
+      for (let i = 0; i < 5; i += 1) {
+        await addListingPhoto(storage, listing.id, member.id, 'image/png', png(50 + i));
+      }
+      const photos = await storage.listImages(group.id, {
+        ownerKind: 'listing', ownerId: listing.id,
+      });
+      expect(photos).toHaveLength(5);
+      await expectDomainError(
+        addListingPhoto(storage, listing.id, member.id, 'image/png', png()),
+        'LIMIT_BREACHED',
+      );
+    });
+
+    it('only the owner may attach or remove', async () => {
+      const { addListingPhoto, listing } = await makeListing();
+      const { removeListingPhoto } = await import('../../src/services/images.js');
+      const other = await storage.createMember({ groupId: group.id, displayName: 'Bob' });
+      await expectDomainError(
+        addListingPhoto(storage, listing.id, other.id, 'image/png', png()),
+        'NOT_AUTHORISED',
+      );
+      const owner = (await storage.listListings(group.id, {}))[0]!.memberId;
+      const photo = await addListingPhoto(storage, listing.id, owner, 'image/png', png());
+      await expectDomainError(
+        removeListingPhoto(storage, listing.id, photo.id, other.id),
+        'NOT_AUTHORISED',
+      );
+      await removeListingPhoto(storage, listing.id, photo.id, owner);
+      expect(await storage.listImages(group.id, { ownerKind: 'listing', ownerId: listing.id }))
+        .toEqual([]);
+    });
+  });
+
   it('enforces the group quota across all images', async () => {
     const limits = { groupQuota: 250 };
     await uploadImage(storage, draft({ data: png(100) }), limits);

@@ -277,6 +277,8 @@ const LISTING = {
     expiresAt: { type: 'string' },
     createdAt: { type: 'string' },
     updatedAt: { type: 'string' },
+    // Derived from the images table, populated at the API layer (#14 phase 3).
+    photoIds: { type: 'array', items: { type: 'string' } },
   },
 } as const;
 

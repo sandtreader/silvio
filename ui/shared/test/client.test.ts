@@ -202,6 +202,24 @@ describe('path construction', () => {
     expect(lastCall(mock).init.method).toBe('DELETE');
   });
 
+  it('routes listing photos: raw-body upload and delete (decision #14)', async () => {
+    const mock = stubFetch(201, { image: {} });
+    const client = new ApiClient({ group: 'g1' });
+
+    const blob = new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: 'image/jpeg' });
+    await client.addListingPhoto('l/1', blob, 'image/jpeg');
+    const { url, init } = lastCall(mock);
+    expect(url).toBe('/api/v1/g/g1/listings/l%2F1/photos');
+    expect(init.method).toBe('POST');
+    expect(init.headers).toEqual({ 'content-type': 'image/jpeg' });
+    expect(init.body).toBe(blob); // raw body, never JSON-stringified
+    expect(init.credentials).toBe('include');
+
+    await client.removeListingPhoto('l/1', 'img/9');
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/listings/l%2F1/photos/img%2F9');
+    expect(lastCall(mock).init.method).toBe('DELETE');
+  });
+
   it('lists active restrictions on the admin route', async () => {
     const mock = stubFetch(200, { restrictions: [] });
     const client = new ApiClient({ group: 'g1' });

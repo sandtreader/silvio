@@ -221,6 +221,9 @@ export interface Listing {
   expiresAt?: string;
   createdAt: string;
   updatedAt: string;
+  // Listing photos (#14 phase 3): derived from the images table (ownerKind
+  // 'listing'), populated at the API layer — not a listing column.
+  photoIds?: Id[];
 }
 
 // Demurrage (decision #1): marginal bands per currency, monthly runs.
