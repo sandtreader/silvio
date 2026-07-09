@@ -587,3 +587,47 @@ changes to HTML.
 same pathway (renders to HTML for a future multipart email, degrades to
 readable plain text for today's). Listing descriptions stay plain text —
 listings should stay simple.
+
+## 14. Image storage — DECIDED 2026-07-09
+
+**One general `images` table, three owners; blobs in SQLite behind opaque
+ids** (the storage-layer posture data-model §5 reserved). Domain rows point
+at images by id; CMS markdown references them by URL. One serving route, one
+upload pipeline, one place limits live.
+
+**Schema**: `images: id (uuid), group_id, owner_kind (cms | member |
+listing), owner_id?, mime, size, width?, height?, blob, created_by,
+created_at`. Per-owner rules: `cms` — admin-uploaded, referenced from
+markdown; `member` — exactly one profile photo, upload replaces; `listing` —
+up to 5, ordered by upload.
+
+**Serving**: `GET /i/{id}` — correct Content-Type, `X-Content-Type-Options:
+nosniff`, and `Cache-Control: public, max-age=31536000, immutable` (an id's
+content never changes; re-upload mints a new id — repeat views are browser
+cache hits, kind to the minimal VPS). Access control is by unguessable UUID,
+no session check: CMS and listing images are public-brochure content anyway,
+and a leaked member-photo URL is low-stakes. The pragmatic norm.
+
+**Client-side resizing, not server-side.** Server-side processing means a
+heavy native dependency (sharp) — wrong for the minimal-VPS posture (#7).
+The uploading UI downscales via canvas before upload (CMS max 1600px,
+listings 1200px, profile 512px, re-encoded JPEG/WebP — which also strips
+EXIF, a real privacy win: no GPS coordinates in profile photos). The server
+only **validates**: magic-byte sniff against a jpeg/png/webp whitelist, hard
+byte caps (2MB cms / 1MB listing / 256KB member), per-owner count limits,
+and a per-group total quota (default 500MB; a constant for now, per-group
+plan setting later, #2). A determined API user can upload an
+unoptimised-but-under-cap image; the caps bound the damage.
+
+**Markdown images re-enabled with an allowlist** (amends #13's interim
+block): only `/i/{uuid}` sources render as `<img>`; anything else — external
+URLs included — degrades to text exactly as before. Small, testable rule;
+the external-image block stays permanent.
+
+**Upload transport**: raw request body (`fetch(url, {method: 'POST', body:
+file})` with the file's content type), not multipart — no @fastify/multipart
+dependency, fine for single-file uploads.
+
+**Phasing**: (1) images storage + `/i/` serving + CMS admin screen (with
+copy-the-markdown-snippet affordance) + the markdown allowlist; (2) member
+profile photo; (3) listing photos.

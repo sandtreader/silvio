@@ -48,7 +48,7 @@ Remaining server-side work, grouped by area. References are to
 - [ ] Joint members: persons CRUD API (add/remove person on a membership)
 - [ ] GDPR: anonymise-on-exit after retention window (#7); data export
 - [ ] Proxy/buddy: admin acts-for-member ("login as") with audit trail (#2)
-- [ ] Member photos (blob storage, size/count limits — storage-layer decision)
+- [ ] Member photos — see Image store phase 2 (#14) under Content
 
 ## Email & notifications
 
@@ -72,9 +72,14 @@ Remaining server-side work, grouped by area. References are to
 - [x] `news_item` storage + API: admin CRUD, published/expires window,
       markdown body (#13); brochure noticeboard at /news (public — news has
       no visibility tiers)
-- [ ] General group image store (#13): admin-uploaded blobs (size/count
-      limits) usable from CMS markdown; shares the blob posture with member/
-      listing photos and #12 branding
+- [ ] Image store phase 1 (#14): `images` table + `GET /i/{id}` (immutable
+      cache headers), CMS admin upload/list/delete with markdown snippet,
+      markdown-it image allowlist for `/i/` sources only, magic-byte + size
+      + quota validation (client resizes before upload)
+- [ ] Image store phase 2 (#14): member profile photo (single,
+      upload-replaces, 256KB) in member app + directory
+- [ ] Image store phase 3 (#14): listing photos (≤5, 1MB each) in app
+      market + brochure
 - [x] Brochure site at `/` (#12): server-rendered placeholder (group name
       header, welcome copy, public market browse, session-aware log-in/open-app
       link) — pages/news rendering waits on the CMS tables above
@@ -107,7 +112,7 @@ Remaining server-side work, grouped by area. References are to
 
 - [ ] Generic search (FTS5) over listings/directory per data-model Search
       interface, visibility-tiered
-- [ ] Listing photos (SQLite blobs, limits)
+- [ ] Listing photos — see Image store phase 3 (#14) under Content
 - [ ] Category admin routes (create/edit/delete, recategorise)
 - [ ] Location/neighbourhood field + directory filtering (CamLETS grid pattern)
 - [ ] Qualified/professional flags on listings (#8 — admin-verified badges)
