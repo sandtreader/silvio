@@ -222,6 +222,10 @@ export class ApiClient {
     return this.tenant('GET', '/categories');
   }
 
+  currencies(): Promise<{ currencies: Currency[] }> {
+    return this.tenant('GET', '/currencies');
+  }
+
   apply(input: ApplicationInput): Promise<{ member: Member }> {
     return this.tenant('POST', '/applications', input);
   }

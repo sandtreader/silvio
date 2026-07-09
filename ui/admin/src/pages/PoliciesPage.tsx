@@ -1,8 +1,6 @@
 // Credit policies page (decision #3). CRUD-ish, but the Rafiki ListEditPage
 // create-by-id flow doesn't fit server-assigned UUIDs, so a custom table
 // with an enable/disable switch and an add dialog.
-// LIMITATION: currency choices come from the admin's own accounts (see
-// currencies.ts) — there is no public currencies endpoint yet.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {

@@ -20,8 +20,8 @@ session even though the cookie survives (Rafiki has no restore hook yet).
   Limitation: the API has no way to list current restrictions, so both
   Restrict and Unrestrict are always offered.
 - **Credit policies** — per-currency policy table with an enable/disable
-  switch and an add dialog. Limitation: currency choices come from the
-  admin's own accounts (no public currencies endpoint yet).
+  switch and an add dialog. Currency choices come from the group's public
+  `GET /currencies` endpoint.
 - **Demurrage bands** — per-currency marginal bands edited as a table of
   {from balance, % per month} and saved atomically as a whole.
 - **Flags** — credit-control flags per currency (level + reason per member),

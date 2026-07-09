@@ -1,5 +1,5 @@
-// Money display for the admin app. The per-currency scale rides along on the
-// admin's own /me accounts (see currencies.ts); pages look it up for the
+// Money display for the admin app. The per-currency scale comes from the
+// group's currency list (see currencies.ts); pages look it up for the
 // currency they are editing.
 
 import type { CurrencyOption } from './currencies';

@@ -102,6 +102,18 @@ describe('path construction', () => {
     expect(lastCall(mock).url).toBe('/api/v1/g/g1/members/id%2Fwith%3Fchars');
   });
 
+  it('fetches the public categories and currencies lists', async () => {
+    const mock = stubFetch(200, { categories: [], currencies: [] });
+    const client = new ApiClient({ group: 'g1' });
+    await client.categories();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/categories');
+    expect(lastCall(mock).init.method).toBe('GET');
+    const { currencies } = await client.currencies();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/currencies');
+    expect(lastCall(mock).init.method).toBe('GET');
+    expect(currencies).toEqual([]);
+  });
+
   it('creates and updates categories on the admin routes', async () => {
     const mock = stubFetch(201, { category: {} });
     const client = new ApiClient({ group: 'g1' });

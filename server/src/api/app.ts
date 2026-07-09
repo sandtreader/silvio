@@ -882,6 +882,14 @@ export async function buildApp(
         },
       );
 
+      scope.get(
+        '/currencies',
+        { schema: { response: respond(200, body({ currencies: arrayOf('Currency') })) } },
+        async (request) => {
+          return { currencies: await storage.listCurrencies(request.group!.id) };
+        },
+      );
+
       // --- MCP endpoint (decision #9) ---------------------------------------
       // A Streamable HTTP MCP server at {tenancy}/mcp whose tools are a thin
       // client of this same REST API: each tool call is re-injected into the

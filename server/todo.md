@@ -89,8 +89,8 @@ Remaining server-side work, grouped by area. References are to
       schemas — components.schemas covers every entity plus a shared
       ErrorResponse — and ui/shared derives its types from the generated
       OpenAPI types instead of hand-writing them).
-- [ ] Group currencies endpoint (admin UI can currently only see currencies
-      the admin holds accounts in, via /me)
+- [x] Group currencies endpoint (public GET /currencies, mirroring
+      /categories; admin UI currency pickers now use it instead of /me)
 - [x] Expose currency scale in /me accounts
 - [ ] Transaction list/search for admins (reverse currently needs a pasted id)
 - [ ] List active restrictions (impose/lift exist; no read)
