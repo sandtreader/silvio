@@ -69,8 +69,9 @@ Remaining server-side work, grouped by area. References are to
       brochure rendering at /p/{slug} via markdown-it (html:false, images off
       until the group image store exists); reserved slug `home` overrides the
       placeholder front page and stays out of the nav
-- [ ] `news_item` storage + API: admin CRUD, published/expires window,
-      member read; markdown body (#13)
+- [x] `news_item` storage + API: admin CRUD, published/expires window,
+      markdown body (#13); brochure noticeboard at /news (public — news has
+      no visibility tiers)
 - [ ] General group image store (#13): admin-uploaded blobs (size/count
       limits) usable from CMS markdown; shares the blob posture with member/
       listing photos and #12 branding

@@ -206,6 +206,40 @@ describe('brochure site & app shell (#12)', () => {
     });
   });
 
+  describe('news on the brochure (#13)', () => {
+    beforeEach(async () => {
+      await storage.createNewsItem({
+        groupId: group.id, title: 'Market <b>day</b>', body: 'See you *Saturday*.',
+        publishedAt: '2026-07-01T00:00:00.000Z',
+      });
+      await storage.createNewsItem({
+        groupId: group.id, title: 'Bygones', body: 'Expired.',
+        publishedAt: '2026-01-01T00:00:00.000Z', expiresAt: '2026-02-01T00:00:00.000Z',
+      });
+      await storage.createNewsItem({
+        groupId: group.id, title: 'Someday', body: 'Scheduled.',
+        publishedAt: '2100-01-01T00:00:00.000Z',
+      });
+    });
+
+    it('GET /news renders current items only, markdown-rendered and escaped', async () => {
+      const res = await app.inject({ method: 'GET', url: '/news', headers: { host: HOST } });
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['content-type']).toContain('text/html');
+      expect(res.body).toContain('<em>Saturday</em>');
+      // Titles are user content: escaped, never raw.
+      expect(res.body).toContain('Market &lt;b&gt;day&lt;/b&gt;');
+      expect(res.body).not.toContain('Market <b>day</b>');
+      expect(res.body).not.toContain('Bygones');
+      expect(res.body).not.toContain('Someday');
+    });
+
+    it('the shell nav links to /news', async () => {
+      const res = await app.inject({ method: 'GET', url: '/', headers: { host: HOST } });
+      expect(res.body).toContain('href="/news"');
+    });
+  });
+
   describe('app under /app/ in the shell', () => {
     it('GET /app/ serves the app wrapped in shell chrome', async () => {
       const res = await app.inject({ method: 'GET', url: '/app/', headers: { host: HOST } });

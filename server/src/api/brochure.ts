@@ -7,7 +7,7 @@
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Storage } from '../storage/interface.js';
-import type { Group, Listing, Member, Page } from '../types.js';
+import type { Group, Listing, Member, NewsItem, Page } from '../types.js';
 import { authenticate } from '../services/auth.js';
 import { browse } from '../services/marketplace.js';
 import { renderMarkdown } from '../services/markdown.js';
@@ -63,7 +63,7 @@ function shellHeader(
   const session = memberName === undefined
     ? '<a href="/app/login">Log in</a>'
     : `<span>${escapeHtml(memberName)}</span> <a href="/app/">Open the app</a>`;
-  // CMS pages the viewer may see, between Home and Market (#13).
+  // CMS pages the viewer may see, between Home and News/Market (#13).
   const pageLinks = navPages
     .map((page) => `<a href="/p/${page.slug}">${escapeHtml(page.title)}</a>\n    `)
     .join('');
@@ -71,7 +71,8 @@ function shellHeader(
   <a class="shell-brand" href="/">${escapeHtml(groupName)}</a>
   <nav>
     <a href="/">Home</a>
-    ${pageLinks}<a href="/market">Market</a>
+    ${pageLinks}<a href="/news">News</a>
+    <a href="/market">Market</a>
     ${session}
   </nav>
 </header>`;
@@ -172,6 +173,31 @@ ${section('Offers', offers)}
 ${section('Wants', wants)}`);
 }
 
+/** One news item (#13): escaped title, dated, markdown body rendered. */
+function renderNewsItem(item: NewsItem): string {
+  // publishedAt is ISO 8601; the date part alone reads fine on a noticeboard.
+  const date = item.publishedAt.slice(0, 10);
+  return `<article>
+<h2>${escapeHtml(item.title)}</h2>
+<p class="category">${escapeHtml(date)}</p>
+${renderMarkdown(item.body)}
+</article>`;
+}
+
+/** The community noticeboard (#13): current news only, newest first. */
+function renderNews(
+  group: Group,
+  memberName: string | undefined,
+  navPages: NavPage[],
+  items: NewsItem[],
+): string {
+  const articles = items.length === 0
+    ? '<p>No news right now.</p>'
+    : items.map((item) => renderNewsItem(item)).join('\n');
+  return renderPage(group, memberName, navPages, `News — ${group.name}`, `<h1>News</h1>
+${articles}`);
+}
+
 /** Host header -> group, exactly as the API's tenancy resolution (port stripped). */
 export async function resolveGroupFromHost(
   storage: Storage,
@@ -264,6 +290,19 @@ export function registerBrochureRoutes(app: FastifyInstance, storage: Storage): 
     return reply
       .type(htmlType)
       .send(renderPage(group, member?.displayName, navPages, page.title, renderMarkdown(page.body)));
+  });
+
+  // News (#13): the public noticeboard — items published by now and not yet
+  // expired; scheduled and expired ones exist only in the admin area.
+  app.get('/news', hidden, async (request, reply) => {
+    const group = await resolveGroupFromHost(storage, request);
+    if (group === undefined) return reply.status(404).type(htmlType).send(NOT_FOUND_PAGE);
+    const member = await sessionMember(storage, request, group.id);
+    const navPages = await navPagesFor(storage, group.id, member);
+    const items = await storage.listNews(group.id, { currentAt: new Date().toISOString() });
+    return reply
+      .type(htmlType)
+      .send(renderNews(group, member?.displayName, navPages, items));
   });
 
   app.get('/market', hidden, async (request, reply) => {

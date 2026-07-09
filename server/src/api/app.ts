@@ -31,6 +31,7 @@ import type {
   MemberRole,
   MemberStatus,
   MemberType,
+  NewsItem,
   Page,
   PageVisibility,
   Session,
@@ -1670,6 +1671,123 @@ export async function buildApp(
           const { id } = request.params as { id: string };
           await targetPage(request, id);
           await storage.deletePage(id);
+          return { ok: true };
+        },
+      );
+
+      // --- News items (decision #13): admin-authored markdown announcements
+      // with a published/expires window; the brochure shows the current ones
+      // publicly (brochure.ts). Admins see everything here, scheduled and
+      // expired included.
+
+      /** Assert the news item exists in the request's group (tenancy isolation). */
+      async function targetNewsItem(request: FastifyRequest, id: string): Promise<NewsItem> {
+        const item = await storage.getNewsItem(id);
+        if (item.groupId !== request.group!.id) {
+          throw new DomainError('NOT_FOUND', `news item ${id} not found in this group`);
+        }
+        return item;
+      }
+
+      scope.get(
+        '/admin/news',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: { response: respond(200, body({ news: arrayOf('NewsItem') })) },
+        },
+        async (request) => {
+          return { news: await storage.listNews(request.group!.id, {}) };
+        },
+      );
+
+      scope.post(
+        '/admin/news',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            body: {
+              type: 'object',
+              required: ['title', 'body'],
+              properties: {
+                title: { type: 'string' },
+                body: { type: 'string' },
+                publishedAt: { type: 'string' },
+                expiresAt: { type: 'string' },
+              },
+            },
+            response: respond(201, body({ newsItem: ref('NewsItem') })),
+          },
+        },
+        async (request, reply) => {
+          const draft = request.body as {
+            title: string;
+            body: string;
+            publishedAt?: string;
+            expiresAt?: string;
+          };
+          const input: Parameters<typeof storage.createNewsItem>[0] = {
+            groupId: request.group!.id,
+            title: draft.title,
+            body: draft.body,
+            // Unscheduled news goes up immediately.
+            publishedAt: draft.publishedAt ?? new Date().toISOString(),
+          };
+          if (draft.expiresAt !== undefined) input.expiresAt = draft.expiresAt;
+          const newsItem = await storage.createNewsItem(input);
+          reply.status(201);
+          return { newsItem };
+        },
+      );
+
+      scope.patch(
+        '/admin/news/:id',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            body: {
+              type: 'object',
+              properties: {
+                title: { type: 'string' },
+                body: { type: 'string' },
+                publishedAt: { type: 'string' },
+                expiresAt: { type: 'string' },
+              },
+            },
+            response: respond(200, body({ newsItem: ref('NewsItem') })),
+          },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          const draft = request.body as Partial<{
+            title: string;
+            body: string;
+            publishedAt: string;
+            expiresAt: string;
+          }>;
+          await targetNewsItem(request, id);
+          const patch: Parameters<typeof storage.updateNewsItem>[1] = {};
+          if (draft.title !== undefined) patch.title = draft.title;
+          if (draft.body !== undefined) patch.body = draft.body;
+          if (draft.publishedAt !== undefined) patch.publishedAt = draft.publishedAt;
+          if (draft.expiresAt !== undefined) patch.expiresAt = draft.expiresAt;
+          return { newsItem: await storage.updateNewsItem(id, patch) };
+        },
+      );
+
+      scope.delete(
+        '/admin/news/:id',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            response: respond(200, OK_RESPONSE),
+          },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          await targetNewsItem(request, id);
+          await storage.deleteNewsItem(id);
           return { ok: true };
         },
       );

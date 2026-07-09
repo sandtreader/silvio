@@ -28,6 +28,7 @@ import type {
   MemberStatus,
   MemberType,
   NewTransaction,
+  NewsItem,
   Page,
   PageVisibility,
   Person,
@@ -85,6 +86,15 @@ export interface CreatePageInput {
   body: string;
   visibility: PageVisibility;
   position?: number; // default 0
+}
+
+/** News item to create (decision #13, data-model §6). body is markdown source. */
+export interface CreateNewsItemInput {
+  groupId: Id;
+  title: string;
+  body: string;
+  publishedAt: string;
+  expiresAt?: string;
 }
 
 /** Admin transaction search (todo: API polish). All fields optional; AND-composed. */
@@ -342,6 +352,28 @@ export interface Storage extends Ledger {
     }>,
   ): Promise<Page>;
   deletePage(id: Id): Promise<void>;
+
+  // News items (decision #13, data-model §6): the community noticeboard,
+  // always public, shown from publishedAt until expiresAt (if set).
+  /** Create a news item; timestamps are set here. */
+  createNewsItem(input: CreateNewsItemInput): Promise<NewsItem>;
+  getNewsItem(id: Id): Promise<NewsItem>;
+  /**
+   * News of a group, newest publishedAt first. With currentAt only items
+   * already published (publishedAt <= currentAt) and not yet expired
+   * (no expiresAt, or expiresAt > currentAt).
+   */
+  listNews(groupId: Id, filter: { currentAt?: string }): Promise<NewsItem[]>;
+  updateNewsItem(
+    id: Id,
+    patch: Partial<{
+      title: string;
+      body: string;
+      publishedAt: string;
+      expiresAt: string;
+    }>,
+  ): Promise<NewsItem>;
+  deleteNewsItem(id: Id): Promise<void>;
 
   close(): void;
 }

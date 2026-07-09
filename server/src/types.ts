@@ -314,6 +314,20 @@ export interface Page {
   updatedAt: string;
 }
 
+// News items (decision #13, data-model §6): the community noticeboard.
+// Always public — no visibility field; an item shows from publishedAt until
+// expiresAt (if set). body is markdown source, rendered at the edge.
+export interface NewsItem {
+  id: Id;
+  groupId: Id;
+  title: string;
+  body: string; // markdown source (#13)
+  publishedAt: string;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface StatementLine {
   seq: number;
   transactionId: Id;

@@ -820,6 +820,60 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
     });
   });
 
+  describe('news items (CMS, decision #13, data-model §6)', () => {
+    function draft(overrides: Record<string, unknown> = {}) {
+      return {
+        groupId: f.group.id,
+        title: 'Market day',
+        body: 'See you *Saturday*.',
+        publishedAt: '2026-07-01T00:00:00.000Z',
+        ...overrides,
+      };
+    }
+
+    it('creates and fetches a news item', async () => {
+      const item = await f.storage.createNewsItem(draft());
+      expect(item.id).toBeTruthy();
+      expect(item.groupId).toBe(f.group.id);
+      expect(item.title).toBe('Market day');
+      expect(item.body).toContain('Saturday');
+      expect(item.publishedAt).toBe('2026-07-01T00:00:00.000Z');
+      expect(item.expiresAt).toBeUndefined();
+      expect((await f.storage.getNewsItem(item.id)).id).toBe(item.id);
+    });
+
+    it('listNews with currentAt hides future and expired items, newest first', async () => {
+      await f.storage.createNewsItem(draft({ title: 'Old news', publishedAt: '2026-01-01T00:00:00.000Z' }));
+      await f.storage.createNewsItem(draft({ title: 'Current' }));
+      await f.storage.createNewsItem(
+        draft({ title: 'Expired', publishedAt: '2026-06-01T00:00:00.000Z', expiresAt: '2026-07-01T00:00:00.000Z' }),
+      );
+      await f.storage.createNewsItem(
+        draft({ title: 'Scheduled', publishedAt: '2026-08-01T00:00:00.000Z' }),
+      );
+      await f.storage.createNewsItem(draft({ groupId: f.otherGroup.id, title: 'Elsewhere' }));
+
+      const current = await f.storage.listNews(f.group.id, { currentAt: '2026-07-09T00:00:00.000Z' });
+      expect(current.map((n) => n.title)).toEqual(['Current', 'Old news']);
+      // Without currentAt: everything in the group, newest publishedAt first.
+      const all = await f.storage.listNews(f.group.id, {});
+      expect(all.map((n) => n.title)).toEqual(['Scheduled', 'Current', 'Expired', 'Old news']);
+    });
+
+    it('updates and deletes; unknown ids are NOT_FOUND', async () => {
+      const item = await f.storage.createNewsItem(draft());
+      const updated = await f.storage.updateNewsItem(item.id, {
+        title: 'Market day moved',
+        expiresAt: '2026-12-01T00:00:00.000Z',
+      });
+      expect(updated.title).toBe('Market day moved');
+      expect(updated.expiresAt).toBe('2026-12-01T00:00:00.000Z');
+      await f.storage.deleteNewsItem(item.id);
+      await expectStorageError(f.storage.getNewsItem(item.id), 'NOT_FOUND');
+      await expectStorageError(f.storage.updateNewsItem(item.id, { title: 'X' }), 'NOT_FOUND');
+    });
+  });
+
   describe('email events (outbound log, data-model §6)', () => {
     function draft(overrides: Record<string, string> = {}) {
       return {

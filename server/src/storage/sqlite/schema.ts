@@ -244,6 +244,20 @@ CREATE TABLE pages (
   UNIQUE (group_id, slug)
 );
 
+-- News items (decision #13, data-model §6): the community noticeboard.
+-- Always public; current between published_at and expires_at (if set).
+-- body is markdown source.
+CREATE TABLE news_items (
+  id           TEXT PRIMARY KEY,
+  group_id     TEXT NOT NULL REFERENCES groups(id),
+  title        TEXT NOT NULL,
+  body         TEXT NOT NULL,
+  published_at TEXT NOT NULL,
+  expires_at   TEXT,
+  created_at   TEXT NOT NULL,
+  updated_at   TEXT NOT NULL
+);
+
 CREATE INDEX idx_entries_transaction ON entries(transaction_id);
 CREATE INDEX idx_entries_account ON entries(account_id);
 CREATE INDEX idx_transactions_group_seq ON transactions(group_id, seq);
@@ -259,4 +273,6 @@ CREATE INDEX idx_email_events_pending ON email_events(created_at)
   WHERE sent_at IS NULL AND attempts < 3;
 -- Matches the listPages ordering (position, then slug).
 CREATE INDEX idx_pages_group_position ON pages(group_id, position);
+-- Matches the listNews ordering (newest publishedAt first) per group.
+CREATE INDEX idx_news_items_group_published ON news_items(group_id, published_at DESC);
 `;

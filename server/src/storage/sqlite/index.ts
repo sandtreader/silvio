@@ -9,6 +9,7 @@ import type {
   CreateAccountInput,
   CreateCurrencyInput,
   CreateGroupInput,
+  CreateNewsItemInput,
   CreatePageInput,
   EnqueueEmailInput,
   Storage,
@@ -38,6 +39,7 @@ import type {
   MemberStatus,
   MemberType,
   NewTransaction,
+  NewsItem,
   Page,
   PageVisibility,
   Person,
@@ -249,6 +251,17 @@ interface PageRow {
   body: string;
   visibility: string;
   position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface NewsItemRow {
+  id: string;
+  group_id: string;
+  title: string;
+  body: string;
+  published_at: string;
+  expires_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1835,6 +1848,104 @@ export class SqliteStorage implements Storage {
     return Promise.resolve();
   }
 
+  // --- News items (decision #13, data-model §6) -------------------------------
+
+  createNewsItem(input: CreateNewsItemInput): Promise<NewsItem> {
+    try {
+      const id = uuidv7();
+      const createdAt = now();
+      this.db
+        .prepare(
+          `INSERT INTO news_items (
+             id, group_id, title, body, published_at, expires_at,
+             created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          id,
+          input.groupId,
+          input.title,
+          input.body,
+          input.publishedAt,
+          input.expiresAt ?? null,
+          createdAt,
+          createdAt,
+        );
+      return Promise.resolve(this.loadNewsItem(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  getNewsItem(id: Id): Promise<NewsItem> {
+    try {
+      return Promise.resolve(this.loadNewsItem(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  listNews(groupId: Id, filter: { currentAt?: string }): Promise<NewsItem[]> {
+    const conditions = ['group_id = ?'];
+    const values: string[] = [groupId];
+    if (filter.currentAt !== undefined) {
+      // Current items only: already published, not yet expired.
+      conditions.push('published_at <= ?', '(expires_at IS NULL OR expires_at > ?)');
+      values.push(filter.currentAt, filter.currentAt);
+    }
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM news_items WHERE ${conditions.join(' AND ')}
+         ORDER BY published_at DESC`,
+      )
+      .all(...values) as NewsItemRow[];
+    return Promise.resolve(rows.map((row) => this.newsItemFromRow(row)));
+  }
+
+  updateNewsItem(
+    id: Id,
+    patch: Partial<{
+      title: string;
+      body: string;
+      publishedAt: string;
+      expiresAt: string;
+    }>,
+  ): Promise<NewsItem> {
+    try {
+      this.loadNewsItem(id);
+      const sets: string[] = [];
+      const values: string[] = [];
+      const columns: [keyof typeof patch, string][] = [
+        ['title', 'title'],
+        ['body', 'body'],
+        ['publishedAt', 'published_at'],
+        ['expiresAt', 'expires_at'],
+      ];
+      for (const [key, column] of columns) {
+        const value = patch[key];
+        if (value !== undefined) {
+          sets.push(`${column} = ?`);
+          values.push(value);
+        }
+      }
+      if (sets.length > 0) {
+        sets.push('updated_at = ?');
+        values.push(now());
+        this.db
+          .prepare(`UPDATE news_items SET ${sets.join(', ')} WHERE id = ?`)
+          .run(...values, id);
+      }
+      return Promise.resolve(this.loadNewsItem(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  deleteNewsItem(id: Id): Promise<void> {
+    this.db.prepare('DELETE FROM news_items WHERE id = ?').run(id);
+    return Promise.resolve();
+  }
+
   close(): void {
     this.db.close();
   }
@@ -1984,6 +2095,28 @@ export class SqliteStorage implements Storage {
       .get(id) as PageRow | undefined;
     if (!row) throw new StorageError('NOT_FOUND', `page ${id} not found`);
     return this.pageFromRow(row);
+  }
+
+  private newsItemFromRow(row: NewsItemRow): NewsItem {
+    const item: NewsItem = {
+      id: row.id,
+      groupId: row.group_id,
+      title: row.title,
+      body: row.body,
+      publishedAt: row.published_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+    if (row.expires_at !== null) item.expiresAt = row.expires_at;
+    return item;
+  }
+
+  private loadNewsItem(id: Id): NewsItem {
+    const row = this.db
+      .prepare('SELECT * FROM news_items WHERE id = ?')
+      .get(id) as NewsItemRow | undefined;
+    if (!row) throw new StorageError('NOT_FOUND', `news item ${id} not found`);
+    return this.newsItemFromRow(row);
   }
 
   private runFromRow(row: DemurrageRunRow): DemurrageRun {

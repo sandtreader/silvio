@@ -22,6 +22,7 @@ import type {
   Group,
   Listing,
   Member,
+  NewsItem,
   Page,
   Restriction,
   StatementLine,
@@ -367,6 +368,25 @@ const PAGE = {
   },
 } as const;
 
+// News item (decision #13): the community noticeboard — always public, shown
+// from publishedAt until expiresAt. body is markdown source, rendered on the
+// brochure, so the API round-trips the source verbatim.
+const NEWS_ITEM = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'groupId', 'title', 'body', 'publishedAt', 'createdAt', 'updatedAt'],
+  properties: {
+    id: { type: 'string' },
+    groupId: { type: 'string' },
+    title: { type: 'string' },
+    body: { type: 'string' },
+    publishedAt: { type: 'string' },
+    expiresAt: { type: 'string' },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' },
+  },
+} as const;
+
 const RESTRICTION = {
   type: 'object',
   additionalProperties: false,
@@ -439,6 +459,7 @@ export const sharedSchemas = [
   { $id: 'CreditPolicy', ...CREDIT_POLICY },
   { $id: 'DemurrageBand', ...DEMURRAGE_BAND },
   { $id: 'Page', ...PAGE },
+  { $id: 'NewsItem', ...NEWS_ITEM },
   { $id: 'Restriction', ...RESTRICTION },
   { $id: 'AccountFlag', ...ACCOUNT_FLAG },
   { $id: 'ErrorResponse', ...ERROR_RESPONSE },
@@ -472,6 +493,7 @@ type _DriftGuards = [
   Expect<Equal<FromSchema<typeof CREDIT_POLICY>, CreditPolicy>>,
   Expect<Equal<FromSchema<typeof DEMURRAGE_BAND>, DemurrageBand>>,
   Expect<Equal<FromSchema<typeof PAGE>, Page>>,
+  Expect<Equal<FromSchema<typeof NEWS_ITEM>, NewsItem>>,
   Expect<Equal<FromSchema<typeof RESTRICTION>, Restriction>>,
   Expect<Equal<FromSchema<typeof ACCOUNT_FLAG>, AccountFlag>>,
 ];
