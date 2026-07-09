@@ -53,6 +53,10 @@ export type NewsItem = Schemas['NewsItem'];
 /** Stored image metadata (decision #14); the blob itself serves at GET /i/{id}. */
 export type Image = Schemas['Image'];
 
+/** Group skin slot (decision #15): one brand image per slot. */
+export type BrandSlot =
+  paths['/api/v1/admin/branding/{slot}']['put']['parameters']['path']['slot'];
+
 // --- Credit control (decision #3) -------------------------------------------
 
 export type Policy = Schemas['CreditPolicy'];

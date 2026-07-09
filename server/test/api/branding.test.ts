@@ -125,6 +125,26 @@ describe('group branding API (#15)', () => {
     expect(market.body).toContain(`src="/i/${logo.id}"`);
   });
 
+  it('GET /admin/images?ownerKind=brand lists the brand slots', async () => {
+    const { image: logo } = (await put('logo')).json() as { image: Image };
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/g/cam/admin/images?ownerKind=brand',
+      headers: { cookie: adminCookie, origin: 'http://localhost' },
+    });
+    expect(res.statusCode).toBe(200);
+    const { images } = res.json() as { images: Image[] };
+    expect(images.map((i) => i.id)).toEqual([logo.id]);
+    expect(images[0]!.ownerId).toBe('logo');
+    // The default stays 'cms': the Images page never sees brand images.
+    const cms = await app.inject({
+      method: 'GET',
+      url: '/api/v1/g/cam/admin/images',
+      headers: { cookie: adminCookie, origin: 'http://localhost' },
+    });
+    expect((cms.json() as { images: Image[] }).images).toEqual([]);
+  });
+
   it('an unbranded group has no logo markup', async () => {
     const res = await app.inject({
       method: 'GET', url: '/', headers: { host: 'cam.example.org' },

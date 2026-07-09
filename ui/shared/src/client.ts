@@ -6,6 +6,7 @@
 // anything else.
 
 import type {
+  BrandSlot,
   Category,
   Currency,
   DemurrageBand,
@@ -439,6 +440,21 @@ export class ApiClient {
 
   adminDeleteImage(id: string): Promise<{ ok: boolean }> {
     return this.tenant('DELETE', `/admin/images/${encodeURIComponent(id)}`);
+  }
+
+  // Group skinning (#15): one brand image per slot (logo | header),
+  // replace-on-upload; the current state is the brand-filtered image list.
+
+  adminBrandImages(): Promise<{ images: Image[] }> {
+    return this.tenant('GET', '/admin/images?ownerKind=brand');
+  }
+
+  setBrandImage(slot: BrandSlot, data: Blob, mime: string): Promise<{ image: Image }> {
+    return this.rawRequest('PUT', `${this.groupPath()}/admin/branding/${slot}`, data, mime);
+  }
+
+  deleteBrandImage(slot: BrandSlot): Promise<{ ok: boolean }> {
+    return this.tenant('DELETE', `/admin/branding/${slot}`);
   }
 
   adminNews(): Promise<{ news: NewsItem[] }> {

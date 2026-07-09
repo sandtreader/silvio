@@ -1999,10 +1999,20 @@ export async function buildApp(
         '/admin/images',
         {
           preHandler: [requireMember, requireAdmin],
-          schema: { response: respond(200, body({ images: arrayOf('Image') })) },
+          schema: {
+            // ownerKind filter (#15): the Branding page lists brand slots
+            // through this same route; the default keeps the Images page on
+            // cms uploads only.
+            querystring: {
+              type: 'object',
+              properties: { ownerKind: { type: 'string', enum: ['cms', 'brand'] } },
+            },
+            response: respond(200, body({ images: arrayOf('Image') })),
+          },
         },
         async (request) => {
-          return { images: await storage.listImages(request.group!.id, { ownerKind: 'cms' }) };
+          const { ownerKind = 'cms' } = request.query as { ownerKind?: 'cms' | 'brand' };
+          return { images: await storage.listImages(request.group!.id, { ownerKind }) };
         },
       );
 

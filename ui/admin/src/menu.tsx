@@ -5,6 +5,7 @@
 
 import { MenuStructure, StaticMenuProvider } from '@sandtreader/rafiki';
 import { ApprovalQueuePage } from './pages/ApprovalQueuePage';
+import { BrandingPage } from './pages/BrandingPage';
 import { CategoriesPage } from './pages/CategoriesPage';
 import { ImagesPage } from './pages/ImagesPage';
 import { MembersPage } from './pages/MembersPage';
@@ -94,6 +95,14 @@ const pages: PageDefinition[] = [
     name: 'Images',
     icon: 'image',
     content: <ImagesPage />,
+    requirements: ['admin.content'],
+  },
+  // Group skinning (decision #15)
+  {
+    id: 'branding',
+    name: 'Branding',
+    icon: 'palette',
+    content: <BrandingPage />,
     requirements: ['admin.content'],
   },
 ];

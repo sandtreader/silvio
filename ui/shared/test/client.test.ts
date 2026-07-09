@@ -184,6 +184,26 @@ describe('path construction', () => {
     expect(lastCall(mock).init.method).toBe('DELETE');
   });
 
+  it('routes branding: brand-filtered list, raw-body upload, delete (#15)', async () => {
+    const mock = stubFetch(200, { images: [] });
+    const client = new ApiClient({ group: 'g1' });
+    await client.adminBrandImages();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/images?ownerKind=brand');
+    expect(lastCall(mock).init.method).toBe('GET');
+
+    const blob = new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: 'image/jpeg' });
+    await client.setBrandImage('logo', blob, 'image/jpeg');
+    const { url, init } = lastCall(mock);
+    expect(url).toBe('/api/v1/g/g1/admin/branding/logo');
+    expect(init.method).toBe('PUT');
+    expect(init.headers).toEqual({ 'content-type': 'image/jpeg' });
+    expect(init.body).toBe(blob); // raw body, never JSON-stringified
+
+    await client.deleteBrandImage('header');
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/branding/header');
+    expect(lastCall(mock).init.method).toBe('DELETE');
+  });
+
   it('routes the profile photo: raw-body upload and delete (decision #14)', async () => {
     const mock = stubFetch(201, { image: {} });
     const client = new ApiClient({ group: 'g1' });

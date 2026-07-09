@@ -17,11 +17,12 @@ export interface ResizedImage {
 
 const MAX_EDGE = 1600; // CMS long-edge cap (decision #14)
 const JPEG_QUALITY = 0.85;
-const SMALL_PNG_BYTES = 512 * 1024; // PNGs under this and within MAX_EDGE pass through
+const SMALL_PNG_BYTES = 512 * 1024; // PNGs under this and within the edge cap pass through
 
 /** Decode, downscale and re-encode an image file; rejects if it can't be
- *  decoded (not actually an image, or a format the browser doesn't know). */
-export async function resizeImage(file: File): Promise<ResizedImage> {
+ *  decoded (not actually an image, or a format the browser doesn't know).
+ *  maxEdge defaults to the CMS cap; brand slots pass their own (#15). */
+export async function resizeImage(file: File, maxEdge = MAX_EDGE): Promise<ResizedImage> {
   let bitmap: ImageBitmap;
   try {
     bitmap = await createImageBitmap(file);
@@ -29,7 +30,7 @@ export async function resizeImage(file: File): Promise<ResizedImage> {
     throw new Error(`${file.name} is not a decodable image`);
   }
   try {
-    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
     if (scale === 1 && file.type === 'image/png' && file.size <= SMALL_PNG_BYTES) {
       return { blob: file, mime: 'image/png' };
     }

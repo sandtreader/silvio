@@ -6,6 +6,7 @@
 import {
   ApiClient,
   ApiError,
+  type BrandSlot,
   type Category,
   type CreditPolicyConfig,
   type Currency,
@@ -105,6 +106,9 @@ export interface AdminApi {
   adminImages(): Promise<Image[] | undefined>;
   adminUploadImage(data: Blob, mime: string): Promise<Image | undefined>;
   adminDeleteImage(id: string): Promise<boolean>;
+  adminBrandImages(): Promise<Image[] | undefined>;
+  setBrandImage(slot: BrandSlot, data: Blob, mime: string): Promise<Image | undefined>;
+  deleteBrandImage(slot: BrandSlot): Promise<boolean>;
   adminNews(): Promise<NewsItem[] | undefined>;
   adminCreateNews(input: NewsInput): Promise<NewsItem | undefined>;
   adminUpdateNews(
@@ -154,6 +158,11 @@ export const api: AdminApi = {
   adminUploadImage: async (data, mime) =>
     (await call(client.adminUploadImage(data, mime)))?.image,
   adminDeleteImage: async (id) => (await call(client.adminDeleteImage(id)))?.ok ?? false,
+  adminBrandImages: async () => (await call(client.adminBrandImages()))?.images,
+  setBrandImage: async (slot, data, mime) =>
+    (await call(client.setBrandImage(slot, data, mime)))?.image,
+  deleteBrandImage: async (slot) =>
+    (await call(client.deleteBrandImage(slot)))?.ok ?? false,
   adminNews: async () => (await call(client.adminNews()))?.news,
   adminCreateNews: async (input) =>
     (await call(client.adminCreateNews(input)))?.newsItem,
