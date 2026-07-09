@@ -14,6 +14,7 @@ import type {
   CreatePageInput,
   EnqueueEmailInput,
   ImageFilter,
+  SetEmailTemplateInput,
   Storage,
   TransactionFilter,
 } from '../interface.js';
@@ -30,6 +31,7 @@ import type {
   DemurrageBand,
   DemurrageRun,
   EmailEvent,
+  EmailTemplate,
   Entry,
   Group,
   Id,
@@ -145,10 +147,19 @@ interface EmailEventRow {
   to_email: string;
   subject: string;
   body: string;
+  from_email: string | null;
   created_at: string;
   sent_at: string | null;
   attempts: number;
   last_error: string | null;
+}
+
+interface EmailTemplateRow {
+  id: string;
+  group_id: string;
+  kind: string;
+  subject: string;
+  body: string;
 }
 
 interface CurrencyRow {
@@ -211,6 +222,7 @@ interface GroupRow {
   id: string;
   slug: string;
   name: string;
+  email_from: string | null;
   created_at: string;
 }
 
@@ -327,15 +339,24 @@ export class SqliteStorage implements Storage {
   listGroups(): Promise<Group[]> {
     const rows = this.db
       .prepare('SELECT * FROM groups ORDER BY created_at, id')
-      .all() as { id: string; slug: string; name: string; created_at: string }[];
-    return Promise.resolve(
-      rows.map((row) => ({
-        id: row.id,
-        slug: row.slug,
-        name: row.name,
-        createdAt: row.created_at,
-      })),
-    );
+      .all() as GroupRow[];
+    return Promise.resolve(rows.map((row) => this.groupFromRow(row)));
+  }
+
+  updateGroup(id: Id, patch: { name?: string; emailFrom?: string | null }): Promise<Group> {
+    try {
+      this.loadGroup(id);
+      if (patch.name !== undefined) {
+        this.db.prepare('UPDATE groups SET name = ? WHERE id = ?').run(patch.name, id);
+      }
+      if (patch.emailFrom !== undefined) {
+        // null clears the sender (#16); absent leaves it untouched.
+        this.db.prepare('UPDATE groups SET email_from = ? WHERE id = ?').run(patch.emailFrom, id);
+      }
+      return Promise.resolve(this.loadGroup(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   createCurrency(input: CreateCurrencyInput): Promise<Currency> {
@@ -1394,8 +1415,8 @@ export class SqliteStorage implements Storage {
         .prepare(
           `INSERT OR IGNORE INTO email_events (
              id, group_id, person_id, kind, dedup_key, to_email, subject, body,
-             created_at, attempts
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+             from_email, created_at, attempts
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
         )
         .run(
           id,
@@ -1406,10 +1427,11 @@ export class SqliteStorage implements Storage {
           input.toEmail,
           input.subject,
           input.body,
+          input.fromEmail ?? null,
           input.createdAt,
         );
       if (result.changes === 0) return Promise.resolve(undefined);
-      return Promise.resolve({
+      const event: EmailEvent = {
         id,
         groupId: input.groupId,
         personId: input.personId,
@@ -1420,7 +1442,9 @@ export class SqliteStorage implements Storage {
         body: input.body,
         createdAt: input.createdAt,
         attempts: 0,
-      });
+      };
+      if (input.fromEmail !== undefined) event.fromEmail = input.fromEmail;
+      return Promise.resolve(event);
     } catch (err) {
       return Promise.reject(err);
     }
@@ -1462,9 +1486,63 @@ export class SqliteStorage implements Storage {
       createdAt: row.created_at,
       attempts: row.attempts,
     };
+    if (row.from_email !== null) event.fromEmail = row.from_email;
     if (row.sent_at !== null) event.sentAt = row.sent_at;
     if (row.last_error !== null) event.lastError = row.last_error;
     return event;
+  }
+
+  // --- Email template overrides (#16) -----------------------------------------
+
+  setEmailTemplate(input: SetEmailTemplateInput): Promise<EmailTemplate> {
+    try {
+      // Upsert per (group, kind): a replace keeps the original row's id.
+      this.db
+        .prepare(
+          `INSERT INTO email_templates (id, group_id, kind, subject, body)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT (group_id, kind)
+           DO UPDATE SET subject = excluded.subject, body = excluded.body`,
+        )
+        .run(uuidv7(), input.groupId, input.kind, input.subject, input.body);
+      const row = this.db
+        .prepare('SELECT * FROM email_templates WHERE group_id = ? AND kind = ?')
+        .get(input.groupId, input.kind) as EmailTemplateRow;
+      return Promise.resolve(this.emailTemplateFromRow(row));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  getEmailTemplate(groupId: Id, kind: string): Promise<EmailTemplate | undefined> {
+    const row = this.db
+      .prepare('SELECT * FROM email_templates WHERE group_id = ? AND kind = ?')
+      .get(groupId, kind) as EmailTemplateRow | undefined;
+    return Promise.resolve(row ? this.emailTemplateFromRow(row) : undefined);
+  }
+
+  listEmailTemplates(groupId: Id): Promise<EmailTemplate[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM email_templates WHERE group_id = ? ORDER BY kind')
+      .all(groupId) as EmailTemplateRow[];
+    return Promise.resolve(rows.map((row) => this.emailTemplateFromRow(row)));
+  }
+
+  deleteEmailTemplate(groupId: Id, kind: string): Promise<void> {
+    this.db
+      .prepare('DELETE FROM email_templates WHERE group_id = ? AND kind = ?')
+      .run(groupId, kind);
+    return Promise.resolve();
+  }
+
+  private emailTemplateFromRow(row: EmailTemplateRow): EmailTemplate {
+    return {
+      id: row.id,
+      groupId: row.group_id,
+      kind: row.kind,
+      subject: row.subject,
+      body: row.body,
+    };
   }
 
   pendingDue(groupId: Id, asOf: string): Promise<Transaction[]> {
@@ -2118,7 +2196,22 @@ export class SqliteStorage implements Storage {
   }
 
   private groupFromRow(row: GroupRow): Group {
-    return { id: row.id, slug: row.slug, name: row.name, createdAt: row.created_at };
+    const group: Group = {
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      createdAt: row.created_at,
+    };
+    if (row.email_from !== null) group.emailFrom = row.email_from;
+    return group;
+  }
+
+  private loadGroup(id: Id): Group {
+    const row = this.db
+      .prepare('SELECT * FROM groups WHERE id = ?')
+      .get(id) as GroupRow | undefined;
+    if (!row) throw new StorageError('NOT_FOUND', `group ${id} not found`);
+    return this.groupFromRow(row);
   }
 
   private apiTokenFromRow(row: ApiTokenRow): ApiToken {

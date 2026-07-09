@@ -6,11 +6,14 @@
 
 import nodemailer from 'nodemailer';
 import type { Storage } from '../storage/interface.js';
+import { renderMarkdown } from './markdown.js';
 
 export interface MailMessage {
   to: string;
   subject: string;
   text: string;
+  html?: string; // rendered from the markdown body at delivery (#16)
+  from?: string; // per-group sender snapshot (#16); absent = mailer default
 }
 
 export interface Mailer {
@@ -38,7 +41,16 @@ export async function deliverEmails(
   const report: DeliverReport = { sent: 0, failed: 0 };
   for (const event of await storage.pendingEmails(opts?.limit ?? 50)) {
     try {
-      await mailer.send({ to: event.toEmail, subject: event.subject, text: event.body });
+      // Multipart (#16): the stored markdown source is the text part, its
+      // rendering the html part — markdown-it's escaping applies here.
+      const message: MailMessage = {
+        to: event.toEmail,
+        subject: event.subject,
+        text: event.body,
+        html: renderMarkdown(event.body),
+      };
+      if (event.fromEmail !== undefined) message.from = event.fromEmail;
+      await mailer.send(message);
       await storage.markEmailSent(event.id, nowIso);
       report.sent += 1;
     } catch (err: unknown) {
@@ -59,10 +71,11 @@ export function createSmtpMailer(smtpUrl: string, from: string): Mailer {
   return {
     async send(message: MailMessage): Promise<void> {
       await transport.sendMail({
-        from,
+        from: message.from ?? from,
         to: message.to,
         subject: message.subject,
         text: message.text,
+        ...(message.html !== undefined ? { html: message.html } : {}),
       });
     },
   };

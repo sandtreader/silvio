@@ -61,6 +61,11 @@ import {
   notifyRestrictionImposed,
   notifyRestrictionLifted,
 } from '../services/notifications.js';
+import {
+  DEFAULT_EMAIL_TEMPLATES,
+  EMAIL_TEMPLATE_KINDS,
+  type EmailTemplateKind,
+} from '../services/emailtemplates.js';
 import { browse, postListing } from '../services/marketplace.js';
 import {
   addListingPhoto,
@@ -2116,6 +2121,139 @@ export async function buildApp(
         async (request) => {
           const { slot } = request.params as { slot: BrandSlot };
           await deleteBrandImage(storage, request.group!.id, slot);
+          return { ok: true };
+        },
+      );
+
+      // --- Group settings (#16): the sender address, admin-editable. name is
+      // patchable too; emailFrom: null clears back to the instance default.
+
+      scope.get(
+        '/admin/group',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: { response: respond(200, body({ group: ref('Group') })) },
+        },
+        async (request) => {
+          return { group: request.group! };
+        },
+      );
+
+      scope.patch(
+        '/admin/group',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            body: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                emailFrom: { type: ['string', 'null'] },
+              },
+            },
+            response: respond(200, body({ group: ref('Group') })),
+          },
+        },
+        async (request) => {
+          const draft = request.body as { name?: string; emailFrom?: string | null };
+          const patch: Parameters<typeof storage.updateGroup>[1] = {};
+          if (draft.name !== undefined) patch.name = draft.name;
+          if (draft.emailFrom !== undefined) patch.emailFrom = draft.emailFrom;
+          return { group: await storage.updateGroup(request.group!.id, patch) };
+        },
+      );
+
+      // --- Email templates (#16): built-in defaults, per-group overrides.
+      // The enum params schema makes any unknown kind a validation 400.
+
+      const TEMPLATE_KIND_PARAMS = {
+        type: 'object',
+        properties: { kind: { type: 'string', enum: EMAIL_TEMPLATE_KINDS } },
+        required: ['kind'],
+        additionalProperties: false,
+      } as const;
+
+      /** The effective template per kind: override values or the default. */
+      const EMAIL_TEMPLATE_VIEW = body({
+        kind: { type: 'string', enum: EMAIL_TEMPLATE_KINDS },
+        subject: { type: 'string' },
+        body: { type: 'string' },
+        isDefault: { type: 'boolean' },
+      });
+
+      scope.get(
+        '/admin/email-templates',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            response: respond(
+              200,
+              body({ templates: { type: 'array', items: EMAIL_TEMPLATE_VIEW } }),
+            ),
+          },
+        },
+        async (request) => {
+          const overrides = await storage.listEmailTemplates(request.group!.id);
+          return {
+            templates: EMAIL_TEMPLATE_KINDS.map((kind) => {
+              const override = overrides.find((candidate) => candidate.kind === kind);
+              return override === undefined
+                ? { kind, ...DEFAULT_EMAIL_TEMPLATES[kind], isDefault: true }
+                : { kind, subject: override.subject, body: override.body, isDefault: false };
+            }),
+          };
+        },
+      );
+
+      scope.put(
+        '/admin/email-templates/:kind',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: TEMPLATE_KIND_PARAMS,
+            body: {
+              type: 'object',
+              required: ['subject', 'body'],
+              properties: {
+                subject: { type: 'string' },
+                body: { type: 'string' },
+              },
+            },
+            response: respond(200, body({ template: EMAIL_TEMPLATE_VIEW })),
+          },
+        },
+        async (request) => {
+          const { kind } = request.params as { kind: EmailTemplateKind };
+          const draft = request.body as { subject: string; body: string };
+          const template = await storage.setEmailTemplate({
+            groupId: request.group!.id,
+            kind,
+            subject: draft.subject,
+            body: draft.body,
+          });
+          return {
+            template: {
+              kind,
+              subject: template.subject,
+              body: template.body,
+              isDefault: false,
+            },
+          };
+        },
+      );
+
+      scope.delete(
+        '/admin/email-templates/:kind',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: TEMPLATE_KIND_PARAMS,
+            response: respond(200, OK_RESPONSE),
+          },
+        },
+        async (request) => {
+          const { kind } = request.params as { kind: EmailTemplateKind };
+          await storage.deleteEmailTemplate(request.group!.id, kind);
           return { ok: true };
         },
       );

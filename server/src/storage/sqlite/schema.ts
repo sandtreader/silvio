@@ -9,6 +9,7 @@ CREATE TABLE groups (
   id         TEXT PRIMARY KEY,
   slug       TEXT NOT NULL UNIQUE,
   name       TEXT NOT NULL,
+  email_from TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -223,10 +224,22 @@ CREATE TABLE email_events (
   to_email   TEXT NOT NULL,
   subject    TEXT NOT NULL,
   body       TEXT NOT NULL,
+  from_email TEXT,
   created_at TEXT NOT NULL,
   sent_at    TEXT,
   attempts   INTEGER NOT NULL DEFAULT 0,
   last_error TEXT
+);
+
+-- Email template overrides (#16): a row overrides the built-in default for
+-- (group, kind); deleting it reverts. Defaults live in code, never seeded.
+CREATE TABLE email_templates (
+  id       TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL REFERENCES groups(id),
+  kind     TEXT NOT NULL,
+  subject  TEXT NOT NULL,
+  body     TEXT NOT NULL,
+  UNIQUE (group_id, kind)
 );
 
 -- CMS pages (decision #13, data-model §6): body is markdown source; slug is

@@ -29,6 +29,9 @@ export interface Group {
   id: Id;
   slug: string;
   name: string;
+  // Per-group sender address (#16); delivery falls back to the instance-wide
+  // default when unset.
+  emailFrom?: string;
   createdAt: string;
 }
 
@@ -298,10 +301,24 @@ export interface EmailEvent {
   toEmail: string;
   subject: string;
   body: string;
+  // Group sender snapshotted at enqueue time (#16); absent means the
+  // instance-wide default.
+  fromEmail?: string;
   createdAt: string;
   sentAt?: string;
   attempts: number;
   lastError?: string;
+}
+
+// Email template override (#16): a row overrides the built-in default for
+// (group, kind); deleting it reverts. subject and body carry {{placeholder}}
+// markdown, substituted then rendered at delivery.
+export interface EmailTemplate {
+  id: Id;
+  groupId: Id;
+  kind: string;
+  subject: string;
+  body: string;
 }
 
 // CMS pages (decision #13, data-model §6): per-group content, slug-addressed.

@@ -1014,5 +1014,62 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
       // Three failed attempts: given up, no longer offered for delivery.
       expect(await f.storage.pendingEmails(10)).toEqual([]);
     });
+
+    it('carries the per-group sender snapshot (#16)', async () => {
+      const event = await f.storage.enqueueEmail(
+        draft({ fromEmail: 'lets@cam.example.org' }),
+      );
+      expect(event!.fromEmail).toBe('lets@cam.example.org');
+      // Absent stays absent: delivery falls back to the instance default.
+      const plain = await f.storage.enqueueEmail(draft({ dedupKey: 'k-plain' }));
+      expect(plain!.fromEmail).toBeUndefined();
+    });
+  });
+
+  describe('email templates (#16): per-group overrides', () => {
+    it('setEmailTemplate upserts per (group, kind)', async () => {
+      const created = await f.storage.setEmailTemplate({
+        groupId: f.group.id, kind: 'welcome', subject: 'Hi {{memberName}}', body: 'Welcome!',
+      });
+      expect(created.subject).toBe('Hi {{memberName}}');
+      const replaced = await f.storage.setEmailTemplate({
+        groupId: f.group.id, kind: 'welcome', subject: 'Hello', body: 'New body',
+      });
+      expect(replaced.body).toBe('New body');
+      expect(await f.storage.getEmailTemplate(f.group.id, 'welcome')).toMatchObject({
+        kind: 'welcome', subject: 'Hello', body: 'New body',
+      });
+      expect(await f.storage.listEmailTemplates(f.group.id)).toHaveLength(1);
+    });
+
+    it('overrides are per group and absent by default', async () => {
+      expect(await f.storage.getEmailTemplate(f.group.id, 'welcome')).toBeUndefined();
+      await f.storage.setEmailTemplate({
+        groupId: f.group.id, kind: 'welcome', subject: 's', body: 'b',
+      });
+      expect(await f.storage.getEmailTemplate(f.otherGroup.id, 'welcome')).toBeUndefined();
+      expect(await f.storage.listEmailTemplates(f.otherGroup.id)).toEqual([]);
+    });
+
+    it('deleteEmailTemplate reverts to the default; a no-op when none', async () => {
+      await f.storage.setEmailTemplate({
+        groupId: f.group.id, kind: 'welcome', subject: 's', body: 'b',
+      });
+      await f.storage.deleteEmailTemplate(f.group.id, 'welcome');
+      expect(await f.storage.getEmailTemplate(f.group.id, 'welcome')).toBeUndefined();
+      await f.storage.deleteEmailTemplate(f.group.id, 'welcome'); // still fine
+    });
+  });
+
+  describe('group sender address (#16)', () => {
+    it('updateGroup sets and clears emailFrom', async () => {
+      const set = await f.storage.updateGroup(f.group.id, {
+        emailFrom: 'lets@cam.example.org',
+      });
+      expect(set.emailFrom).toBe('lets@cam.example.org');
+      expect(set.name).toBe(f.group.name); // untouched
+      const cleared = await f.storage.updateGroup(f.group.id, { emailFrom: null });
+      expect(cleared.emailFrom).toBeUndefined();
+    });
   });
 }

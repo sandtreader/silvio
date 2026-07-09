@@ -68,6 +68,8 @@ const GROUP = {
     id: { type: 'string' },
     slug: { type: 'string' },
     name: { type: 'string' },
+    // Per-group sender address (#16); absent = instance default.
+    emailFrom: { type: 'string' },
     createdAt: { type: 'string' },
   },
 } as const;

@@ -1,28 +1,47 @@
-// Transactional notifications (decisions #3, #5, #7; todo: Email &
-// notifications). Domain events are composed into email_events here — one
-// per person on the affected membership with an email address — and queued
-// via storage; delivery is email.ts's job. Dedup keys are stable per
-// (event, person), so sweeps and retries re-enqueue as silent no-ops.
+// Transactional notifications (decisions #3, #5, #7, #16). Domain events are
+// composed into email_events here — one per person on the affected membership
+// with an email address — and queued via storage; delivery is email.ts's job.
+// Dedup keys are stable per (event, person), so sweeps and retries re-enqueue
+// as silent no-ops. Texts come from the group's effective templates (#16),
+// with the group sender snapshotted onto each event at enqueue time.
 
 import type { Storage } from '../storage/interface.js';
 import type { Currency, Id, Member, Restriction, Transaction } from '../types.js';
+import {
+  effectiveEmailTemplate,
+  renderTemplate,
+  type EmailTemplateKind,
+} from './emailtemplates.js';
 
 /** Minor units -> human amount at the currency's scale, e.g. 500 -> "5.00 CAM". */
 function formatAmount(amount: number, currency: Currency): string {
   return `${(amount / 10 ** currency.scale).toFixed(currency.scale)} ${currency.code}`;
 }
 
-/** Enqueue one email per person on the membership with an email; none is a no-op. */
+/**
+ * Enqueue one email per person on the membership with an email; none is a
+ * no-op. Resolves the group's effective template for templateKind (#16) and
+ * substitutes vars plus {{memberName}}/{{groupName}} for the recipient.
+ */
 async function enqueueForMember(
   storage: Storage,
   memberId: Id,
   kind: string,
+  templateKind: EmailTemplateKind,
   dedupScope: string,
-  subject: string,
-  body: string,
+  vars: Record<string, string>,
   nowIso?: string,
 ): Promise<void> {
   const member = await storage.getMember(memberId);
+  const group = (await storage.listGroups()).find((candidate) => candidate.id === member.groupId);
+  const template = await effectiveEmailTemplate(storage, member.groupId, templateKind);
+  const allVars = {
+    ...vars,
+    memberName: member.displayName,
+    groupName: group?.name ?? 'the group',
+  };
+  const subject = renderTemplate(template.subject, allVars);
+  const body = renderTemplate(template.body, allVars).trimEnd();
   for (const person of await storage.personsForMember(memberId)) {
     if (person.email === undefined) continue;
     await storage.enqueueEmail({
@@ -33,6 +52,8 @@ async function enqueueForMember(
       toEmail: person.email,
       subject,
       body,
+      // Snapshot the group sender (#16); absent falls back at delivery.
+      ...(group?.emailFrom !== undefined ? { fromEmail: group.emailFrom } : {}),
       createdAt: nowIso ?? new Date().toISOString(),
     });
   }
@@ -40,17 +61,7 @@ async function enqueueForMember(
 
 /** Membership approval (#7): welcome the new member by group name. */
 export async function notifyWelcome(storage: Storage, member: Member): Promise<void> {
-  const group = (await storage.listGroups()).find((candidate) => candidate.id === member.groupId);
-  const groupName = group?.name ?? 'the group';
-  await enqueueForMember(
-    storage,
-    member.id,
-    'welcome',
-    member.id,
-    `Welcome to ${groupName}`,
-    `Hello ${member.displayName},\n\nYour membership of ${groupName} has been approved. ` +
-      'You can now trade and browse the marketplace.',
-  );
+  await enqueueForMember(storage, member.id, 'welcome', 'welcome', member.id, {});
 }
 
 export type TradeNotificationKind =
@@ -67,7 +78,9 @@ export type TradeNotificationKind =
  * negative leg's account is the payer, the positive leg's the payee, and the
  * recipients follow from the kind (the initiator of an invoice is the payee,
  * of a payment the payer). Dedup keys scope to the transaction id, so the
- * repeated sweeps in scheduler.ts never double-send.
+ * repeated sweeps in scheduler.ts never double-send. The event kind stays the
+ * TradeNotificationKind; only the template kinds split payment_auto_accepted
+ * into recipient-specific texts (#16).
  */
 export async function notifyTrade(
   storage: Storage,
@@ -86,77 +99,34 @@ export async function notifyTrade(
   const currency = (await storage.listCurrencies(tx.groupId)).find(
     (candidate) => candidate.id === payeeAccount.currencyId,
   );
-  const amount = currency
-    ? formatAmount(payeeEntry.amount, currency)
-    : String(payeeEntry.amount);
-  const payerName = payerId ? (await storage.getMember(payerId)).displayName : 'someone';
-  const payeeName = payeeId ? (await storage.getMember(payeeId)).displayName : 'someone';
-  const description = tx.description !== undefined ? `\n\nDescription: ${tx.description}` : '';
+  const vars: Record<string, string> = {
+    amount: currency ? formatAmount(payeeEntry.amount, currency) : String(payeeEntry.amount),
+    payerName: payerId ? (await storage.getMember(payerId)).displayName : 'someone',
+    payeeName: payeeId ? (await storage.getMember(payeeId)).displayName : 'someone',
+    flowName: tx.flow === 'invoice' ? 'invoice' : 'payment',
+    descriptionLine: tx.description !== undefined ? `Description: ${tx.description}` : '',
+  };
 
   const initiatorId = tx.flow === 'invoice' ? payeeId : payerId;
   const messages: Record<
     TradeNotificationKind,
-    { to: Id | undefined; subject: string; body: string }[]
+    { to: Id | undefined; template: EmailTemplateKind }[]
   > = {
-    invoice_received: [
-      {
-        to: payerId,
-        subject: `Invoice from ${payeeName}: ${amount}`,
-        body: `${payeeName} has requested a payment of ${amount} from you. Accept or decline it in your account.${description}`,
-      },
-    ],
-    payment_held: [
-      {
-        to: payeeId,
-        subject: `Payment of ${amount} awaiting your confirmation`,
-        body: `${payerName} sent you ${amount}. It is held until you accept or decline it.${description}`,
-      },
-    ],
-    payment_received: [
-      {
-        to: payeeId,
-        subject: `Payment received: ${amount}`,
-        body: `${payerName} paid you ${amount}.${description}`,
-      },
-    ],
-    payment_accepted: [
-      {
-        to: initiatorId,
-        subject: `Your ${tx.flow === 'invoice' ? 'invoice' : 'payment'} of ${amount} was accepted`,
-        body: `The ${tx.flow === 'invoice' ? 'invoice' : 'payment'} of ${amount} between ${payerName} and ${payeeName} has been accepted and committed.${description}`,
-      },
-    ],
-    payment_declined: [
-      {
-        to: initiatorId,
-        subject: `Your ${tx.flow === 'invoice' ? 'invoice' : 'payment'} of ${amount} was declined`,
-        body: `The ${tx.flow === 'invoice' ? 'invoice' : 'payment'} of ${amount} between ${payerName} and ${payeeName} has been declined.${description}`,
-      },
-    ],
+    invoice_received: [{ to: payerId, template: 'invoice_received' }],
+    payment_held: [{ to: payeeId, template: 'payment_held' }],
+    payment_received: [{ to: payeeId, template: 'payment_received' }],
+    payment_accepted: [{ to: initiatorId, template: 'payment_accepted' }],
+    payment_declined: [{ to: initiatorId, template: 'payment_declined' }],
     payment_auto_accepted: [
-      {
-        to: payerId,
-        subject: `Payment of ${amount} auto-accepted`,
-        body: `Your held payment of ${amount} to ${payeeName} reached its deadline and was automatically accepted.${description}`,
-      },
-      {
-        to: payeeId,
-        subject: `Payment of ${amount} auto-accepted`,
-        body: `The held payment of ${amount} from ${payerName} reached its deadline and was automatically accepted.${description}`,
-      },
+      { to: payerId, template: 'payment_auto_accepted_payer' },
+      { to: payeeId, template: 'payment_auto_accepted_payee' },
     ],
-    invoice_expired: [
-      {
-        to: payeeId,
-        subject: `Invoice expired: ${amount}`,
-        body: `Your invoice of ${amount} to ${payerName} expired without a response.${description}`,
-      },
-    ],
+    invoice_expired: [{ to: payeeId, template: 'invoice_expired' }],
   };
 
   for (const message of messages[kind]) {
     if (message.to === undefined) continue; // non-member account (community etc.)
-    await enqueueForMember(storage, message.to, kind, tx.id, message.subject, message.body, nowIso);
+    await enqueueForMember(storage, message.to, kind, message.template, tx.id, vars, nowIso);
   }
 }
 
@@ -169,9 +139,9 @@ export async function notifyRestrictionImposed(
     storage,
     restriction.memberId,
     'restriction_imposed',
+    'restriction_imposed',
     restriction.id,
-    'A restriction has been placed on your account',
-    `An administrator has restricted outward payments from your account.\n\nReason: ${restriction.reason}`,
+    { reason: restriction.reason },
   );
 }
 
@@ -187,9 +157,9 @@ export async function notifyRestrictionLifted(storage: Storage, memberId: Id): P
     storage,
     memberId,
     'restriction_lifted',
+    'restriction_lifted',
     `${memberId}:${nowIso}`,
-    'The restriction on your account has been lifted',
-    'An administrator has lifted the restriction on your account. Outward payments are enabled again.',
+    {},
     nowIso,
   );
 }

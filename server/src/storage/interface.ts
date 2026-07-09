@@ -19,6 +19,7 @@ import type {
   DemurrageBand,
   DemurrageRun,
   EmailEvent,
+  EmailTemplate,
   Group,
   Id,
   Image,
@@ -77,7 +78,16 @@ export interface EnqueueEmailInput {
   toEmail: string;
   subject: string;
   body: string;
+  fromEmail?: string; // group sender snapshot (#16); absent = instance default
   createdAt: string;
+}
+
+/** Email template override to upsert (#16), unique per (group, kind). */
+export interface SetEmailTemplateInput {
+  groupId: Id;
+  kind: string;
+  subject: string;
+  body: string;
 }
 
 /** CMS page to create (decision #13, data-model §6). body is markdown source. */
@@ -166,6 +176,8 @@ export interface Ledger {
 export interface Storage extends Ledger {
   createGroup(input: CreateGroupInput): Promise<Group>;
   listGroups(): Promise<Group[]>;
+  /** emailFrom: null clears, absent leaves it (#16). */
+  updateGroup(id: Id, patch: { name?: string; emailFrom?: string | null }): Promise<Group>;
   createCurrency(input: CreateCurrencyInput): Promise<Currency>;
   createAccount(input: CreateAccountInput): Promise<Account>;
 
@@ -302,6 +314,15 @@ export interface Storage extends Ledger {
   markEmailSent(id: Id, sentAt: string): Promise<void>;
   /** Count a failed attempt; after 3 the event is no longer offered for delivery. */
   markEmailFailed(id: Id, error: string): Promise<void>;
+
+  // Email template overrides (#16). Defaults live in code
+  // (services/emailtemplates.ts); storage only holds the per-group overrides.
+  /** Upsert the override for (group, kind), returning the stored row. */
+  setEmailTemplate(input: SetEmailTemplateInput): Promise<EmailTemplate>;
+  getEmailTemplate(groupId: Id, kind: string): Promise<EmailTemplate | undefined>;
+  listEmailTemplates(groupId: Id): Promise<EmailTemplate[]>;
+  /** Revert to the built-in default; a no-op when no override exists. */
+  deleteEmailTemplate(groupId: Id, kind: string): Promise<void>;
 
   /** Pending transactions with expiresAt <= asOf (decision #5 sweeps). */
   pendingDue(groupId: Id, asOf: string): Promise<Transaction[]>;

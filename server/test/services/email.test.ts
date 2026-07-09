@@ -112,4 +112,39 @@ describe('email delivery', () => {
     expect(report).toEqual({ sent: 2, failed: 0 });
     expect(await storage.pendingEmails(10)).toHaveLength(1);
   });
+
+  describe('multipart & per-group sender (#16)', () => {
+    it('delivers the markdown body as text plus its rendered HTML', async () => {
+      await storage.enqueueEmail({
+        groupId: group.id,
+        personId: 'person-1',
+        kind: 'welcome',
+        dedupKey: 'k-md',
+        toEmail: 'someone@example.com',
+        subject: 'Hello',
+        body: 'Dear Bob, **welcome**.',
+        createdAt: '2026-07-09T11:00:00.000Z',
+      });
+      await deliverEmails(storage, mailer, now);
+      expect(mailer.sent[0]!.text).toBe('Dear Bob, **welcome**.');
+      expect(mailer.sent[0]!.html).toContain('<strong>welcome</strong>');
+    });
+
+    it('passes the event sender through; absent means the mailer default', async () => {
+      await storage.enqueueEmail({
+        groupId: group.id,
+        personId: 'person-1',
+        kind: 'welcome',
+        dedupKey: 'k-from',
+        toEmail: 'someone@example.com',
+        subject: 'Hello',
+        body: 'x',
+        fromEmail: 'lets@cam.example.org',
+        createdAt: '2026-07-09T11:00:00.000Z',
+      });
+      await enqueue('k-nofrom');
+      await deliverEmails(storage, mailer, now);
+      expect(mailer.sent.map((m) => m.from)).toEqual(['lets@cam.example.org', undefined]);
+    });
+  });
 });
