@@ -281,6 +281,9 @@
           },
           "closedAt": {
             "type": "string"
+          },
+          "photoId": {
+            "type": "string"
           }
         }
       },
@@ -1207,6 +1210,74 @@
         }
       }
     },
+    "/api/v1/me/photo": {
+      "post": {
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "image"
+                  ],
+                  "properties": {
+                    "image": {
+                      "$ref": "#/components/schemas/Image"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/members": {
       "get": {
         "responses": {
@@ -1224,7 +1295,47 @@
                     "members": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/PublicMember"
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "memberNo",
+                          "displayName",
+                          "type",
+                          "status"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "memberNo": {
+                            "type": "integer"
+                          },
+                          "displayName": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "individual",
+                              "joint",
+                              "organisation"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "applied",
+                              "active",
+                              "away",
+                              "suspended",
+                              "closed"
+                            ]
+                          },
+                          "photoId": {
+                            "type": "string"
+                          }
+                        }
                       }
                     }
                   }
@@ -1271,7 +1382,47 @@
                   ],
                   "properties": {
                     "member": {
-                      "$ref": "#/components/schemas/PublicMember"
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "memberNo",
+                        "displayName",
+                        "type",
+                        "status"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "memberNo": {
+                          "type": "integer"
+                        },
+                        "displayName": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "individual",
+                            "joint",
+                            "organisation"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "applied",
+                            "active",
+                            "away",
+                            "suspended",
+                            "closed"
+                          ]
+                        },
+                        "photoId": {
+                          "type": "string"
+                        }
+                      }
                     },
                     "stats": {
                       "$ref": "#/components/schemas/TradeStats"
@@ -3947,6 +4098,94 @@
         }
       }
     },
+    "/api/v1/g/{slug}/me/photo": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "image"
+                  ],
+                  "properties": {
+                    "image": {
+                      "$ref": "#/components/schemas/Image"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/g/{slug}/members": {
       "get": {
         "parameters": [
@@ -3974,7 +4213,47 @@
                     "members": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/PublicMember"
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "memberNo",
+                          "displayName",
+                          "type",
+                          "status"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "memberNo": {
+                            "type": "integer"
+                          },
+                          "displayName": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "individual",
+                              "joint",
+                              "organisation"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "applied",
+                              "active",
+                              "away",
+                              "suspended",
+                              "closed"
+                            ]
+                          },
+                          "photoId": {
+                            "type": "string"
+                          }
+                        }
                       }
                     }
                   }
@@ -4021,7 +4300,47 @@
                   ],
                   "properties": {
                     "member": {
-                      "$ref": "#/components/schemas/PublicMember"
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "memberNo",
+                        "displayName",
+                        "type",
+                        "status"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "memberNo": {
+                          "type": "integer"
+                        },
+                        "displayName": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "individual",
+                            "joint",
+                            "organisation"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "applied",
+                            "active",
+                            "away",
+                            "suspended",
+                            "closed"
+                          ]
+                        },
+                        "photoId": {
+                          "type": "string"
+                        }
+                      }
                     },
                     "stats": {
                       "$ref": "#/components/schemas/TradeStats"

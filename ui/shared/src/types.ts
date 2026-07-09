@@ -19,8 +19,11 @@ export type Currency = Schemas['Currency'];
 /** Full member record (own /me, and admin listings). */
 export type Member = Schemas['Member'];
 
-/** Directory projection: public profile fields only (GET /members). */
-export type DirectoryMember = Schemas['PublicMember'];
+/** Directory projection: public profile fields only (GET /members). Derived
+ * from the path response, which carries photoId (decision #14) that the named
+ * PublicMember schema does not. */
+export type DirectoryMember =
+  paths['/api/v1/members']['get']['responses']['200']['content']['application/json']['members'][number];
 
 /** Trade-count profile stats (decision #8), returned by GET /members/:id. */
 export type TradeStats = Schemas['TradeStats'];

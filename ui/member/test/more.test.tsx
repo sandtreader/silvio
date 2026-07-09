@@ -1,0 +1,98 @@
+// More page: profile photo upload/remove (decision #14 phase 2) and the
+// member directory with avatars. The canvas resize step is mocked — jsdom
+// has no canvas — so tests assert the flow around it.
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import type { Me } from '@silvio/ui-shared';
+import { More } from '../src/pages/More';
+import { resizeImage } from '../src/resize';
+import { renderWithClient, testMe } from './helpers';
+
+vi.mock('../src/resize', () => ({ resizeImage: vi.fn() }));
+
+const meWithPhoto: Me = {
+  ...testMe,
+  member: { ...testMe.member, photoId: 'ph-1' },
+};
+
+const noMembers = { members: [] };
+
+describe('More: profile photo', () => {
+  it('uploads a selected photo via resize + setMyPhoto, then refreshes /me', async () => {
+    const resized = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' });
+    vi.mocked(resizeImage).mockResolvedValue({ blob: resized, mime: 'image/jpeg' });
+    const client = {
+      me: vi.fn().mockResolvedValueOnce(testMe).mockResolvedValue(meWithPhoto),
+      members: vi.fn().mockResolvedValue(noMembers),
+      setMyPhoto: vi.fn().mockResolvedValue({ image: { id: 'ph-1' } }),
+    };
+    const { container } = renderWithClient(<More />, client);
+
+    expect(await screen.findByText('Add photo')).toBeTruthy();
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(input.accept).toBe('image/*');
+    const file = new File([new Uint8Array([9, 9])], 'me.png', { type: 'image/png' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(client.setMyPhoto).toHaveBeenCalledWith(resized, 'image/jpeg'));
+    expect(resizeImage).toHaveBeenCalledWith(file);
+    // The auth context refreshed /me after the upload (mount + refresh).
+    await waitFor(() => expect(client.me).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('Change photo')).toBeTruthy();
+  });
+
+  it('shows the photo as the avatar image and removes it via deleteMyPhoto', async () => {
+    const client = {
+      me: vi.fn().mockResolvedValueOnce(meWithPhoto).mockResolvedValue(testMe),
+      members: vi.fn().mockResolvedValue(noMembers),
+      deleteMyPhoto: vi.fn().mockResolvedValue({ ok: true }),
+    };
+    const { container } = renderWithClient(<More />, client);
+
+    expect(await screen.findByText('Change photo')).toBeTruthy();
+    expect(container.querySelector('img[src="/i/ph-1"]')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Remove photo'));
+    await waitFor(() => expect(client.deleteMyPhoto).toHaveBeenCalledTimes(1));
+    // Refreshed /me; without a photoId the avatar falls back to initials.
+    await waitFor(() => expect(client.me).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(container.querySelector('img[src="/i/ph-1"]')).toBeNull(),
+    );
+    expect(screen.queryByText('Remove photo')).toBeNull();
+  });
+});
+
+describe('More: directory avatars', () => {
+  it('renders an avatar image for members with a photo, initials without', async () => {
+    const client = {
+      me: vi.fn().mockResolvedValue(testMe),
+      members: vi.fn().mockResolvedValue({
+        members: [
+          {
+            id: 'm2',
+            memberNo: 8,
+            displayName: 'Bob Smith',
+            type: 'individual',
+            status: 'active',
+            photoId: 'ph-2',
+          },
+          {
+            id: 'm3',
+            memberNo: 9,
+            displayName: 'Carol',
+            type: 'individual',
+            status: 'active',
+          },
+        ],
+      }),
+    };
+    const { container } = renderWithClient(<More />, client);
+
+    expect(await screen.findByText('Bob Smith')).toBeTruthy();
+    expect(container.querySelector('img[src="/i/ph-2"]')).toBeTruthy();
+    // Carol has no photo: initials fallback, no image.
+    expect(screen.getByText('C')).toBeTruthy();
+    expect(container.querySelector('img[src="/i/undefined"]')).toBeNull();
+  });
+});

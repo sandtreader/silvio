@@ -140,6 +140,9 @@ export interface Member {
   appliedAt: string;
   approvedAt?: string;
   closedAt?: string;
+  // Profile photo (#14 phase 2): derived from the images table (ownerKind
+  // 'member'), populated at the API layer — not a member column.
+  photoId?: Id;
 }
 
 export interface Person {

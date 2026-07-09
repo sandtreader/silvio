@@ -228,6 +228,17 @@ export class ApiClient {
     return this.tenant('GET', '/me/pending');
   }
 
+  // Profile photo (decision #14 phase 2): upload sends the raw image bytes as
+  // the request body with the image's content type — not JSON, not multipart.
+
+  setMyPhoto(data: Blob, mime: string): Promise<{ image: Image }> {
+    return this.rawRequest('POST', `${this.groupPath()}/me/photo`, data, mime);
+  }
+
+  deleteMyPhoto(): Promise<{ ok: boolean }> {
+    return this.tenant('DELETE', '/me/photo');
+  }
+
   // --- Directory and trading --------------------------------------------------
 
   members(): Promise<{ members: DirectoryMember[] }> {

@@ -96,6 +96,24 @@ describe('uploadImage (#14)', () => {
     );
   });
 
+  it('setMemberPhoto replaces the previous photo (#14 phase 2: exactly one)', async () => {
+    const { setMemberPhoto, deleteMemberPhoto } = await import('../../src/services/images.js');
+    const member = await storage.createMember({ groupId: group.id, displayName: 'Alice' });
+    const first = await setMemberPhoto(storage, member.id, 'image/png', png(50));
+    const second = await setMemberPhoto(storage, member.id, 'image/png', png(60));
+    expect(second.id).not.toBe(first.id);
+
+    const photos = await storage.listImages(group.id, {
+      ownerKind: 'member', ownerId: member.id,
+    });
+    expect(photos.map((p) => p.id)).toEqual([second.id]); // the old one is gone
+    await expect(storage.getImage(first.id)).rejects.toThrow();
+
+    await deleteMemberPhoto(storage, member.id);
+    expect(await storage.listImages(group.id, { ownerKind: 'member', ownerId: member.id }))
+      .toEqual([]);
+  });
+
   it('enforces the group quota across all images', async () => {
     const limits = { groupQuota: 250 };
     await uploadImage(storage, draft({ data: png(100) }), limits);

@@ -1,6 +1,7 @@
-// More: profile, settings (confirm-incoming toggle, decision #5), member
-// directory, logout.
+// More: profile (with photo, decision #14 phase 2), settings
+// (confirm-incoming toggle, decision #5), member directory, logout.
 import LogoutIcon from '@mui/icons-material/Logout';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -8,21 +9,28 @@ import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
+import ListItemAvatar from '@mui/material/ListItemAvatar';
 import ListItemText from '@mui/material/ListItemText';
+import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import type { DirectoryMember } from '@silvio/ui-shared';
 import { useEffect, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../api/auth';
 import { useClient } from '../api/client';
+import { useFeedback } from '../api/feedback';
 import { useApi } from '../api/useApi';
+import { MemberAvatar } from '../components/MemberAvatar';
 import { PageContainer } from '../components/PageContainer';
+import { resizeImage } from '../resize';
 
 export function More() {
   const client = useClient();
   const { me, refresh, clear } = useAuth();
   const { run, busy } = useApi();
+  const feedback = useFeedback();
   const navigate = useNavigate();
   const [members, setMembers] = useState<DirectoryMember[] | null>(null);
 
@@ -39,6 +47,28 @@ export function More() {
     if (result !== undefined) await refresh();
   };
 
+  const uploadPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // allow re-selecting the same file
+    if (file === undefined) return;
+    // Downscale client-side before upload (decision #14): the server only
+    // validates, it never resizes.
+    let resized;
+    try {
+      resized = await resizeImage(file);
+    } catch {
+      feedback.show('Could not read that image', 'error');
+      return;
+    }
+    const result = await run(() => client.setMyPhoto(resized.blob, resized.mime));
+    if (result !== undefined) await refresh();
+  };
+
+  const removePhoto = async () => {
+    const result = await run(() => client.deleteMyPhoto());
+    if (result !== undefined) await refresh();
+  };
+
   const logout = async () => {
     await run(() => client.logout());
     clear();
@@ -48,11 +78,39 @@ export function More() {
   return (
     <PageContainer title="More">
       <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Typography variant="h6">{me.member.displayName}</Typography>
-          <Typography color="text.secondary">
-            Member #{me.member.memberNo}
-          </Typography>
+        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <MemberAvatar
+            name={me.member.displayName}
+            photoId={me.member.photoId}
+            size={56}
+          />
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h6">{me.member.displayName}</Typography>
+            <Typography color="text.secondary">
+              Member #{me.member.memberNo}
+            </Typography>
+            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+              <Button component="label" size="small" disabled={busy}>
+                {me.member.photoId === undefined ? 'Add photo' : 'Change photo'}
+                <input
+                  hidden
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => void uploadPhoto(event)}
+                />
+              </Button>
+              {me.member.photoId !== undefined && (
+                <Button
+                  size="small"
+                  color="error"
+                  disabled={busy}
+                  onClick={() => void removePhoto()}
+                >
+                  Remove photo
+                </Button>
+              )}
+            </Stack>
+          </Box>
         </CardContent>
       </Card>
 
@@ -80,6 +138,13 @@ export function More() {
         <List dense disablePadding sx={{ mb: 2 }}>
           {members.map((member) => (
             <ListItem key={member.id} disableGutters divider>
+              <ListItemAvatar>
+                <MemberAvatar
+                  name={member.displayName}
+                  photoId={member.photoId}
+                  size={36}
+                />
+              </ListItemAvatar>
               <ListItemText
                 primary={member.displayName}
                 secondary={`#${member.memberNo}`}

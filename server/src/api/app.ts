@@ -54,14 +54,14 @@ import {
   sendPayment,
 } from '../services/trading.js';
 import { authenticateApiToken, checkTokenCaps, issueApiToken } from '../services/tokens.js';
-import { OK_RESPONSE, sharedSchemas } from './schemas.js';
+import { OK_RESPONSE, PUBLIC_MEMBER_WITH_PHOTO, sharedSchemas } from './schemas.js';
 import { evaluateFlags } from '../services/creditcontrol.js';
 import {
   notifyRestrictionImposed,
   notifyRestrictionLifted,
 } from '../services/notifications.js';
 import { browse, postListing } from '../services/marketplace.js';
-import { uploadImage } from '../services/images.js';
+import { deleteMemberPhoto, setMemberPhoto, uploadImage } from '../services/images.js';
 import { LoginThrottle } from '../services/ratelimit.js';
 import { buildMcpServer, type RestClient } from '../mcp/server.js';
 import {
@@ -152,16 +152,20 @@ export interface PublicMember {
   displayName: string;
   type: MemberType;
   status: MemberStatus;
+  // Derived from the images table, populated at the API layer (#14 phase 2).
+  photoId?: string;
 }
 
-function publicMember(member: Member): PublicMember {
-  return {
+function publicMember(member: Member, photoId?: string): PublicMember {
+  const view: PublicMember = {
     id: member.id,
     memberNo: member.memberNo,
     displayName: member.displayName,
     type: member.type,
     status: member.status,
   };
+  if (photoId !== undefined) view.photoId = photoId;
+  return view;
 }
 
 /** A pending transaction from one member's point of view (decision #5). */
@@ -538,7 +542,14 @@ export async function buildApp(
           },
         },
         async (request) => {
-        const member = request.auth!.member;
+        // photoId is derived, not a member column (#14 phase 2): copy before
+        // annotating so the auth-cached member stays untouched.
+        const member: Member = { ...request.auth!.member };
+        const [photo] = await storage.listImages(request.group!.id, {
+          ownerKind: 'member',
+          ownerId: member.id,
+        });
+        if (photo !== undefined) member.photoId = photo.id;
         const currencies = new Map(
           (await storage.listCurrencies(request.group!.id)).map((currency) => [
             currency.id,
@@ -655,6 +666,44 @@ export async function buildApp(
         return { pending, items: pending };
       });
 
+      // Member profile photo (#14 phase 2): exactly one per member, raw
+      // image body (the image/* content-type parser), replace-on-upload.
+      // Member-scoped, not admin — each member manages their own photo.
+      scope.post(
+        '/me/photo',
+        {
+          preHandler: requireMember,
+          // Raw-body route: a JSON body schema cannot describe a binary
+          // upload, so only the response is declared (as /admin/images).
+          schema: { response: respond(201, body({ image: ref('Image') })) },
+        },
+        async (request, reply) => {
+          if (!Buffer.isBuffer(request.body)) {
+            throw new DomainError('INVALID', 'the request body must be the raw image bytes');
+          }
+          const image = await setMemberPhoto(
+            storage,
+            request.auth!.member.id,
+            request.headers['content-type'] ?? '',
+            request.body,
+          );
+          reply.status(201);
+          return { image };
+        },
+      );
+
+      scope.delete(
+        '/me/photo',
+        {
+          preHandler: requireMember,
+          schema: { response: respond(200, OK_RESPONSE) },
+        },
+        async (request) => {
+          await deleteMemberPhoto(storage, request.auth!.member.id);
+          return { ok: true };
+        },
+      );
+
       // directory:read (decision #9): the public member directory.
       const directoryRead: ApiScope[] = ['directory:read'];
       scope.get(
@@ -662,11 +711,22 @@ export async function buildApp(
         {
           preHandler: requireMember,
           config: { scopes: directoryRead },
-          schema: { response: respond(200, body({ members: arrayOf('PublicMember') })) },
+          schema: {
+            response: respond(
+              200,
+              body({ members: { type: 'array', items: PUBLIC_MEMBER_WITH_PHOTO } }),
+            ),
+          },
         },
         async (request) => {
           const members = await storage.listMembers(request.group!.id, 'active');
-          return { members: members.map(publicMember) };
+          // One query for the whole directory (#14 phase 2): every
+          // member-owned image in the group, keyed by its owner.
+          const photos = await storage.listImages(request.group!.id, { ownerKind: 'member' });
+          const photoByMember = new Map(photos.map((image) => [image.ownerId, image.id]));
+          return {
+            members: members.map((member) => publicMember(member, photoByMember.get(member.id))),
+          };
         },
       );
 
@@ -679,7 +739,7 @@ export async function buildApp(
             params: ID_PARAM_SCHEMA,
             response: respond(
               200,
-              body({ member: ref('PublicMember'), stats: ref('TradeStats') }),
+              body({ member: PUBLIC_MEMBER_WITH_PHOTO, stats: ref('TradeStats') }),
             ),
           },
         },
@@ -689,7 +749,11 @@ export async function buildApp(
           if (member.groupId !== request.group!.id) {
             throw new DomainError('NOT_FOUND', `member ${id} not found in this group`);
           }
-          return { member: publicMember(member), stats: await storage.tradeStats(id) };
+          const [photo] = await storage.listImages(request.group!.id, {
+            ownerKind: 'member',
+            ownerId: id,
+          });
+          return { member: publicMember(member, photo?.id), stats: await storage.tradeStats(id) };
         },
       );
 

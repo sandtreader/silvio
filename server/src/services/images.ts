@@ -98,3 +98,47 @@ export async function uploadImage(
   if (input.ownerId !== undefined) create.ownerId = input.ownerId;
   return storage.createImage(create);
 }
+
+/**
+ * Set a member's profile photo (#14 phase 2): exactly one per member,
+ * replace-on-upload. The new image is created first and any previous
+ * photo(s) deleted after, so a failed upload never loses the old photo.
+ * The 256KB member cap applies via sizeCaps.member.
+ */
+export async function setMemberPhoto(
+  storage: Storage,
+  memberId: string,
+  mime: string,
+  data: Buffer,
+  limits: ImageLimits = {},
+): Promise<Image> {
+  const member = await storage.getMember(memberId);
+  const previous = await storage.listImages(member.groupId, {
+    ownerKind: 'member',
+    ownerId: memberId,
+  });
+  const image = await uploadImage(
+    storage,
+    {
+      groupId: member.groupId,
+      ownerKind: 'member',
+      ownerId: memberId,
+      mime,
+      data,
+      createdBy: memberId,
+    },
+    limits,
+  );
+  for (const old of previous) await storage.deleteImage(old.id);
+  return image;
+}
+
+/** Delete a member's profile photo(s) (#14 phase 2); a no-op when none. */
+export async function deleteMemberPhoto(storage: Storage, memberId: string): Promise<void> {
+  const member = await storage.getMember(memberId);
+  const photos = await storage.listImages(member.groupId, {
+    ownerKind: 'member',
+    ownerId: memberId,
+  });
+  for (const photo of photos) await storage.deleteImage(photo.id);
+}

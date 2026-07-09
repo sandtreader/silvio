@@ -154,6 +154,8 @@ const MEMBER = {
     appliedAt: { type: 'string' },
     approvedAt: { type: 'string' },
     closedAt: { type: 'string' },
+    // Derived from the images table, populated at the API layer (#14 phase 2).
+    photoId: { type: 'string' },
   },
 } as const;
 
@@ -169,6 +171,18 @@ const PUBLIC_MEMBER = {
     displayName: { type: 'string' },
     type: { type: 'string', enum: MEMBER_TYPE },
     status: { type: 'string', enum: MEMBER_STATUS },
+  },
+} as const;
+
+// Directory entries also carry a derived photoId (#14 phase 2). A separate
+// schema, used inline by the /members routes, so the pinned PublicMember
+// component above stays exactly the five public profile fields while the
+// serializer still keeps photoId (it drops anything undeclared).
+export const PUBLIC_MEMBER_WITH_PHOTO = {
+  ...PUBLIC_MEMBER,
+  properties: {
+    ...PUBLIC_MEMBER.properties,
+    photoId: { type: 'string' },
   },
 } as const;
 
@@ -504,7 +518,9 @@ type _DriftGuards = [
   Expect<Equal<FromSchema<typeof ENTRY>, Entry>>,
   Expect<Equal<FromSchema<typeof TRANSACTION>, Transaction>>,
   Expect<Equal<FromSchema<typeof MEMBER>, Member>>,
-  Expect<Equal<FromSchema<typeof PUBLIC_MEMBER>, PublicMember>>,
+  // PublicMember's photoId lives in the WITH_PHOTO variant (#14 phase 2), so
+  // that schema is the one guarded against the interface.
+  Expect<Equal<FromSchema<typeof PUBLIC_MEMBER_WITH_PHOTO>, PublicMember>>,
   Expect<Equal<FromSchema<typeof PENDING_ITEM>, PendingItem>>,
   Expect<Equal<FromSchema<typeof STATEMENT_LINE>, StatementLine>>,
   Expect<Equal<FromSchema<typeof TRADE_STATS>, TradeStats>>,

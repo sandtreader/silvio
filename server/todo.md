@@ -48,7 +48,7 @@ Remaining server-side work, grouped by area. References are to
 - [ ] Joint members: persons CRUD API (add/remove person on a membership)
 - [ ] GDPR: anonymise-on-exit after retention window (#7); data export
 - [ ] Proxy/buddy: admin acts-for-member ("login as") with audit trail (#2)
-- [ ] Member photos — see Image store phase 2 (#14) under Content
+- [x] Member photos — done via Image store phase 2 (#14) under Content
 
 ## Email & notifications
 
@@ -76,7 +76,7 @@ Remaining server-side work, grouped by area. References are to
       cache headers), CMS admin upload/list/delete with markdown snippet,
       markdown-it image allowlist for `/i/` sources only, magic-byte + size
       + quota validation (client resizes before upload)
-- [ ] Image store phase 2 (#14): member profile photo (single,
+- [x] Image store phase 2 (#14): member profile photo (single,
       upload-replaces, 256KB) in member app + directory
 - [ ] Image store phase 3 (#14): listing photos (≤5, 1MB each) in app
       market + brochure
