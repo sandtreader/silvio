@@ -114,6 +114,25 @@ export interface User {
   status: 'active' | 'locked' | 'closed';
   isOperator: boolean; // platform super-admin (decision #2); never listed in groups
   createdAt: string;
+  // Stamped by verifyEmail (data-model §1); recorded only — nothing enforces
+  // verification yet.
+  emailVerifiedAt?: string;
+}
+
+// One-time tokens (data-model §1): single-use expiring links for password
+// reset and email verification ('invite' reserved for member invitations).
+// The raw token only ever appears in the emailed URL; hashed at rest like
+// sessions.
+export type OneTimeTokenPurpose = 'password_reset' | 'email_verify' | 'invite';
+
+export interface OneTimeToken {
+  id: Id;
+  userId?: Id; // absent for invites sent before a user exists
+  email: string;
+  purpose: OneTimeTokenPurpose;
+  tokenHash: string;
+  expiresAt: string;
+  usedAt?: string;
 }
 
 // Server-side revocable session, token hashed at rest (data-model §1).

@@ -1061,6 +1061,80 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
     });
   });
 
+  describe('one-time tokens (data-model §1): reset/verify/invite', () => {
+    function draft(overrides: Record<string, string> = {}) {
+      return {
+        email: 'alice@example.com',
+        purpose: 'password_reset' as const,
+        tokenHash: 'hash-1',
+        expiresAt: '2026-01-01T01:00:00.000Z',
+        ...overrides,
+      };
+    }
+
+    it('creates and finds by token hash', async () => {
+      const created = await f.storage.createOneTimeToken(draft({ userId: 'user-1' }));
+      expect(created.id).toBeTruthy();
+      expect(created.purpose).toBe('password_reset');
+      expect(created.usedAt).toBeUndefined();
+      const found = await f.storage.oneTimeTokenByHash('hash-1');
+      expect(found).toMatchObject({
+        id: created.id, userId: 'user-1', email: 'alice@example.com',
+        expiresAt: '2026-01-01T01:00:00.000Z',
+      });
+      expect(await f.storage.oneTimeTokenByHash('nope')).toBeUndefined();
+    });
+
+    it('marking used is permanent and visible', async () => {
+      const created = await f.storage.createOneTimeToken(draft());
+      await f.storage.markOneTimeTokenUsed(created.id, '2026-01-01T00:30:00.000Z');
+      const found = await f.storage.oneTimeTokenByHash('hash-1');
+      expect(found!.usedAt).toBe('2026-01-01T00:30:00.000Z');
+    });
+  });
+
+  describe('password reset & verification support (§1)', () => {
+    it('updateUserPassword replaces the credential hash', async () => {
+      const user = await f.storage.createUser({
+        email: 'reset@example.com', passwordHash: 'old-hash',
+      });
+      await f.storage.updateUserPassword(user.id, 'new-hash');
+      const creds = await f.storage.credentialsForEmail('reset@example.com');
+      expect(creds!.passwordHash).toBe('new-hash');
+    });
+
+    it('revokeSessionsForUser kills every session of that user only', async () => {
+      const user = await f.storage.createUser({
+        email: 'u1@example.com', passwordHash: 'h',
+      });
+      const other = await f.storage.createUser({
+        email: 'u2@example.com', passwordHash: 'h',
+      });
+      await f.storage.createSession({
+        userId: user.id, tokenHash: 't1', expiresAt: '2027-01-01T00:00:00.000Z',
+      });
+      await f.storage.createSession({
+        userId: other.id, tokenHash: 't2', expiresAt: '2027-01-01T00:00:00.000Z',
+      });
+      await f.storage.revokeSessionsForUser(user.id);
+      expect(await f.storage.sessionByTokenHash('t1')).toBeUndefined();
+      expect(await f.storage.sessionByTokenHash('t2')).toBeDefined();
+    });
+
+    it('markUserEmailVerified stamps the user', async () => {
+      const user = await f.storage.createUser({
+        email: 'v@example.com', passwordHash: 'h',
+      });
+      expect(user.emailVerifiedAt).toBeUndefined();
+      const verified = await f.storage.markUserEmailVerified(
+        user.id, '2026-01-01T00:00:00.000Z',
+      );
+      expect(verified.emailVerifiedAt).toBe('2026-01-01T00:00:00.000Z');
+      expect((await f.storage.getUser(user.id)).emailVerifiedAt)
+        .toBe('2026-01-01T00:00:00.000Z');
+    });
+  });
+
   describe('group sender address (#16)', () => {
     it('updateGroup sets and clears emailFrom', async () => {
       const set = await f.storage.updateGroup(f.group.id, {

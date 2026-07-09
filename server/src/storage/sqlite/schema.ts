@@ -23,13 +23,14 @@ CREATE TABLE group_domains (
 -- the token sha256-hashed at rest. Operators are users, not members; the
 -- flag gates the provisioning API.
 CREATE TABLE users (
-  id            TEXT PRIMARY KEY,
-  email         TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  status        TEXT NOT NULL,
-  is_operator   INTEGER NOT NULL DEFAULT 0,
-  created_at    TEXT NOT NULL,
-  last_login_at TEXT
+  id                TEXT PRIMARY KEY,
+  email             TEXT NOT NULL UNIQUE,
+  password_hash     TEXT NOT NULL,
+  status            TEXT NOT NULL,
+  is_operator       INTEGER NOT NULL DEFAULT 0,
+  created_at        TEXT NOT NULL,
+  last_login_at     TEXT,
+  email_verified_at TEXT
 );
 
 -- Membership (#7): lifecycle in status, group-level role.
@@ -65,6 +66,19 @@ CREATE TABLE sessions (
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL,
   revoked_at TEXT
+);
+
+-- One-time tokens (data-model §1): single-use expiring links for password
+-- reset and email verification ('invite' reserved), sha256-hashed at rest
+-- like sessions. user_id is nullable for invites sent before a user exists.
+CREATE TABLE one_time_tokens (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT,
+  email      TEXT NOT NULL,
+  purpose    TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  used_at    TEXT
 );
 
 -- Currencies and demurrage (#1): marginal bands per currency, idempotent

@@ -8,7 +8,7 @@ import type { Storage } from '../storage/interface.js';
 import type { Id, Member, Session, User } from '../types.js';
 import { DomainError } from './errors.js';
 
-const MIN_PASSWORD_LENGTH = 8;
+export const MIN_PASSWORD_LENGTH = 8; // shared with recovery.ts's resetPassword
 const SESSION_DAYS = 30;
 
 // One message for unknown email and wrong password — no account enumeration.

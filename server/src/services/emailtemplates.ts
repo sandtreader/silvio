@@ -19,6 +19,8 @@ export const EMAIL_TEMPLATE_KINDS = [
   'invoice_expired',
   'restriction_imposed',
   'restriction_lifted',
+  'password_reset',
+  'email_verify',
 ] as const;
 
 export type EmailTemplateKind = (typeof EMAIL_TEMPLATE_KINDS)[number];
@@ -29,6 +31,9 @@ export type EmailTemplateKind = (typeof EMAIL_TEMPLATE_KINDS)[number];
 // "payment"), {{reason}}, and {{descriptionLine}} — '' or "Description: …",
 // pre-composed so bodies can end with it and rendered bodies are trimmed.
 // payment_auto_accepted splits into _payer/_payee: two recipients, two texts.
+// password_reset/email_verify (data-model §1) get {{resetUrl}}/{{verifyUrl}}
+// but no {{memberName}}: they are sent by the recovery service, not
+// enqueueForMember, and the recipient may not be a member.
 export const DEFAULT_EMAIL_TEMPLATES: Record<
   EmailTemplateKind,
   { subject: string; body: string }
@@ -96,6 +101,20 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<
     body:
       'An administrator has lifted the restriction on your account. ' +
       'Outward payments are enabled again.',
+  },
+  password_reset: {
+    subject: 'Reset your {{groupName}} password',
+    body:
+      'Someone asked to reset the password for your {{groupName}} account. ' +
+      'Follow this link to choose a new one — it works once, within one ' +
+      'hour:\n\n{{resetUrl}}\n\nIf this was not you, ignore this email; ' +
+      'your password is unchanged.',
+  },
+  email_verify: {
+    subject: 'Verify your email address for {{groupName}}',
+    body:
+      'Welcome to {{groupName}}. Please confirm this email address by ' +
+      'following the link:\n\n{{verifyUrl}}',
   },
 };
 

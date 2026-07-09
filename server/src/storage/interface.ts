@@ -32,6 +32,8 @@ import type {
   MemberType,
   NewTransaction,
   NewsItem,
+  OneTimeToken,
+  OneTimeTokenPurpose,
   Page,
   PageVisibility,
   Person,
@@ -80,6 +82,15 @@ export interface EnqueueEmailInput {
   body: string;
   fromEmail?: string; // group sender snapshot (#16); absent = instance default
   createdAt: string;
+}
+
+/** One-time token to mint (data-model §1); hashing is the recovery service's job. */
+export interface CreateOneTimeTokenInput {
+  userId?: Id; // absent for invites sent before a user exists
+  email: string;
+  purpose: OneTimeTokenPurpose;
+  tokenHash: string;
+  expiresAt: string;
 }
 
 /** Email template override to upsert (#16), unique per (group, kind). */
@@ -214,6 +225,16 @@ export interface Storage extends Ledger {
   }): Promise<Session>;
   sessionByTokenHash(tokenHash: string): Promise<Session | undefined>; // unrevoked only
   revokeSession(id: Id): Promise<void>;
+  /** Every open session of the user (a password reset revokes all logins, §1). */
+  revokeSessionsForUser(userId: Id): Promise<void>;
+  updateUserPassword(userId: Id, passwordHash: string): Promise<void>;
+  markUserEmailVerified(userId: Id, whenIso: string): Promise<User>;
+
+  // One-time tokens (data-model §1): reset/verify/invite links. Single-use
+  // is the service's check (usedAt); storage only stores/matches hashes.
+  createOneTimeToken(input: CreateOneTimeTokenInput): Promise<OneTimeToken>;
+  oneTimeTokenByHash(tokenHash: string): Promise<OneTimeToken | undefined>;
+  markOneTimeTokenUsed(id: Id, usedAtIso: string): Promise<void>;
   /** Memberships of a user across groups (via persons.user_id). */
   membersForUser(userId: Id): Promise<Member[]>;
   addGroupDomain(groupId: Id, hostname: string): Promise<void>;

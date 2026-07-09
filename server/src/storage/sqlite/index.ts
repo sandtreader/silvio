@@ -10,6 +10,7 @@ import type {
   CreateCurrencyInput,
   CreateGroupInput,
   CreateImageInput,
+  CreateOneTimeTokenInput,
   CreateNewsItemInput,
   CreatePageInput,
   EnqueueEmailInput,
@@ -46,6 +47,8 @@ import type {
   MemberType,
   NewTransaction,
   NewsItem,
+  OneTimeToken,
+  OneTimeTokenPurpose,
   Page,
   PageVisibility,
   Person,
@@ -206,6 +209,17 @@ interface UserRow {
   is_operator: number;
   created_at: string;
   last_login_at: string | null;
+  email_verified_at: string | null;
+}
+
+interface OneTimeTokenRow {
+  id: string;
+  user_id: string | null;
+  email: string;
+  purpose: string;
+  token_hash: string;
+  expires_at: string;
+  used_at: string | null;
 }
 
 interface SessionRow {
@@ -889,6 +903,86 @@ export class SqliteStorage implements Storage {
     this.db
       .prepare('UPDATE sessions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL')
       .run(now(), id);
+    return Promise.resolve();
+  }
+
+  revokeSessionsForUser(userId: Id): Promise<void> {
+    this.db
+      .prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL')
+      .run(now(), userId);
+    return Promise.resolve();
+  }
+
+  updateUserPassword(userId: Id, passwordHash: string): Promise<void> {
+    const result = this.db
+      .prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+      .run(passwordHash, userId);
+    if (result.changes === 0) {
+      return Promise.reject(new StorageError('NOT_FOUND', `user ${userId} not found`));
+    }
+    return Promise.resolve();
+  }
+
+  markUserEmailVerified(userId: Id, whenIso: string): Promise<User> {
+    const result = this.db
+      .prepare('UPDATE users SET email_verified_at = ? WHERE id = ?')
+      .run(whenIso, userId);
+    if (result.changes === 0) {
+      return Promise.reject(new StorageError('NOT_FOUND', `user ${userId} not found`));
+    }
+    return this.getUser(userId);
+  }
+
+  createOneTimeToken(input: CreateOneTimeTokenInput): Promise<OneTimeToken> {
+    try {
+      const token: OneTimeToken = {
+        id: uuidv7(),
+        email: input.email,
+        purpose: input.purpose,
+        tokenHash: input.tokenHash,
+        expiresAt: input.expiresAt,
+      };
+      if (input.userId !== undefined) token.userId = input.userId;
+      this.db
+        .prepare(
+          `INSERT INTO one_time_tokens (id, user_id, email, purpose, token_hash, expires_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          token.id,
+          input.userId ?? null,
+          token.email,
+          token.purpose,
+          token.tokenHash,
+          token.expiresAt,
+        );
+      return Promise.resolve(token);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  oneTimeTokenByHash(tokenHash: string): Promise<OneTimeToken | undefined> {
+    const row = this.db
+      .prepare('SELECT * FROM one_time_tokens WHERE token_hash = ?')
+      .get(tokenHash) as OneTimeTokenRow | undefined;
+    if (!row) return Promise.resolve(undefined);
+    const token: OneTimeToken = {
+      id: row.id,
+      email: row.email,
+      purpose: row.purpose as OneTimeTokenPurpose,
+      tokenHash: row.token_hash,
+      expiresAt: row.expires_at,
+    };
+    if (row.user_id !== null) token.userId = row.user_id;
+    if (row.used_at !== null) token.usedAt = row.used_at;
+    return Promise.resolve(token);
+  }
+
+  markOneTimeTokenUsed(id: Id, usedAtIso: string): Promise<void> {
+    this.db
+      .prepare('UPDATE one_time_tokens SET used_at = ? WHERE id = ?')
+      .run(usedAtIso, id);
     return Promise.resolve();
   }
 
@@ -2186,13 +2280,15 @@ export class SqliteStorage implements Storage {
   }
 
   private userFromRow(row: UserRow): User {
-    return {
+    const user: User = {
       id: row.id,
       email: row.email,
       status: row.status as User['status'],
       isOperator: row.is_operator !== 0,
       createdAt: row.created_at,
     };
+    if (row.email_verified_at !== null) user.emailVerifiedAt = row.email_verified_at;
+    return user;
   }
 
   private groupFromRow(row: GroupRow): Group {

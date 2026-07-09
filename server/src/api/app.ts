@@ -44,6 +44,12 @@ import type {
 import { DomainError, type DomainErrorCode } from '../services/errors.js';
 import { StorageError } from '../storage/errors.js';
 import { authenticate, login, logout, register, verifyCredentials } from '../services/auth.js';
+import {
+  requestPasswordReset,
+  resetPassword,
+  sendEmailVerification,
+  verifyEmail,
+} from '../services/recovery.js';
 import { provisionGroup } from '../services/provisioning.js';
 import { apply, approve, leave, reinstate, suspend } from '../services/membership.js';
 import {
@@ -102,6 +108,10 @@ declare module 'fastify' {
     // Routes opt in to API-token access by listing acceptable scopes
     // (decision #9); routes without a scopes config are cookie-only.
     scopes?: ApiScope[];
+    // Opt out of the CSRF Origin check: only for cookie-free endpoints
+    // whose worst cross-site effect is bounded elsewhere (/auth/forgot —
+    // an email to the account owner, throttled).
+    skipOriginCheck?: boolean;
   }
 }
 
@@ -229,6 +239,8 @@ export async function buildApp(
     if (!STATE_CHANGING.has(request.method)) return undefined;
     const path = request.url.split('?')[0] ?? request.url;
     if (!path.startsWith('/api/')) return undefined;
+    // Routing precedes onRequest, so per-route opt-outs are visible here.
+    if (request.routeOptions.config?.skipOriginCheck === true) return undefined;
     const origin = request.headers.origin;
     if (origin === undefined) return undefined;
     let originHost: string;
@@ -294,6 +306,38 @@ export async function buildApp(
     }
     emailThrottle.recordSuccess(emailKey); // the IP counter is left alone
     return result;
+  }
+
+  // Forgot-password throttles (data-model §1): separate instances from the
+  // login pair — every forgot request counts as a "failure", so sharing the
+  // login counters would let a mail-bomber lock the victim's login too.
+  const forgotEmailThrottle = new LoginThrottle(); // 10 requests / 15 minutes
+  const forgotIpThrottle = new LoginThrottle({ maxFailures: 30 }); // same window
+
+  /** 429 + Retry-After past the cap; otherwise count this request and go on. */
+  function checkForgotThrottled(request: FastifyRequest, reply: FastifyReply, email: string): void {
+    const emailKey = `email:${email.toLowerCase()}`;
+    const ipKey = `ip:${request.ip}`;
+    const nowMs = Date.now();
+    const waitMs = Math.max(
+      forgotEmailThrottle.retryAfterMs(emailKey, nowMs),
+      forgotIpThrottle.retryAfterMs(ipKey, nowMs),
+    );
+    if (waitMs > 0) {
+      reply.header('retry-after', Math.max(1, Math.ceil(waitMs / 1000)));
+      throw new DomainError('RATE_LIMITED', 'too many reset requests; try again later');
+    }
+    forgotEmailThrottle.recordFailure(emailKey, nowMs);
+    forgotIpThrottle.recordFailure(ipKey, nowMs);
+  }
+
+  /** Where emailed links point back at: this request's scheme://host, with
+   *  default ports dropped (the CSRF check's normalisation, applied here so
+   *  links never carry a redundant :80/:443). */
+  function baseUrlFrom(request: FastifyRequest): string {
+    const proto = (request.headers['x-forwarded-proto'] as string | undefined) ?? 'http';
+    const host = (request.headers.host ?? '').replace(/:(80|443)$/, '');
+    return `${proto}://${host}`;
   }
 
   await app.register(cookie);
@@ -525,6 +569,76 @@ export async function buildApp(
           const token = request.cookies[SESSION_COOKIE];
           if (token !== undefined) await logout(storage, token);
           reply.clearCookie(SESSION_COOKIE, { path: '/' });
+          return { ok: true };
+        },
+      );
+
+      // Password reset & email verification (data-model §1). forgot always
+      // answers ok — whether the email has an account is never disclosed.
+      scope.post(
+        '/auth/forgot',
+        {
+          // Cookie-free by design, so the Origin check does not apply; the
+          // per-email/IP throttle bounds what a cross-site POST can do.
+          config: { skipOriginCheck: true },
+          schema: {
+            body: {
+              type: 'object',
+              required: ['email'],
+              properties: { email: { type: 'string' } },
+            },
+            response: respond(200, OK_RESPONSE),
+          },
+        },
+        async (request, reply) => {
+          const body = request.body as { email: string };
+          checkForgotThrottled(request, reply, body.email);
+          await requestPasswordReset(storage, {
+            groupId: request.group!.id,
+            email: body.email,
+            baseUrl: baseUrlFrom(request),
+          });
+          return { ok: true };
+        },
+      );
+
+      scope.post(
+        '/auth/reset',
+        {
+          schema: {
+            body: {
+              type: 'object',
+              required: ['token', 'password'],
+              properties: {
+                token: { type: 'string' },
+                password: { type: 'string' },
+              },
+            },
+            response: respond(200, OK_RESPONSE),
+          },
+        },
+        async (request) => {
+          const body = request.body as { token: string; password: string };
+          await resetPassword(storage, body.token, body.password);
+          return { ok: true };
+        },
+      );
+
+      scope.post(
+        '/auth/verify',
+        {
+          schema: {
+            body: {
+              type: 'object',
+              required: ['token'],
+              properties: { token: { type: 'string' } },
+            },
+            response: respond(200, OK_RESPONSE),
+          },
+        },
+        async (request) => {
+          const body = request.body as { token: string };
+          await verifyEmail(storage, body.token);
           return { ok: true };
         },
       );
@@ -843,6 +957,17 @@ export async function buildApp(
             email: body.email,
             userId: user.id,
           });
+          // Verification email (data-model §1): best-effort — an email
+          // hiccup must not fail the application itself.
+          try {
+            await sendEmailVerification(storage, {
+              groupId: request.group!.id,
+              userId: user.id,
+              baseUrl: baseUrlFrom(request),
+            });
+          } catch (err) {
+            request.log.error(err, 'failed to enqueue the verification email');
+          }
           reply.status(201);
           return { member };
         },

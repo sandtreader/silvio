@@ -39,7 +39,10 @@ Remaining server-side work, grouped by area. References are to
 
 ## Membership & identity
 
-- [ ] Password reset + email verification (`one_time_token`, data-model §1)
+- [x] Password reset + email verification (`one_time_tokens`, data-model §1:
+      single-use hashed tokens, /auth/forgot|reset|verify, throttled forgot,
+      reset revokes sessions; verification is recorded on the user only —
+      nothing enforces it yet)
 - [ ] Passkeys/WebAuthn + 2FA (deferred from API slice)
 - [x] Login lockout / rate limiting on auth endpoints (sliding window: 10
       failures/15 min per email, 30 per IP; 429 + Retry-After)
