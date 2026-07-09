@@ -10,6 +10,7 @@ import type {
   CreateCurrencyInput,
   CreateGroupInput,
   Storage,
+  TransactionFilter,
 } from '../interface.js';
 import type {
   Account,
@@ -1303,6 +1304,61 @@ export class SqliteStorage implements Storage {
       )
       .all(groupId, asOf) as { id: string }[];
     return Promise.resolve(rows.map((row) => this.loadTransaction(row.id)));
+  }
+
+  listTransactions(
+    groupId: Id,
+    filter?: TransactionFilter,
+  ): Promise<{ transactions: Transaction[]; total: number }> {
+    const clauses = ['t.group_id = ?'];
+    const values: (string | number)[] = [groupId];
+    if (filter?.type !== undefined) {
+      clauses.push('t.type = ?');
+      values.push(filter.type);
+    }
+    if (filter?.state !== undefined) {
+      clauses.push('t.state = ?');
+      values.push(filter.state);
+    }
+    if (filter?.memberId !== undefined) {
+      clauses.push(
+        `EXISTS (SELECT 1 FROM entries e JOIN accounts a ON a.id = e.account_id
+                 WHERE e.transaction_id = t.id AND a.member_id = ?)`,
+      );
+      values.push(filter.memberId);
+    }
+    if (filter?.currencyId !== undefined) {
+      clauses.push(
+        `EXISTS (SELECT 1 FROM entries e JOIN accounts a ON a.id = e.account_id
+                 WHERE e.transaction_id = t.id AND a.currency_id = ?)`,
+      );
+      values.push(filter.currencyId);
+    }
+    if (filter?.text !== undefined) {
+      const needle = `%${filter.text.toLowerCase().replace(/[\\%_]/g, '\\$&')}%`;
+      clauses.push(
+        `(lower(COALESCE(t.description, '')) LIKE ? ESCAPE '\\'
+          OR lower(COALESCE(t.reference, '')) LIKE ? ESCAPE '\\')`,
+      );
+      values.push(needle, needle);
+    }
+    const where = clauses.join(' AND ');
+    const { total } = this.db
+      .prepare(`SELECT COUNT(*) AS total FROM transactions t WHERE ${where}`)
+      .get(...values) as { total: number };
+    const limit = Math.min(filter?.limit ?? 50, 200);
+    const offset = filter?.offset ?? 0;
+    const rows = this.db
+      .prepare(
+        `SELECT t.id FROM transactions t WHERE ${where}
+         ORDER BY t.created_at DESC, t.rowid DESC
+         LIMIT ? OFFSET ?`,
+      )
+      .all(...values, limit, offset) as { id: string }[];
+    return Promise.resolve({
+      transactions: rows.map((row) => this.loadTransaction(row.id)),
+      total,
+    });
   }
 
   pendingForMember(memberId: Id): Promise<Transaction[]> {

@@ -15,7 +15,7 @@ import type {
 import cookie from '@fastify/cookie';
 import swagger from '@fastify/swagger';
 import fastifyStatic from '@fastify/static';
-import type { Storage } from '../storage/interface.js';
+import type { Storage, TransactionFilter } from '../storage/interface.js';
 import type {
   ApiScope,
   ApiToken,
@@ -1331,6 +1331,57 @@ export async function buildApp(
         async (request) => {
           const { currencyId } = request.query as { currencyId: string };
           return { flags: await evaluateFlags(storage, request.group!.id, currencyId) };
+        },
+      );
+
+      scope.get(
+        '/admin/transactions',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            querystring: {
+              type: 'object',
+              properties: {
+                memberId: { type: 'string' },
+                currencyId: { type: 'string' },
+                type: {
+                  type: 'string',
+                  enum: ['trade', 'demurrage', 'fee', 'settlement', 'reversal', 'adjustment'],
+                },
+                state: {
+                  type: 'string',
+                  enum: ['pending', 'committed', 'declined', 'cancelled', 'expired'],
+                },
+                q: { type: 'string' },
+                limit: { type: 'integer' },
+                offset: { type: 'integer' },
+              },
+            },
+            response: respond(
+              200,
+              body({ transactions: arrayOf('Transaction'), total: { type: 'integer' } }),
+            ),
+          },
+        },
+        async (request) => {
+          const query = request.query as {
+            memberId?: string;
+            currencyId?: string;
+            type?: TransactionFilter['type'];
+            state?: TransactionFilter['state'];
+            q?: string;
+            limit?: number;
+            offset?: number;
+          };
+          const filter: TransactionFilter = {};
+          if (query.memberId !== undefined) filter.memberId = query.memberId;
+          if (query.currencyId !== undefined) filter.currencyId = query.currencyId;
+          if (query.type !== undefined) filter.type = query.type;
+          if (query.state !== undefined) filter.state = query.state;
+          if (query.q !== undefined) filter.text = query.q;
+          if (query.limit !== undefined) filter.limit = query.limit;
+          if (query.offset !== undefined) filter.offset = query.offset;
+          return storage.listTransactions(request.group!.id, filter);
         },
       );
 

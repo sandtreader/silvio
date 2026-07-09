@@ -432,6 +432,134 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
     });
   });
 
+  describe('transaction search (admin list)', () => {
+    // Fixture posted per test: a committed cams trade alice->bob 'veg box',
+    // a pending cams invoice bob->alice 'bike repair', a committed palms
+    // trade 'plants', a demurrage posting, and a trade in the other group.
+    async function seed(): Promise<{ veg: string; bike: string; plants: string; dem: string }> {
+      const veg = (await f.storage.post(trade(f, { description: 'veg box', reference: 'VB-1' }))).id;
+      const bike = (
+        await f.storage.post(
+          trade(f, {
+            state: 'pending',
+            flow: 'invoice',
+            description: 'bike repair',
+            entries: [
+              { accountId: f.alice.id, amount: -200 },
+              { accountId: f.bob.id, amount: 200 },
+            ],
+          }),
+        )
+      ).id;
+      const plants = (
+        await f.storage.post(
+          trade(f, {
+            description: 'plants',
+            entries: [
+              { accountId: f.alicePalms.id, amount: -50 },
+              { accountId: f.bobPalms.id, amount: 50 },
+            ],
+          }),
+        )
+      ).id;
+      const dem = (
+        await f.storage.post(
+          trade(f, {
+            type: 'demurrage',
+            description: 'monthly demurrage',
+            entries: [
+              { accountId: f.alice.id, amount: -3 },
+              { accountId: f.community.id, amount: 3 },
+            ],
+          }),
+        )
+      ).id;
+      const dave = await f.storage.createAccount({
+        groupId: f.otherGroup.id, currencyId: f.otherCams.id,
+        type: 'member', memberId: 'member-dave',
+      });
+      await f.storage.post(
+        trade(f, {
+          groupId: f.otherGroup.id,
+          description: 'other group trade',
+          entries: [
+            { accountId: f.carol.id, amount: -10 },
+            { accountId: dave.id, amount: 10 },
+          ],
+        }),
+      );
+      return { veg, bike, plants, dem };
+    }
+
+    it('lists only this group, newest page first, with a total', async () => {
+      const ids = await seed();
+      const { transactions, total } = await f.storage.listTransactions(f.group.id);
+      expect(total).toBe(4);
+      expect(transactions.map((t) => t.id).sort()).toEqual(
+        [ids.veg, ids.bike, ids.plants, ids.dem].sort(),
+      );
+      // Full transactions, entries included.
+      expect(transactions.every((t) => t.entries.length === 2)).toBe(true);
+    });
+
+    it('filters by member (any account of theirs)', async () => {
+      const ids = await seed();
+      const { transactions } = await f.storage.listTransactions(f.group.id, {
+        memberId: 'member-bob',
+      });
+      expect(transactions.map((t) => t.id).sort()).toEqual(
+        [ids.veg, ids.bike, ids.plants].sort(), // not the demurrage posting
+      );
+    });
+
+    it('filters by currency', async () => {
+      const ids = await seed();
+      const { transactions } = await f.storage.listTransactions(f.group.id, {
+        currencyId: f.palms.id,
+      });
+      expect(transactions.map((t) => t.id)).toEqual([ids.plants]);
+    });
+
+    it('filters by type and state', async () => {
+      const ids = await seed();
+      const byType = await f.storage.listTransactions(f.group.id, { type: 'demurrage' });
+      expect(byType.transactions.map((t) => t.id)).toEqual([ids.dem]);
+      const byState = await f.storage.listTransactions(f.group.id, { state: 'pending' });
+      expect(byState.transactions.map((t) => t.id)).toEqual([ids.bike]);
+    });
+
+    it('text search covers description and reference, case-insensitively', async () => {
+      const ids = await seed();
+      const byDesc = await f.storage.listTransactions(f.group.id, { text: 'BIKE' });
+      expect(byDesc.transactions.map((t) => t.id)).toEqual([ids.bike]);
+      const byRef = await f.storage.listTransactions(f.group.id, { text: 'vb-1' });
+      expect(byRef.transactions.map((t) => t.id)).toEqual([ids.veg]);
+    });
+
+    it('filters compose', async () => {
+      const ids = await seed();
+      const { transactions, total } = await f.storage.listTransactions(f.group.id, {
+        memberId: 'member-alice',
+        currencyId: f.cams.id,
+        type: 'trade',
+      });
+      expect(total).toBe(2);
+      expect(transactions.map((t) => t.id).sort()).toEqual([ids.veg, ids.bike].sort());
+    });
+
+    it('paginates with limit and offset; total counts all matches', async () => {
+      await seed();
+      const page1 = await f.storage.listTransactions(f.group.id, { limit: 3 });
+      const page2 = await f.storage.listTransactions(f.group.id, { limit: 3, offset: 3 });
+      expect(page1.total).toBe(4);
+      expect(page2.total).toBe(4);
+      expect(page1.transactions).toHaveLength(3);
+      expect(page2.transactions).toHaveLength(1);
+      const all = [...page1.transactions, ...page2.transactions].map((t) => t.id);
+      expect(new Set(all).size).toBe(4); // stable order: no duplicates across pages
+    });
+  });
+
   describe('statement (#6)', () => {
     it('returns committed lines in seq order with running balance', async () => {
       await f.storage.post(trade(f)); // alice -100

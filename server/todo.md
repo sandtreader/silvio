@@ -92,7 +92,9 @@ Remaining server-side work, grouped by area. References are to
 - [x] Group currencies endpoint (public GET /currencies, mirroring
       /categories; admin UI currency pickers now use it instead of /me)
 - [x] Expose currency scale in /me accounts
-- [ ] Transaction list/search for admins (reverse currently needs a pasted id)
+- [x] Transaction list/search for admins (GET /admin/transactions with
+      member/currency/type/state/text filters and limit/offset paging;
+      storage listTransactions returns full transactions plus a total)
 - [ ] List active restrictions (impose/lift exist; no read)
 - [x] Categories API (admin create/rename; public read existed)
 

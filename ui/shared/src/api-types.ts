@@ -1680,6 +1680,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    memberId?: string;
+                    currencyId?: string;
+                    type?: "trade" | "demurrage" | "fee" | "settlement" | "reversal" | "adjustment";
+                    state?: "pending" | "committed" | "declined" | "cancelled" | "expired";
+                    q?: string;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            transactions: components["schemas"]["Transaction"][];
+                            total: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/transactions/{id}/reverse": {
         parameters: {
             query?: never;
@@ -3532,6 +3587,63 @@ export interface paths {
                     content: {
                         "application/json": {
                             flags: components["schemas"]["AccountFlag"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/g/{slug}/admin/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    memberId?: string;
+                    currencyId?: string;
+                    type?: "trade" | "demurrage" | "fee" | "settlement" | "reversal" | "adjustment";
+                    state?: "pending" | "committed" | "declined" | "cancelled" | "expired";
+                    q?: string;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            transactions: components["schemas"]["Transaction"][];
+                            total: number;
                         };
                     };
                 };

@@ -33,6 +33,7 @@ import type {
   TradeStats,
   Transaction,
   TxState,
+  TxType,
   VerifyReport,
 } from '../types.js';
 
@@ -59,6 +60,20 @@ export interface CreateAccountInput {
 
 export interface Actor {
   personId: Id; // or 'system'
+}
+
+/** Admin transaction search (todo: API polish). All fields optional; AND-composed. */
+export interface TransactionFilter {
+  /** Transactions with at least one entry on any account of this member. */
+  memberId?: Id;
+  /** Transactions with at least one entry on an account in this currency. */
+  currencyId?: Id;
+  type?: TxType;
+  state?: TxState;
+  /** Case-insensitive substring over description or reference. */
+  text?: string;
+  limit?: number; // default 50, capped at 200
+  offset?: number; // default 0
 }
 
 export interface Ledger {
@@ -213,6 +228,16 @@ export interface Storage extends Ledger {
    * transactions with this apiTokenId and committedAt >= sinceIso.
    */
   tokenSpend(tokenId: Id, sinceIso: string): Promise<number>;
+
+  /**
+   * Filtered, paginated group transactions for the admin list, newest first
+   * with a stable order (pagination never duplicates). `total` counts all
+   * matches ignoring limit/offset.
+   */
+  listTransactions(
+    groupId: Id,
+    filter?: TransactionFilter,
+  ): Promise<{ transactions: Transaction[]; total: number }>;
 
   /** Pending transactions with expiresAt <= asOf (decision #5 sweeps). */
   pendingDue(groupId: Id, asOf: string): Promise<Transaction[]>;
