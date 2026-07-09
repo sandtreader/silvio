@@ -13,11 +13,14 @@ import { RequireAuth } from './components/RequireAuth';
 import { SiteChrome } from './components/SiteChrome';
 import { Activity } from './pages/Activity';
 import { Apply } from './pages/Apply';
+import { Forgot } from './pages/Forgot';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { Market } from './pages/Market';
 import { More } from './pages/More';
 import { Pay } from './pages/Pay';
+import { Reset } from './pages/Reset';
+import { Verify } from './pages/Verify';
 
 const theme = createTheme({
   palette: {
@@ -74,6 +77,10 @@ const routes = [
   },
   { path: '/login', element: <Login /> },
   { path: '/apply', element: <Apply /> },
+  // Public token/email flows: the emails link to /app/reset and /app/verify.
+  { path: '/forgot', element: <Forgot /> },
+  { path: '/reset', element: <Reset /> },
+  { path: '/verify', element: <Verify /> },
 ];
 
 const router = createBrowserRouter(routes, { basename: '/app' });

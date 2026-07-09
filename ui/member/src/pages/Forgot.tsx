@@ -1,4 +1,6 @@
-// Apply: membership application (decision #7: applied -> admin approves).
+// Forgot password: email -> POST /auth/forgot. The server always answers
+// ok (no account enumeration), so the page always shows the same neutral
+// message whether or not the address has an account.
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Link from '@mui/material/Link';
@@ -11,34 +13,26 @@ import { Link as RouterLink } from 'react-router';
 import { useClient } from '../api/client';
 import { useApi } from '../api/useApi';
 
-export function Apply() {
+export function Forgot() {
   const client = useClient();
   const { run, busy } = useApi();
-  const [displayName, setDisplayName] = useState('');
-  const [personName, setPersonName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [applied, setApplied] = useState(false);
+  const [sent, setSent] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const result = await run(() =>
-      client.apply({ displayName, personName, email, password }),
-    );
-    if (result !== undefined) setApplied(true);
+    const result = await run(() => client.forgotPassword(email));
+    if (result !== undefined) setSent(true);
   };
 
-  if (applied) {
+  if (sent) {
     return (
       <Box sx={{ maxWidth: 400, mx: 'auto', p: 3, pt: 8 }}>
         <Typography variant="h5" sx={{ mb: 2 }}>
-          Application received
+          Check your email
         </Typography>
         <Typography sx={{ mb: 3 }}>
-          Thanks — your application is awaiting approval. We have sent you a
-          verification email; please follow the link in it to confirm your
-          address. You will be able to log in once an admin has approved your
-          application.
+          If that address has an account here, a reset link is on its way.
         </Typography>
         <Link component={RouterLink} to="/login">
           Back to login
@@ -50,23 +44,14 @@ export function Apply() {
   return (
     <Box sx={{ maxWidth: 400, mx: 'auto', p: 3, pt: 8 }}>
       <Typography variant="h4" sx={{ mb: 3 }}>
-        Join this LETS
+        Reset your password
+      </Typography>
+      <Typography sx={{ mb: 3 }}>
+        Enter your email address and we will send you a link to choose a new
+        password.
       </Typography>
       <form onSubmit={(event) => void submit(event)}>
         <Stack spacing={2}>
-          <TextField
-            label="Display name"
-            helperText="How you appear in the directory"
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-            required
-          />
-          <TextField
-            label="Your name"
-            value={personName}
-            onChange={(event) => setPersonName(event.target.value)}
-            required
-          />
           <TextField
             label="Email"
             type="email"
@@ -75,16 +60,8 @@ export function Apply() {
             required
             autoComplete="email"
           />
-          <TextField
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-            autoComplete="new-password"
-          />
           <Button type="submit" variant="contained" size="large" disabled={busy}>
-            Apply
+            Send reset link
           </Button>
         </Stack>
       </form>

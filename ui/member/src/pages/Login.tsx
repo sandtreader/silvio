@@ -62,6 +62,9 @@ export function Login() {
         </Stack>
       </form>
       <Stack spacing={1} sx={{ mt: 3 }}>
+        <Link component={RouterLink} to="/forgot">
+          Forgot password?
+        </Link>
         <Link component={RouterLink} to="/apply">
           Join this LETS
         </Link>

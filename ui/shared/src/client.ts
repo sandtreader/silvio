@@ -213,6 +213,22 @@ export class ApiClient {
     return this.tenant('POST', '/auth/logout');
   }
 
+  // Password reset and email verification: forgot always returns ok (no
+  // account enumeration); reset/verify consume a single-use emailed token
+  // and 400 when it is invalid, expired or already used.
+
+  forgotPassword(email: string): Promise<{ ok: boolean }> {
+    return this.tenant('POST', '/auth/forgot', { email });
+  }
+
+  resetPassword(token: string, password: string): Promise<{ ok: boolean }> {
+    return this.tenant('POST', '/auth/reset', { token, password });
+  }
+
+  verifyEmail(token: string): Promise<{ ok: boolean }> {
+    return this.tenant('POST', '/auth/verify', { token });
+  }
+
   me(): Promise<Me> {
     return this.tenant('GET', '/me');
   }

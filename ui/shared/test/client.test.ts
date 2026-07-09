@@ -67,6 +67,26 @@ describe('path construction', () => {
     expect(JSON.parse(init.body as string)).toEqual({ email: 'a@b.c', password: 'pw' });
   });
 
+  it('routes forgot / reset / verify token flows', async () => {
+    const mock = stubFetch(200, { ok: true });
+    const client = new ApiClient({ group: 'g1' });
+    await client.forgotPassword('a@b.c');
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/auth/forgot');
+    expect(lastCall(mock).init.method).toBe('POST');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({ email: 'a@b.c' });
+    await client.resetPassword('tok-1', 'new password');
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/auth/reset');
+    expect(lastCall(mock).init.method).toBe('POST');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      token: 'tok-1',
+      password: 'new password',
+    });
+    await client.verifyEmail('tok-2');
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/auth/verify');
+    expect(lastCall(mock).init.method).toBe('POST');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({ token: 'tok-2' });
+  });
+
   it('builds query strings for statement and flags', async () => {
     const mock = stubFetch(200, { lines: [] });
     const client = new ApiClient({ group: 'g1' });

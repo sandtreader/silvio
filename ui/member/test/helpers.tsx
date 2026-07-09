@@ -13,12 +13,16 @@ import { FeedbackProvider } from '../src/api/feedback';
 /** A partial client; anything a test doesn't stub must not be called. */
 export type FakeClient = Partial<Record<keyof ApiClient, ReturnType<typeof vi.fn>>>;
 
-export function renderWithClient(ui: ReactNode, client: FakeClient) {
+export function renderWithClient(
+  ui: ReactNode,
+  client: FakeClient,
+  initialEntries: string[] = ['/'], // e.g. ['/reset?token=t1'] for token pages
+) {
   return render(
     <ClientProvider value={client as unknown as ApiClient}>
       <FeedbackProvider>
         <AuthProvider>
-          <MemoryRouter>{ui}</MemoryRouter>
+          <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>
         </AuthProvider>
       </FeedbackProvider>
     </ClientProvider>,
