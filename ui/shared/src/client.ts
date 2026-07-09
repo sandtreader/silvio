@@ -25,7 +25,7 @@ import type {
   TradeStats,
   Transaction,
 } from './types.js';
-import type { CreditPolicyConfig, CreditPolicyType } from './types.js';
+import type { CreditPolicyConfig, CreditPolicyType, TxState, TxType } from './types.js';
 
 /** The server's {error: {code, message}} shape, plus the HTTP status. */
 export class ApiError extends Error {
@@ -86,6 +86,16 @@ export interface PolicyInput {
   currencyId: string;
   type: CreditPolicyType;
   config: CreditPolicyConfig;
+}
+
+export interface TransactionFilter {
+  q?: string;
+  memberId?: string;
+  currencyId?: string;
+  type?: TxType;
+  state?: TxState;
+  limit?: number;
+  offset?: number;
 }
 
 export interface CreateGroupInput {
@@ -286,6 +296,25 @@ export class ApiClient {
 
   adminFlags(currencyId: string): Promise<{ flags: Flag[] }> {
     return this.tenant('GET', `/admin/flags?${new URLSearchParams({ currencyId })}`);
+  }
+
+  adminTransactions(filter: TransactionFilter = {}): Promise<{
+    transactions: Transaction[];
+    total: number;
+  }> {
+    const params = new URLSearchParams();
+    if (filter.q !== undefined) params.set('q', filter.q);
+    if (filter.memberId !== undefined) params.set('memberId', filter.memberId);
+    if (filter.currencyId !== undefined) params.set('currencyId', filter.currencyId);
+    if (filter.type !== undefined) params.set('type', filter.type);
+    if (filter.state !== undefined) params.set('state', filter.state);
+    if (filter.limit !== undefined) params.set('limit', String(filter.limit));
+    if (filter.offset !== undefined) params.set('offset', String(filter.offset));
+    const query = params.toString();
+    return this.tenant(
+      'GET',
+      query === '' ? '/admin/transactions' : `/admin/transactions?${query}`,
+    );
   }
 
   adminReverse(id: string): Promise<{ transaction: Transaction }> {

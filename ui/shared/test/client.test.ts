@@ -96,6 +96,24 @@ describe('path construction', () => {
     expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/transactions/tx-2/reverse');
   });
 
+  it('builds the admin transaction search query, omitting it when empty', async () => {
+    const mock = stubFetch(200, { transactions: [], total: 0 });
+    const client = new ApiClient({ group: 'g1' });
+    await client.adminTransactions();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/transactions');
+    expect(lastCall(mock).init.method).toBe('GET');
+    await client.adminTransactions({
+      q: 'veg box',
+      memberId: 'm-1',
+      state: 'committed',
+      limit: 50,
+      offset: 100,
+    });
+    expect(lastCall(mock).url).toBe(
+      '/api/v1/g/g1/admin/transactions?q=veg+box&memberId=m-1&state=committed&limit=50&offset=100',
+    );
+  });
+
   it('encodes path parameters', async () => {
     const mock = stubFetch(200, { member: {}, stats: {} });
     await new ApiClient({ group: 'g1' }).member('id/with?chars');

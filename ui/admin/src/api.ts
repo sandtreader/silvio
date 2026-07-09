@@ -20,6 +20,7 @@ import {
   type PolicyInput,
   type Restriction,
   type Transaction,
+  type TransactionFilter,
 } from '@silvio/ui-shared';
 
 /** Same-origin client: dev goes via the Vite proxy, production is served
@@ -77,6 +78,9 @@ export interface AdminApi {
     bands: DemurrageBand[],
   ): Promise<DemurrageBand[] | undefined>;
   adminFlags(currencyId: string): Promise<Flag[] | undefined>;
+  adminTransactions(
+    filter?: TransactionFilter,
+  ): Promise<{ transactions: Transaction[]; total: number } | undefined>;
   adminReverse(id: string): Promise<Transaction | undefined>;
   categories(): Promise<Category[] | undefined>;
   currencies(): Promise<Currency[] | undefined>;
@@ -111,6 +115,7 @@ export const api: AdminApi = {
   adminSetBands: async (currencyId, bands) =>
     (await call(client.adminSetBands(currencyId, bands)))?.bands,
   adminFlags: async (currencyId) => (await call(client.adminFlags(currencyId)))?.flags,
+  adminTransactions: async (filter) => call(client.adminTransactions(filter)),
   adminReverse: async (id) => (await call(client.adminReverse(id)))?.transaction,
   categories: async () => (await call(client.categories()))?.categories,
   currencies: async () => (await call(client.currencies()))?.currencies,

@@ -26,9 +26,10 @@ session even though the cookie survives (Rafiki has no restore hook yet).
   {from balance, % per month} and saved atomically as a whole.
 - **Flags** — credit-control flags per currency (level + reason per member),
   the committee-review surface; flags never block by themselves.
-- **Transactions** — reverse a committed transaction by id (a reversal is a
-  compensating transaction linked via `reversesId`). Limitation: no admin
-  transaction list/search endpoint yet, so the id must be pasted in.
+- **Transactions** — search and list the group's transactions (text filter on
+  description/reference via `GET /admin/transactions`), and reverse a committed
+  one from its row after confirmation (a reversal is a compensating transaction
+  linked via `reversesId`; pending/declined rows offer no reverse action).
 - **Categories** — the marketplace category tree with add (name + optional
   parent) and inline rename.
 
