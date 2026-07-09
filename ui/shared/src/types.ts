@@ -57,6 +57,12 @@ export type Image = Schemas['Image'];
 export type BrandSlot =
   paths['/api/v1/admin/branding/{slot}']['put']['parameters']['path']['slot'];
 
+/** GET /shell response (#15): everything the member app's client-rendered
+ * chrome needs — group identity, branding image ids, the viewer's visible
+ * nav pages, and the logged-in member's name (absent when logged out). */
+export type ShellInfo =
+  paths['/api/v1/shell']['get']['responses']['200']['content']['application/json'];
+
 // --- Credit control (decision #3) -------------------------------------------
 
 export type Policy = Schemas['CreditPolicy'];

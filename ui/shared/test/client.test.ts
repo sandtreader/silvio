@@ -120,6 +120,18 @@ describe('path construction', () => {
     expect(lastCall(mock).url).toBe('/api/v1/g/g1/members/id%2Fwith%3Fchars');
   });
 
+  it('fetches the public shell info (#15)', async () => {
+    const mock = stubFetch(200, {
+      group: { name: 'CamLETS', slug: 'cam' },
+      branding: {},
+      navPages: [],
+    });
+    const { group } = await new ApiClient({ group: 'cam' }).shellInfo();
+    expect(lastCall(mock).url).toBe('/api/v1/g/cam/shell');
+    expect(lastCall(mock).init.method).toBe('GET');
+    expect(group.slug).toBe('cam');
+  });
+
   it('fetches the public categories and currencies lists', async () => {
     const mock = stubFetch(200, { categories: [], currencies: [] });
     const client = new ApiClient({ group: 'g1' });

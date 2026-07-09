@@ -43,7 +43,7 @@ running server). The live document is also served at `/api/v1/openapi.json`.
 | `SILVIO_PORT` | `1862` | Listen port (Silvio Gesell's year of birth) |
 | `SILVIO_HOST` | `0.0.0.0` | Listen address |
 | `SILVIO_OPERATOR_EMAIL` / `SILVIO_OPERATOR_PASSWORD` | — | First-boot operator bootstrap; on a TTY you are prompted instead |
-| `SILVIO_MEMBER_UI` / `SILVIO_ADMIN_UI` | sibling `ui/*/dist` | Built UI directories served at `/app/` (inside the brochure shell, #12) and `/admin/`; the group root `/` is the server-rendered brochure |
+| `SILVIO_MEMBER_UI` / `SILVIO_ADMIN_UI` | sibling `ui/*/dist` | Built UI directories served at `/app/` (the app renders its own chrome from `GET /shell`, #15) and `/admin/`; the group root `/` is the server-rendered brochure |
 | `SILVIO_SMTP_URL` / `SILVIO_EMAIL_FROM` | — | Outbound email: nodemailer connection URL (e.g. `smtp://user:pass@mail.example.com:587`; query params pass transport options, e.g. `?tls.rejectUnauthorized=false` for a self-signed relay) and the From address. Unset, emails queue in `email_events` but are not sent |
 
 On first boot with no operator account, the server bootstraps one from the

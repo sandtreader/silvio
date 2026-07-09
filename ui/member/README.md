@@ -2,11 +2,14 @@
 
 Mobile-first member-facing PWA for the Silvio LETS platform. React 19,
 MUI 7, react-router 7, built with Vite and vite-plugin-pwa. Served at
-`/app/` by the Silvio server (`../../server`) inside the server-rendered
-brochure shell (decision #12); the app is logged-in-only — logged-out
-visitors use the brochure site at the group root instead. Installable with
-an auto-updating service worker scoped to `/app/`, so brochure pages,
-`/admin` and `/api/` are never answered from the app's cache.
+`/app/` by the Silvio server (`../../server`); the app renders its own
+slim brochure-style chrome (`SiteChrome`) from the public, session-aware
+`GET /shell` endpoint (decision #15 — server-side injection was defeated
+by the service worker). The app is logged-in-only — logged-out visitors
+use the brochure site at the group root instead. Installable with an
+auto-updating service worker scoped to `/app/`, so brochure pages,
+`/admin` and `/api/` are never answered from the app's cache; the chrome
+hides itself in the installed PWA (`display-mode: standalone`).
 
 ## Features
 
@@ -52,8 +55,10 @@ npm run dev     # Vite dev server; proxies /api to http://localhost:1862
 ```
 
 With base `/app/` the dev server serves the app at
-`http://localhost:5173/app/` (the bare root 404s). The brochure shell is
-server-rendered, so in dev the app runs without its chrome.
+`http://localhost:5173/app/` (the bare root 404s). The chrome is
+client-rendered from `GET /shell` (decision #15), which the dev proxy
+forwards to the server; without a group resolving for the host it degrades
+to no chrome.
 
 Run the Silvio server locally (see `../../server`) so the `/api` proxy has
 something to talk to; the proxy keeps cookie sessions same-origin.

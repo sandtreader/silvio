@@ -1,6 +1,8 @@
 // Router + theme + providers. The app is logged-in-only (decision #12):
-// every tab sits behind RequireAuth; served at /app/ inside the brochure
-// shell, so the router basename is /app.
+// every tab sits behind RequireAuth; served at /app/, so the router
+// basename is /app. The brochure-style chrome is rendered here by
+// SiteChrome from GET /shell (decision #15) — outside the router, since
+// its links leave the SPA.
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { createBrowserRouter, RouterProvider } from 'react-router';
@@ -8,6 +10,7 @@ import { AuthProvider } from './api/auth';
 import { FeedbackProvider } from './api/feedback';
 import { Layout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
+import { SiteChrome } from './components/SiteChrome';
 import { Activity } from './pages/Activity';
 import { Apply } from './pages/Apply';
 import { Home } from './pages/Home';
@@ -81,6 +84,7 @@ export function App() {
       <CssBaseline />
       <FeedbackProvider>
         <AuthProvider>
+          <SiteChrome />
           <RouterProvider router={router} />
         </AuthProvider>
       </FeedbackProvider>

@@ -1,9 +1,12 @@
-// Public brochure site & app shell (decision #12): each group's root is a
-// server-rendered public brochure and the member app under /app/ shares the
-// same shell chrome. CMS pages (decision #13) render here — markdown source
-// through renderMarkdown, visibility-tiered, with a `home` page overriding
-// the placeholder front page. Tenancy comes from the Host header exactly as
-// for the API; the session cookie makes the shell header session-aware.
+// Public brochure site (decision #12): each group's root is a
+// server-rendered public brochure. The member app under /app/ renders its
+// own matching chrome from GET /shell (#15) — server-side injection is
+// gone because the service worker bypasses it — so the shell header here is
+// brochure-only and the two must stay visually in step. CMS pages (decision
+// #13) render here — markdown source through renderMarkdown,
+// visibility-tiered, with a `home` page overriding the placeholder front
+// page. Tenancy comes from the Host header exactly as for the API; the
+// session cookie makes the shell header session-aware.
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Storage } from '../storage/interface.js';
@@ -27,8 +30,8 @@ export function escapeHtml(value: string): string {
 }
 
 // Progressive chrome (decision #12): full nav in a browser, hidden entirely
-// in the installed PWA via the display-mode media query. The same style block
-// serves brochure pages and the injected app shell.
+// in the installed PWA via the display-mode media query. Brochure pages
+// only (#15) — the member app renders its own equivalent from GET /shell.
 const SHELL_STYLE = `<style>
   body { margin: 0; font-family: system-ui, sans-serif; line-height: 1.5; color: #1a1a1a; }
   .shell-chrome { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 1.5rem;
@@ -87,20 +90,6 @@ function shellHeader(
     ${session}
   </nav>
 </header>`;
-}
-
-/**
- * Shell fragment injected after <body> of the member app's index.html: the
- * chrome style plus the header, so app routes render inside the same shell
- * as brochure pages (decision #12).
- */
-export function appShellFragment(
-  groupName: string,
-  memberName: string | undefined,
-  navPages: NavPage[] = [],
-  branding: Branding = {},
-): string {
-  return `${SHELL_STYLE}\n${shellHeader(groupName, memberName, navPages, branding)}`;
 }
 
 /** A full brochure page in the shared layout. */

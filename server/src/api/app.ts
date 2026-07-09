@@ -77,10 +77,8 @@ import { LoginThrottle } from '../services/ratelimit.js';
 import { buildMcpServer, type RestClient } from '../mcp/server.js';
 import {
   SESSION_COOKIE,
-  appShellFragment,
   navPagesFor,
   registerBrochureRoutes,
-  resolveGroupFromHost,
   sessionMember,
 } from './brochure.js';
 import {
@@ -316,41 +314,24 @@ export async function buildApp(
   const memberDist = opts.ui?.memberDist;
   const adminDist = opts.ui?.adminDist;
 
-  // The member app's index.html, read once; every /app navigation serves it
-  // with the shell chrome injected after <body> (decision #12). An unknown
-  // host still serves the app — under a generic brand — and lets login fail
-  // gracefully there.
+  // The member app's index.html, read once and served untouched (#15,
+  // amending #12's shell injection): the service worker answers every
+  // post-first-visit /app/* navigation from its precached raw index.html, so
+  // injection never reaches the user; the app renders its own chrome from
+  // the public GET /shell endpoint instead.
   let memberIndexCache: string | undefined;
-  async function serveAppShell(
-    dist: string,
-    request: FastifyRequest,
-    reply: FastifyReply,
-  ): Promise<unknown> {
+  async function serveAppShell(dist: string, reply: FastifyReply): Promise<unknown> {
     memberIndexCache ??= await readFile(join(dist, 'index.html'), 'utf8');
-    const group = await resolveGroupFromHost(storage, request);
-    const member =
-      group === undefined ? undefined : await sessionMember(storage, request, group.id);
-    // The app shell carries the same nav as the brochure, CMS pages included
-    // (#13) — one chrome either side of the /app/ boundary (decision #12).
-    const navPages =
-      group === undefined ? [] : await navPagesFor(storage, group.id, member);
-    // Group skin (#15): the app shell carries the same branding as the
-    // brochure; an unknown host is unbranded like an unbranded group.
-    const branding = group === undefined ? {} : await brandingFor(storage, group.id);
-    const shell = appShellFragment(
-      group?.name ?? 'Silvio', member?.displayName, navPages, branding,
-    );
-    const html = memberIndexCache.replace('<body>', `<body>\n${shell}`);
-    return reply.type('text/html; charset=utf-8').send(html);
+    return reply.type('text/html; charset=utf-8').send(memberIndexCache);
   }
 
   if (memberDist !== undefined) {
     // index: false so the wildcard never serves the raw index.html; the
     // explicit /app/ route below wins over the static /app/* wildcard and
-    // deep links fall through to the not-found handler — both shell-wrapped.
+    // deep links fall through to the not-found handler — both the same index.
     await app.register(fastifyStatic, { root: memberDist, prefix: '/app/', index: false });
-    app.get('/app/', { schema: { hide: true } }, (request, reply) =>
-      serveAppShell(memberDist, request, reply));
+    app.get('/app/', { schema: { hide: true } }, (_request, reply) =>
+      serveAppShell(memberDist, reply));
   }
   if (adminDist !== undefined) {
     await app.register(fastifyStatic, {
@@ -371,7 +352,7 @@ export async function buildApp(
         return reply.sendFile('index.html', adminDist);
       }
       if (memberDist !== undefined && path.startsWith('/app')) {
-        return serveAppShell(memberDist, request, reply);
+        return serveAppShell(memberDist, reply);
       }
     }
     return reply.status(404).send(errorBody('NOT_FOUND', `no such route: ${path}`));
@@ -540,6 +521,58 @@ export async function buildApp(
           if (token !== undefined) await logout(storage, token);
           reply.clearCookie(SESSION_COOKIE, { path: '/' });
           return { ok: true };
+        },
+      );
+
+      // Shell info (#15): the public, session-aware data the member app's
+      // client-rendered chrome is built from — group identity, branding
+      // image ids, the viewer's visible nav pages, and who is logged in.
+      // Public because the chrome shows before login, session-aware so the
+      // nav honours page visibility tiers (#13).
+      scope.get(
+        '/shell',
+        {
+          schema: {
+            response: respond(
+              200,
+              body(
+                {
+                  group: body({ name: { type: 'string' }, slug: { type: 'string' } }),
+                  // Branding keys and member are present only when set
+                  // (exactOptionalPropertyTypes end to end).
+                  branding: body(
+                    {
+                      logoImageId: { type: 'string' },
+                      headerImageId: { type: 'string' },
+                    },
+                    [],
+                  ),
+                  navPages: {
+                    type: 'array',
+                    items: body({ slug: { type: 'string' }, title: { type: 'string' } }),
+                  },
+                  member: body({ displayName: { type: 'string' } }),
+                },
+                ['group', 'branding', 'navPages'],
+              ),
+            ),
+          },
+        },
+        async (request) => {
+          const group = request.group!;
+          const member = await sessionMember(storage, request, group.id);
+          const info: {
+            group: { name: string; slug: string };
+            branding: Awaited<ReturnType<typeof brandingFor>>;
+            navPages: { slug: string; title: string }[];
+            member?: { displayName: string };
+          } = {
+            group: { name: group.name, slug: group.slug },
+            branding: await brandingFor(storage, group.id),
+            navPages: await navPagesFor(storage, group.id, member),
+          };
+          if (member !== undefined) info.member = { displayName: member.displayName };
+          return info;
         },
       );
 

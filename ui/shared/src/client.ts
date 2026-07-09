@@ -26,6 +26,7 @@ import type {
   PendingItem,
   Policy,
   Restriction,
+  ShellInfo,
   StatementLine,
   TradeStats,
   Transaction,
@@ -238,6 +239,13 @@ export class ApiClient {
 
   deleteMyPhoto(): Promise<{ ok: boolean }> {
     return this.tenant('DELETE', '/me/photo');
+  }
+
+  // --- Shell chrome (decision #15) ---------------------------------------------
+
+  /** Public, session-aware shell info the app's client-rendered chrome uses. */
+  shellInfo(): Promise<ShellInfo> {
+    return this.tenant('GET', '/shell');
   }
 
   // --- Directory and trading --------------------------------------------------

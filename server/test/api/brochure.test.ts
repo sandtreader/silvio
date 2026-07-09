@@ -240,28 +240,27 @@ describe('brochure site & app shell (#12)', () => {
     });
   });
 
-  describe('app under /app/ in the shell', () => {
-    it('GET /app/ serves the app wrapped in shell chrome', async () => {
+  describe('app under /app/', () => {
+    // Decision #15 (amending #12): the chrome is client-rendered by the React
+    // app from GET /shell — the server serves index.html untouched, because
+    // the service worker would bypass any injection after the first visit.
+    it('GET /app/ serves the app index unmodified — no injected chrome', async () => {
       const res = await app.inject({ method: 'GET', url: '/app/', headers: { host: HOST } });
       expect(res.statusCode).toBe(200);
       expect(res.headers['content-type']).toContain('text/html');
-      // The app mount point and bundle survive...
       expect(res.body).toContain('id="root"');
       expect(res.body).toContain('/app/assets/main.js');
-      // ...wrapped in shell chrome carrying the group skin, injected before
-      // the mount point, hidden when running as an installed PWA.
-      expect(res.body).toContain('CamLETS');
-      expect(res.body.indexOf('CamLETS')).toBeLessThan(res.body.indexOf('id="root"'));
-      expect(res.body).toContain('display-mode: standalone');
+      expect(res.body).not.toContain('CamLETS');
+      expect(res.body).not.toContain('shell-chrome');
     });
 
-    it('deep links into the app get the same shell (SPA fallback)', async () => {
+    it('deep links into the app get the same index (SPA fallback)', async () => {
       const res = await app.inject({
         method: 'GET', url: '/app/activity', headers: { host: HOST },
       });
       expect(res.statusCode).toBe(200);
       expect(res.body).toContain('id="root"');
-      expect(res.body).toContain('CamLETS');
+      expect(res.body).not.toContain('shell-chrome');
     });
 
     it('app assets are served untouched', async () => {
