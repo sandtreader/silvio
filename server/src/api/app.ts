@@ -51,6 +51,12 @@ import { authenticateApiToken, checkTokenCaps, issueApiToken } from '../services
 import { evaluateFlags } from '../services/creditcontrol.js';
 import { browse, postListing } from '../services/marketplace.js';
 import { LoginThrottle } from '../services/ratelimit.js';
+import { buildMcpServer, type RestClient } from '../mcp/server.js';
+import {
+  StreamableHTTPServerTransport,
+  type StreamableHTTPServerTransportOptions,
+} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
 const SESSION_COOKIE = 'silvio_session';
 
@@ -780,6 +786,82 @@ export async function buildApp(
       scope.get('/categories', async (request) => {
         return { categories: await storage.listCategories(request.group!.id) };
       });
+
+      // --- MCP endpoint (decision #9) ---------------------------------------
+      // A Streamable HTTP MCP server at {tenancy}/mcp whose tools are a thin
+      // client of this same REST API: each tool call is re-injected into the
+      // root Fastify app with the caller's Authorization header, so REST
+      // scope checks, trade caps, and audit logging apply unchanged — the
+      // MCP layer adds no authority of its own. Stateless per the SDK's
+      // documented pattern: a fresh server + transport per request, no
+      // session ids, plain JSON responses (no SSE).
+      const mcpHandler = async (
+        request: FastifyRequest,
+        reply: FastifyReply,
+      ): Promise<unknown> => {
+        // Bearer-only auth, done here rather than via requireMember: the MCP
+        // handshake itself needs no scope, and tokens are the only principal.
+        const authorization = request.headers.authorization;
+        if (authorization === undefined || !authorization.startsWith('Bearer ')) {
+          return reply
+            .status(401)
+            .send(errorBody('NOT_AUTHORISED', 'a valid API token is required'));
+        }
+        const result = await authenticateApiToken(
+          storage,
+          authorization.slice('Bearer '.length),
+        );
+        if (!result) {
+          return reply
+            .status(401)
+            .send(errorBody('NOT_AUTHORISED', 'a valid API token is required'));
+        }
+        if (result.member.groupId !== request.group!.id) {
+          return reply
+            .status(403)
+            .send(errorBody('NOT_AUTHORISED', 'this token belongs to another group'));
+        }
+        // Tenancy base path: the request URL minus '/mcp' and any query, so
+        // /api/v1/g/cam/mcp forwards tools to /api/v1/g/cam/... . The host
+        // header rides along for host-based tenancy resolution.
+        const path = request.url.split('?')[0] ?? request.url;
+        const base = path.slice(0, path.length - '/mcp'.length);
+        const host = request.headers.host;
+        const rest: RestClient = {
+          call: async (method, restPath, payload) => {
+            const res = await app.inject({
+              method,
+              url: `${base}${restPath}`,
+              headers: { authorization, ...(host === undefined ? {} : { host }) },
+              ...(payload === undefined ? {} : { payload: payload as object }),
+            });
+            return { statusCode: res.statusCode, body: res.body };
+          },
+        };
+        const server = buildMcpServer({ scopes: result.token.scopes, rest });
+        // The assertions below paper over the SDK's d.ts not being written
+        // for exactOptionalPropertyTypes; they change nothing at runtime.
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: undefined, // stateless: no session ids
+          enableJsonResponse: true,
+        } as unknown as StreamableHTTPServerTransportOptions);
+        reply.raw.on('close', () => {
+          void transport.close();
+          void server.close();
+        });
+        await server.connect(transport as Transport);
+        // Hand the raw response to the transport; Fastify has already parsed
+        // the JSON body, so pass it through as the pre-read body.
+        reply.hijack();
+        await transport.handleRequest(request.raw, reply.raw, request.body);
+        return reply;
+      };
+      // POST carries the JSON-RPC traffic; the stateless transport answers
+      // GET (SSE) and DELETE (session teardown) with 405 itself. Hidden from
+      // the OpenAPI document — it is not a REST route.
+      scope.post('/mcp', { schema: { hide: true } }, mcpHandler);
+      scope.get('/mcp', { schema: { hide: true } }, mcpHandler);
+      scope.delete('/mcp', { schema: { hide: true } }, mcpHandler);
 
       // --- API token management (decision #9) -------------------------------
       // Cookie-only by design (no scopes config): a token must never mint,

@@ -6,16 +6,23 @@ Remaining server-side work, grouped by area. References are to
 
 ## MCP server (#9)
 
-- [ ] `api_tokens` storage: hashed tokens, scopes, per-token spend caps, expiry,
+- [x] `api_tokens` storage: hashed tokens, scopes, per-token spend caps, expiry,
       last-used (data-model §7)
-- [ ] Bearer-token auth path alongside cookie sessions (same routes, same guards)
-- [ ] Scope enforcement: `marketplace:read`, `directory:read`, `account:read`,
+- [x] Bearer-token auth path alongside cookie sessions (same routes, same guards;
+      routes opt in via config.scopes, everything else stays cookie-only)
+- [x] Scope enforcement: `marketplace:read`, `directory:read`, `account:read`,
       `listings:write`, `trade:request`, `trade:autonomous`
-- [ ] `trade:request` payments land `pending` for web confirmation (#5 reuse);
+- [x] `trade:request` payments land `pending` for web confirmation (#5 reuse);
       `trade:autonomous` bounded by per-token caps computed from the journal
-- [ ] Token management routes (member creates/labels/revokes own tokens)
-- [ ] The MCP server itself: tools for marketplace/directory query, statement,
-      payment/invoice creation
+- [x] Token management routes (member creates/labels/revokes own tokens)
+- [x] The MCP server itself: Streamable HTTP at {tenancy}/mcp, stateless,
+      tools filtered by scope, thin client of the REST API via inject
+- [ ] Per-token request rate limiting (decision #9 mentions it; LoginThrottle
+      is reusable)
+- [ ] Token management UI in the member PWA (routes exist, no screen yet)
+- [ ] Agents cannot accept/decline/cancel pending transactions (cookie-only
+      by design — accepting stays a human act); revisit whether an agent may
+      cancel its own unconfirmed proposals
 
 ## Payments & ledger
 
