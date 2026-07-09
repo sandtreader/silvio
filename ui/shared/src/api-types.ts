@@ -34,7 +34,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -67,7 +80,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -98,7 +124,21 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                            accounts: components["schemas"]["AccountBalance"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -128,7 +168,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -157,7 +210,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            lines: components["schemas"]["StatementLine"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -190,7 +256,21 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            pending: components["schemas"]["PendingItem"][];
+                            items: components["schemas"]["PendingItem"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -223,7 +303,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            members: components["schemas"]["PublicMember"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -258,7 +351,21 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["PublicMember"];
+                            stats: components["schemas"]["TradeStats"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -298,11 +405,24 @@ export interface paths {
             };
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -340,11 +460,24 @@ export interface paths {
             };
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            transaction: components["schemas"]["Transaction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -382,11 +515,24 @@ export interface paths {
             };
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            transaction: components["schemas"]["Transaction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -421,7 +567,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            transaction: components["schemas"]["Transaction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -456,7 +615,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            transaction: components["schemas"]["Transaction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -491,7 +663,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            transaction: components["schemas"]["Transaction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -525,7 +710,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            listings: components["schemas"]["Listing"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -554,11 +752,24 @@ export interface paths {
             };
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            listing: components["schemas"]["Listing"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -589,13 +800,162 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            categories: components["schemas"]["Category"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            tokens: components["schemas"]["ApiToken"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        label: string;
+                        scopes: string[];
+                        maxTxAmount?: number;
+                        maxPeriodAmount?: number;
+                        periodDays?: number;
+                        expiresAt?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            token: string;
+                            apiToken: components["schemas"]["ApiToken"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/tokens/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -624,7 +984,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            members: components["schemas"]["Member"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -661,7 +1034,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -696,7 +1082,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -731,7 +1130,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -766,7 +1178,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -808,7 +1233,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -839,7 +1277,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            policies: components["schemas"]["CreditPolicy"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -863,11 +1314,24 @@ export interface paths {
             };
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            policy: components["schemas"]["CreditPolicy"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -913,7 +1377,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            policy: components["schemas"]["CreditPolicy"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -942,7 +1419,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            bands: components["schemas"]["DemurrageBand"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -971,7 +1461,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            bands: components["schemas"]["DemurrageBand"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1008,11 +1511,24 @@ export interface paths {
             };
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            restriction: components["schemas"]["Restriction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1048,7 +1564,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1080,7 +1609,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            flags: components["schemas"]["AccountFlag"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1113,11 +1655,24 @@ export interface paths {
             requestBody?: never;
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            transaction: components["schemas"]["Transaction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1125,6 +1680,114 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        parentId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            category: components["schemas"]["Category"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        parentId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            category: components["schemas"]["Category"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/g/{slug}/auth/login": {
@@ -1159,7 +1822,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1194,7 +1870,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1227,7 +1916,21 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                            accounts: components["schemas"]["AccountBalance"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1259,7 +1962,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1290,7 +2006,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            lines: components["schemas"]["StatementLine"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1325,7 +2054,21 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            pending: components["schemas"]["PendingItem"][];
+                            items: components["schemas"]["PendingItem"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1360,7 +2103,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            members: components["schemas"]["PublicMember"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1395,7 +2151,21 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["PublicMember"];
+                            stats: components["schemas"]["TradeStats"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1437,11 +2207,24 @@ export interface paths {
             };
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1481,11 +2264,24 @@ export interface paths {
             };
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            transaction: components["schemas"]["Transaction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1525,11 +2321,24 @@ export interface paths {
             };
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            transaction: components["schemas"]["Transaction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1564,7 +2373,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            transaction: components["schemas"]["Transaction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1599,7 +2421,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            transaction: components["schemas"]["Transaction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1634,7 +2469,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            transaction: components["schemas"]["Transaction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1670,7 +2518,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            listings: components["schemas"]["Listing"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1701,11 +2562,24 @@ export interface paths {
             };
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            listing: components["schemas"]["Listing"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1738,13 +2612,166 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            categories: components["schemas"]["Category"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/g/{slug}/me/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            tokens: components["schemas"]["ApiToken"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        label: string;
+                        scopes: string[];
+                        maxTxAmount?: number;
+                        maxPeriodAmount?: number;
+                        periodDays?: number;
+                        expiresAt?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            token: string;
+                            apiToken: components["schemas"]["ApiToken"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/g/{slug}/me/tokens/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -1775,7 +2802,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            members: components["schemas"]["Member"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1812,7 +2852,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1847,7 +2900,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1882,7 +2948,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1917,7 +2996,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1959,7 +3051,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            member: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -1992,7 +3097,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            policies: components["schemas"]["CreditPolicy"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -2018,11 +3136,24 @@ export interface paths {
             };
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            policy: components["schemas"]["CreditPolicy"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -2068,7 +3199,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            policy: components["schemas"]["CreditPolicy"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -2097,7 +3241,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            bands: components["schemas"]["DemurrageBand"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -2126,7 +3283,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            bands: components["schemas"]["DemurrageBand"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -2165,11 +3335,24 @@ export interface paths {
             };
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            restriction: components["schemas"]["Restriction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -2205,7 +3388,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -2239,7 +3435,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            flags: components["schemas"]["AccountFlag"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -2272,11 +3481,24 @@ export interface paths {
             requestBody?: never;
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            transaction: components["schemas"]["Transaction"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -2284,6 +3506,116 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/g/{slug}/admin/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        parentId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            category: components["schemas"]["Category"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/g/{slug}/admin/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        parentId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            category: components["schemas"]["Category"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/operator/login": {
@@ -2316,7 +3648,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -2347,7 +3692,20 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            groups: components["schemas"]["Group"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -2382,11 +3740,26 @@ export interface paths {
             };
             responses: {
                 /** @description Default Response */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            group: components["schemas"]["Group"];
+                            currency: components["schemas"]["Currency"];
+                            admin?: components["schemas"]["Member"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -2417,7 +3790,11 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
                 };
             };
         };
@@ -2432,7 +3809,201 @@ export interface paths {
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        Group: {
+            id: string;
+            slug: string;
+            name: string;
+            createdAt: string;
+        };
+        Currency: {
+            id: string;
+            groupId: string;
+            code: string;
+            name: string;
+            scale: number;
+            demurrageDay?: number;
+            createdAt: string;
+        };
+        Entry: {
+            id: string;
+            transactionId: string;
+            accountId: string;
+            amount: number;
+        };
+        Transaction: {
+            id: string;
+            groupId: string;
+            /** @enum {string} */
+            type: "trade" | "demurrage" | "fee" | "settlement" | "reversal" | "adjustment";
+            /** @enum {string} */
+            flow?: "payment" | "invoice";
+            /** @enum {string} */
+            state: "pending" | "committed" | "declined" | "cancelled" | "expired";
+            seq?: number;
+            hash?: string;
+            hashVersion?: number;
+            description?: string;
+            reference?: string;
+            createdBy: string;
+            /** @enum {string} */
+            channel: "web" | "mcp" | "admin" | "system";
+            reversesId?: string;
+            demurrageRunId?: string;
+            remoteRef?: string;
+            apiTokenId?: string;
+            idempotencyKey?: string;
+            createdAt: string;
+            committedAt?: string;
+            expiresAt?: string;
+            entries: {
+                id: string;
+                transactionId: string;
+                accountId: string;
+                amount: number;
+            }[];
+        };
+        Member: {
+            id: string;
+            groupId: string;
+            memberNo: number;
+            /** @enum {string} */
+            type: "individual" | "joint" | "organisation";
+            /** @enum {string} */
+            role: "member" | "committee" | "admin";
+            displayName: string;
+            /** @enum {string} */
+            status: "applied" | "active" | "away" | "suspended" | "closed";
+            confirmIncoming: boolean;
+            appliedAt: string;
+            approvedAt?: string;
+            closedAt?: string;
+        };
+        PublicMember: {
+            id: string;
+            memberNo: number;
+            displayName: string;
+            /** @enum {string} */
+            type: "individual" | "joint" | "organisation";
+            /** @enum {string} */
+            status: "applied" | "active" | "away" | "suspended" | "closed";
+        };
+        PendingItem: {
+            id: string;
+            /** @enum {string} */
+            type: "trade" | "demurrage" | "fee" | "settlement" | "reversal" | "adjustment";
+            /** @enum {string} */
+            flow?: "payment" | "invoice";
+            amount: number;
+            /** @enum {string} */
+            direction: "in" | "out";
+            description?: string;
+            expiresAt?: string;
+            actions: ("accept" | "decline" | "cancel")[];
+        };
+        StatementLine: {
+            seq: number;
+            transactionId: string;
+            /** @enum {string} */
+            type: "trade" | "demurrage" | "fee" | "settlement" | "reversal" | "adjustment";
+            description?: string;
+            reference?: string;
+            amount: number;
+            runningBalance: number;
+            committedAt: string;
+        };
+        AccountBalance: {
+            id: string;
+            currencyId: string;
+            currencyCode: string;
+            scale: number;
+            balance: number;
+        };
+        TradeStats: {
+            trades: number;
+            partners: number;
+            lastTradeAt?: string;
+        };
+        Listing: {
+            id: string;
+            groupId: string;
+            memberId: string;
+            /** @enum {string} */
+            type: "offer" | "want";
+            title: string;
+            description: string;
+            categoryId: string;
+            priceAmount?: number;
+            priceCurrencyId?: string;
+            rateText?: string;
+            /** @enum {string} */
+            status: "active" | "hidden" | "expired";
+            expiresAt?: string;
+            createdAt: string;
+            updatedAt: string;
+        };
+        Category: {
+            id: string;
+            groupId: string;
+            name: string;
+            parentId?: string;
+        };
+        ApiToken: {
+            id: string;
+            memberId: string;
+            createdBy: string;
+            label: string;
+            scopes: ("marketplace:read" | "directory:read" | "account:read" | "listings:write" | "trade:request" | "trade:autonomous")[];
+            maxTxAmount?: number;
+            maxPeriodAmount?: number;
+            periodDays?: number;
+            expiresAt?: string;
+            revokedAt?: string;
+            lastUsedAt?: string;
+            createdAt: string;
+        };
+        CreditPolicy: {
+            id: string;
+            groupId: string;
+            currencyId: string;
+            /** @enum {string} */
+            type: "soft_threshold" | "hard_limit";
+            config: {
+                thresholds?: {
+                    balance: number;
+                    level: string;
+                }[];
+                minBalance?: number;
+                maxBalance?: number;
+            };
+            enabled: boolean;
+        };
+        DemurrageBand: {
+            fromAmount: number;
+            ratePpmPerMonth: number;
+        };
+        Restriction: {
+            id: string;
+            memberId: string;
+            reason: string;
+            imposedBy: string;
+            imposedAt: string;
+            liftedBy?: string;
+            liftedAt?: string;
+        };
+        AccountFlag: {
+            accountId: string;
+            memberId: string;
+            level: string;
+            reason: string;
+        };
+        ErrorResponse: {
+            error: {
+                code: string;
+                message: string;
+            };
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;

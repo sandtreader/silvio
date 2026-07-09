@@ -85,11 +85,10 @@ Remaining server-side work, grouped by area. References are to
 
 ## API polish
 
-- [ ] Response schemas in route definitions (currently bodies only, so the
-      OpenAPI doc has no response shapes and ui/shared hand-writes them).
-      Priority order: /me, /me/pending, /members (+ the PublicMember
-      projection as a leak guard), /me/statement, transaction-returning
-      routes, a shared 4xx/5xx error schema, operator group creation.
+- [x] Response schemas in route definitions (all routes now declare response
+      schemas — components.schemas covers every entity plus a shared
+      ErrorResponse — and ui/shared derives its types from the generated
+      OpenAPI types instead of hand-writing them).
 - [ ] Group currencies endpoint (admin UI can currently only see currencies
       the admin holds accounts in, via /me)
 - [x] Expose currency scale in /me accounts

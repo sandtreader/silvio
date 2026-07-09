@@ -17,11 +17,13 @@ Shared TypeScript library for the Silvio LETS UIs (`ui/member` and
 - `src/money.ts` — `formatAmount` and `parseAmount`. Amounts are integer
   minor units; conversion to/from decimal text is pure string arithmetic,
   never float multiplication.
-- `src/types.ts` — hand-written response types matching the server's actual
-  responses. The server's route schemas declare request bodies but almost no
-  response schemas, so response shapes live here for now.
-- `src/api-types.d.ts` — request/path types generated from `openapi.json`
-  by `openapi-typescript`.
+- `src/types.ts` — response types derived from the generated OpenAPI types:
+  re-exports of `components['schemas']` (with a few renames the UIs use, e.g.
+  `DirectoryMember` for the wire schema `PublicMember`) and unions projected
+  from them (e.g. `TxState = Transaction['state']`). The server publishes
+  full response schemas, so nothing here is hand-written.
+- `src/api-types.ts` — request/path/response types generated from
+  `openapi.json` by `openapi-typescript`.
 
 ## Build
 
@@ -39,7 +41,7 @@ The server emits `openapi.json` into this directory:
 
 ```sh
 cd ../../server && npm run openapi   # writes ui/shared/openapi.json
-cd ../ui/shared && npm run generate  # openapi-typescript -> src/api-types.d.ts
+cd ../ui/shared && npm run generate  # openapi-typescript -> src/api-types.ts
 npm run build
 ```
 

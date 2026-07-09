@@ -1,224 +1,79 @@
-// Hand-written response types, copied faithfully from the server's actual
-// responses (server/src/api/app.ts and server/src/types.ts). The server's
-// Fastify route schemas declare request bodies but almost no response
-// schemas, so openapi-typescript generates `content?: never` for every
-// response — request/path types come from the generated src/api-types.d.ts,
-// response shapes live here until the server grows response schemas.
+// API response types, derived from the generated OpenAPI types
+// (src/api-types.ts, regenerated from openapi.json via `npm run generate`).
+// The server publishes full response schemas, so everything here is a
+// re-export or projection of the generated shapes — no hand-written copies.
+// Local aliases keep the names the UIs already import (e.g. DirectoryMember
+// for the wire schema PublicMember, Policy for CreditPolicy).
+
+import type { components, paths } from './api-types.js';
+
+type Schemas = components['schemas'];
 
 export type Id = string;
 
-// --- Domain enums (server/src/types.ts) ------------------------------------
-
-export type TxType =
-  | 'trade'
-  | 'demurrage'
-  | 'fee'
-  | 'settlement'
-  | 'reversal'
-  | 'adjustment';
-
-export type TxState = 'pending' | 'committed' | 'declined' | 'cancelled' | 'expired';
-
-export type TxFlow = 'payment' | 'invoice';
-
-export type Channel = 'web' | 'mcp' | 'admin' | 'system';
-
-export type MemberStatus = 'applied' | 'active' | 'away' | 'suspended' | 'closed';
-export type MemberType = 'individual' | 'joint' | 'organisation';
-export type MemberRole = 'member' | 'committee' | 'admin';
-
-export type CreditPolicyType = 'soft_threshold' | 'hard_limit';
-
-export type ListingType = 'offer' | 'want';
-export type ListingStatus = 'active' | 'hidden' | 'expired';
-
 // --- Entities as the API returns them --------------------------------------
 
-export interface Group {
-  id: Id;
-  slug: string;
-  name: string;
-  createdAt: string;
-}
-
-export interface Currency {
-  id: Id;
-  groupId: Id;
-  code: string;
-  name: string;
-  scale: number;
-  demurrageDay?: number;
-  createdAt: string;
-}
+export type Group = Schemas['Group'];
+export type Currency = Schemas['Currency'];
 
 /** Full member record (own /me, and admin listings). */
-export interface Member {
-  id: Id;
-  groupId: Id;
-  memberNo: number;
-  type: MemberType;
-  role: MemberRole;
-  displayName: string;
-  status: MemberStatus;
-  confirmIncoming: boolean;
-  appliedAt: string;
-  approvedAt?: string;
-  closedAt?: string;
-}
+export type Member = Schemas['Member'];
 
 /** Directory projection: public profile fields only (GET /members). */
-export interface DirectoryMember {
-  id: Id;
-  memberNo: number;
-  displayName: string;
-  type: MemberType;
-  status: MemberStatus;
-}
+export type DirectoryMember = Schemas['PublicMember'];
 
 /** Trade-count profile stats (decision #8), returned by GET /members/:id. */
-export interface TradeStats {
-  trades: number;
-  partners: number;
-  lastTradeAt?: string;
-}
+export type TradeStats = Schemas['TradeStats'];
 
-export interface Entry {
-  id: Id;
-  transactionId: Id;
-  accountId: Id;
-  amount: number; // signed, minor units
-}
-
-export interface Transaction {
-  id: Id;
-  groupId: Id;
-  type: TxType;
-  flow?: TxFlow;
-  state: TxState;
-  seq?: number;
-  hash?: string;
-  hashVersion?: number;
-  description?: string;
-  reference?: string;
-  createdBy: Id;
-  channel: Channel;
-  reversesId?: Id;
-  demurrageRunId?: Id;
-  remoteRef?: string;
-  apiTokenId?: Id;
-  idempotencyKey?: string;
-  createdAt: string;
-  committedAt?: string;
-  expiresAt?: string;
-  entries: Entry[];
-}
+export type Entry = Schemas['Entry'];
+export type Transaction = Schemas['Transaction'];
 
 /** A pending transaction from this member's point of view (decision #5). */
-export interface PendingItem {
-  id: Id;
-  type: TxType;
-  flow?: TxFlow;
-  amount: number; // absolute amount of this member's leg
-  direction: 'in' | 'out';
-  description?: string;
-  expiresAt?: string;
-  actions: ('accept' | 'decline' | 'cancel')[];
-}
+export type PendingItem = Schemas['PendingItem'];
 
-export interface StatementLine {
-  seq: number;
-  transactionId: Id;
-  type: TxType;
-  description?: string;
-  reference?: string;
-  amount: number; // this account's leg
-  runningBalance: number;
-  committedAt: string;
-}
+export type StatementLine = Schemas['StatementLine'];
 
-/** One account in the GET /me response, balance included. */
-export interface AccountSummary {
-  id: Id;
-  currencyId: Id;
-  currencyCode: string;
-  /** Currency display scale: decimal places for formatAmount/parseAmount. */
-  scale: number;
-  balance: number;
-}
+export type Category = Schemas['Category'];
+export type Listing = Schemas['Listing'];
 
-/** GET /me response. */
-export interface Me {
-  member: Member;
-  accounts: AccountSummary[];
-}
-
-export interface Category {
-  id: Id;
-  groupId: Id;
-  name: string;
-  parentId?: Id;
-}
-
-export interface Listing {
-  id: Id;
-  groupId: Id;
-  memberId: Id;
-  type: ListingType;
-  title: string;
-  description: string;
-  categoryId: Id;
-  priceAmount?: number;
-  priceCurrencyId?: Id;
-  rateText?: string;
-  status: ListingStatus;
-  expiresAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type ApiToken = Schemas['ApiToken'];
 
 // --- Credit control (decision #3) -------------------------------------------
 
-export interface SoftThreshold {
-  balance: number;
-  level: string;
-}
+export type Policy = Schemas['CreditPolicy'];
+export type CreditPolicyConfig = Policy['config'];
+export type SoftThreshold = NonNullable<CreditPolicyConfig['thresholds']>[number];
 
-export interface CreditPolicyConfig {
-  thresholds?: SoftThreshold[]; // soft_threshold
-  minBalance?: number; // hard_limit (max debit)
-  maxBalance?: number; // hard_limit (max credit)
-}
-
-export interface Policy {
-  id: Id;
-  groupId: Id;
-  currencyId: Id;
-  type: CreditPolicyType;
-  config: CreditPolicyConfig;
-  enabled: boolean;
-}
-
-export interface Restriction {
-  id: Id;
-  memberId: Id;
-  reason: string;
-  imposedBy: Id;
-  imposedAt: string;
-  liftedBy?: Id;
-  liftedAt?: string;
-}
+export type Restriction = Schemas['Restriction'];
 
 /** GET /admin/flags item (computed, never blocking by itself). */
-export interface Flag {
-  accountId: Id;
-  memberId: Id;
-  level: string;
-  reason: string;
-}
+export type Flag = Schemas['AccountFlag'];
 
 // --- Demurrage (decision #1) -------------------------------------------------
 
-export interface DemurrageBand {
-  fromAmount: number; // band start, minor units
-  ratePpmPerMonth: number; // marginal rate, parts-per-million per month
-}
+export type DemurrageBand = Schemas['DemurrageBand'];
+
+// --- Envelope shapes ----------------------------------------------------------
+
+/** GET /me response. */
+export type Me =
+  paths['/api/v1/me']['get']['responses']['200']['content']['application/json'];
+
+/** One account in the GET /me response, balance included. */
+export type AccountSummary = Schemas['AccountBalance'];
+
+// --- Domain enums, derived from the entity shapes ----------------------------
+
+export type TxType = Transaction['type'];
+export type TxState = Transaction['state'];
+export type TxFlow = NonNullable<Transaction['flow']>;
+export type Channel = Transaction['channel'];
+
+export type MemberStatus = Member['status'];
+export type MemberType = Member['type'];
+export type MemberRole = Member['role'];
+
+export type CreditPolicyType = Policy['type'];
+
+export type ListingType = Listing['type'];
+export type ListingStatus = Listing['status'];
