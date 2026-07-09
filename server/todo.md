@@ -64,10 +64,11 @@ Remaining server-side work, grouped by area. References are to
 
 ## Content, brochure site & CMS-lite (#12, data-model §6, first-review)
 
-- [ ] `page` storage + API: slug, title, body (markdown, #13), visibility
+- [x] `page` storage + API: slug, title, body (markdown, #13), visibility
       (public | members | admin), position; admin CRUD, visibility-tiered
-      read (agreement, constitution, help); brochure renders via markdown-it
-      (html:false, images off until the group image store exists)
+      brochure rendering at /p/{slug} via markdown-it (html:false, images off
+      until the group image store exists); reserved slug `home` overrides the
+      placeholder front page and stays out of the nav
 - [ ] `news_item` storage + API: admin CRUD, published/expires window,
       member read; markdown body (#13)
 - [ ] General group image store (#13): admin-uploaded blobs (size/count

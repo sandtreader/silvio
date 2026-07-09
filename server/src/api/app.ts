@@ -31,6 +31,8 @@ import type {
   MemberRole,
   MemberStatus,
   MemberType,
+  Page,
+  PageVisibility,
   Session,
   TxFlow,
   TxType,
@@ -62,9 +64,10 @@ import { buildMcpServer, type RestClient } from '../mcp/server.js';
 import {
   SESSION_COOKIE,
   appShellFragment,
+  navPagesFor,
   registerBrochureRoutes,
   resolveGroupFromHost,
-  sessionMemberName,
+  sessionMember,
 } from './brochure.js';
 import {
   StreamableHTTPServerTransport,
@@ -296,9 +299,13 @@ export async function buildApp(
   ): Promise<unknown> {
     memberIndexCache ??= await readFile(join(dist, 'index.html'), 'utf8');
     const group = await resolveGroupFromHost(storage, request);
-    const memberName =
-      group === undefined ? undefined : await sessionMemberName(storage, request, group.id);
-    const shell = appShellFragment(group?.name ?? 'Silvio', memberName);
+    const member =
+      group === undefined ? undefined : await sessionMember(storage, request, group.id);
+    // The app shell carries the same nav as the brochure, CMS pages included
+    // (#13) — one chrome either side of the /app/ boundary (decision #12).
+    const navPages =
+      group === undefined ? [] : await navPagesFor(storage, group.id, member);
+    const shell = appShellFragment(group?.name ?? 'Silvio', member?.displayName, navPages);
     const html = memberIndexCache.replace('<body>', `<body>\n${shell}`);
     return reply.type('text/html; charset=utf-8').send(html);
   }
@@ -345,6 +352,10 @@ export async function buildApp(
     if (err instanceof StorageError) {
       if (err.code === 'NOT_FOUND') {
         return reply.status(404).send(errorBody('NOT_FOUND', err.message));
+      }
+      if (err.code === 'CONFLICT') {
+        // Uniqueness violations, e.g. a duplicate page slug (#13).
+        return reply.status(409).send(errorBody('CONFLICT', err.message));
       }
       return reply.status(400).send(errorBody('INVALID', err.message));
     }
@@ -1533,6 +1544,133 @@ export async function buildApp(
           if (body.name !== undefined) patch.name = body.name;
           if (body.parentId !== undefined) patch.parentId = body.parentId;
           return { category: await storage.updateCategory(id, patch) };
+        },
+      );
+
+      // --- CMS pages (decision #13): admin-authored markdown, rendered on
+      // the brochure (brochure.ts). Slugs are url-safe lowercase, unique per
+      // group — a duplicate is a storage CONFLICT, mapped to 409.
+
+      const PAGE_SLUG = { type: 'string', pattern: '^[a-z0-9]+(-[a-z0-9]+)*$' } as const;
+      const PAGE_VISIBILITY = {
+        type: 'string',
+        enum: ['public', 'members', 'admin'],
+      } as const;
+
+      /** Assert the page exists in the request's group (tenancy isolation). */
+      async function targetPage(request: FastifyRequest, id: string): Promise<Page> {
+        const page = await storage.getPage(id);
+        if (page.groupId !== request.group!.id) {
+          throw new DomainError('NOT_FOUND', `page ${id} not found in this group`);
+        }
+        return page;
+      }
+
+      scope.get(
+        '/admin/pages',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: { response: respond(200, body({ pages: arrayOf('Page') })) },
+        },
+        async (request) => {
+          return { pages: await storage.listPages(request.group!.id) };
+        },
+      );
+
+      scope.post(
+        '/admin/pages',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            body: {
+              type: 'object',
+              required: ['slug', 'title', 'body', 'visibility'],
+              properties: {
+                slug: PAGE_SLUG,
+                title: { type: 'string' },
+                body: { type: 'string' },
+                visibility: PAGE_VISIBILITY,
+                position: { type: 'integer' },
+              },
+            },
+            response: respond(201, body({ page: ref('Page') })),
+          },
+        },
+        async (request, reply) => {
+          const draft = request.body as {
+            slug: string;
+            title: string;
+            body: string;
+            visibility: PageVisibility;
+            position?: number;
+          };
+          const input: Parameters<typeof storage.createPage>[0] = {
+            groupId: request.group!.id,
+            slug: draft.slug,
+            title: draft.title,
+            body: draft.body,
+            visibility: draft.visibility,
+          };
+          if (draft.position !== undefined) input.position = draft.position;
+          const page = await storage.createPage(input);
+          reply.status(201);
+          return { page };
+        },
+      );
+
+      scope.patch(
+        '/admin/pages/:id',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            body: {
+              type: 'object',
+              properties: {
+                slug: PAGE_SLUG,
+                title: { type: 'string' },
+                body: { type: 'string' },
+                visibility: PAGE_VISIBILITY,
+                position: { type: 'integer' },
+              },
+            },
+            response: respond(200, body({ page: ref('Page') })),
+          },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          const draft = request.body as Partial<{
+            slug: string;
+            title: string;
+            body: string;
+            visibility: PageVisibility;
+            position: number;
+          }>;
+          await targetPage(request, id);
+          const patch: Parameters<typeof storage.updatePage>[1] = {};
+          if (draft.slug !== undefined) patch.slug = draft.slug;
+          if (draft.title !== undefined) patch.title = draft.title;
+          if (draft.body !== undefined) patch.body = draft.body;
+          if (draft.visibility !== undefined) patch.visibility = draft.visibility;
+          if (draft.position !== undefined) patch.position = draft.position;
+          return { page: await storage.updatePage(id, patch) };
+        },
+      );
+
+      scope.delete(
+        '/admin/pages/:id',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            response: respond(200, OK_RESPONSE),
+          },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          await targetPage(request, id);
+          await storage.deletePage(id);
+          return { ok: true };
         },
       );
     };

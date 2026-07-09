@@ -22,6 +22,7 @@ import type {
   Group,
   Listing,
   Member,
+  Page,
   Restriction,
   StatementLine,
   TradeStats,
@@ -39,6 +40,7 @@ const MEMBER_STATUS = ['applied', 'active', 'away', 'suspended', 'closed'] as co
 const MEMBER_TYPE = ['individual', 'joint', 'organisation'] as const;
 const MEMBER_ROLE = ['member', 'committee', 'admin'] as const;
 const LISTING_TYPE = ['offer', 'want'] as const;
+const PAGE_VISIBILITY = ['public', 'members', 'admin'] as const;
 const LISTING_STATUS = ['active', 'hidden', 'expired'] as const;
 const CREDIT_POLICY_TYPE = ['soft_threshold', 'hard_limit'] as const;
 const API_SCOPE = [
@@ -336,6 +338,35 @@ const DEMURRAGE_BAND = {
   },
 } as const;
 
+// CMS page (decision #13): body is markdown source; rendering happens at the
+// brochure edge, so the API round-trips the source verbatim.
+const PAGE = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'groupId',
+    'slug',
+    'title',
+    'body',
+    'visibility',
+    'position',
+    'createdAt',
+    'updatedAt',
+  ],
+  properties: {
+    id: { type: 'string' },
+    groupId: { type: 'string' },
+    slug: { type: 'string' },
+    title: { type: 'string' },
+    body: { type: 'string' },
+    visibility: { type: 'string', enum: PAGE_VISIBILITY },
+    position: { type: 'integer' },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' },
+  },
+} as const;
+
 const RESTRICTION = {
   type: 'object',
   additionalProperties: false,
@@ -407,6 +438,7 @@ export const sharedSchemas = [
   { $id: 'ApiToken', ...API_TOKEN },
   { $id: 'CreditPolicy', ...CREDIT_POLICY },
   { $id: 'DemurrageBand', ...DEMURRAGE_BAND },
+  { $id: 'Page', ...PAGE },
   { $id: 'Restriction', ...RESTRICTION },
   { $id: 'AccountFlag', ...ACCOUNT_FLAG },
   { $id: 'ErrorResponse', ...ERROR_RESPONSE },
@@ -439,6 +471,7 @@ type _DriftGuards = [
   Expect<Equal<FromSchema<typeof API_TOKEN>, ApiToken>>,
   Expect<Equal<FromSchema<typeof CREDIT_POLICY>, CreditPolicy>>,
   Expect<Equal<FromSchema<typeof DEMURRAGE_BAND>, DemurrageBand>>,
+  Expect<Equal<FromSchema<typeof PAGE>, Page>>,
   Expect<Equal<FromSchema<typeof RESTRICTION>, Restriction>>,
   Expect<Equal<FromSchema<typeof ACCOUNT_FLAG>, AccountFlag>>,
 ];

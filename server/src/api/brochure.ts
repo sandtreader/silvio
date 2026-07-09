@@ -1,14 +1,16 @@
 // Public brochure site & app shell (decision #12): each group's root is a
-// server-rendered public brochure — placeholder content until the CMS lands —
-// and the member app under /app/ shares the same shell chrome. Tenancy comes
-// from the Host header exactly as for the API; the session cookie makes the
-// shell header session-aware.
+// server-rendered public brochure and the member app under /app/ shares the
+// same shell chrome. CMS pages (decision #13) render here — markdown source
+// through renderMarkdown, visibility-tiered, with a `home` page overriding
+// the placeholder front page. Tenancy comes from the Host header exactly as
+// for the API; the session cookie makes the shell header session-aware.
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Storage } from '../storage/interface.js';
-import type { Group, Listing } from '../types.js';
+import type { Group, Listing, Member, Page } from '../types.js';
 import { authenticate } from '../services/auth.js';
 import { browse } from '../services/marketplace.js';
+import { renderMarkdown } from '../services/markdown.js';
 
 /** Session cookie name, shared with the API routes in app.ts. */
 export const SESSION_COOKIE = 'silvio_session';
@@ -44,18 +46,32 @@ const SHELL_STYLE = `<style>
   }
 </style>`;
 
-/** Shell header: group brand, public nav, and the session corner. */
-function shellHeader(groupName: string, memberName: string | undefined): string {
+/** What the shell nav needs of a CMS page (#13). */
+export interface NavPage {
+  slug: string;
+  title: string;
+}
+
+/** Shell header: group brand, public nav with CMS pages, the session corner. */
+function shellHeader(
+  groupName: string,
+  memberName: string | undefined,
+  navPages: NavPage[],
+): string {
   // Per-group skin placeholder: brand is the group name; logo and header
   // image arrive with group.branding (decision #12).
   const session = memberName === undefined
     ? '<a href="/app/login">Log in</a>'
     : `<span>${escapeHtml(memberName)}</span> <a href="/app/">Open the app</a>`;
+  // CMS pages the viewer may see, between Home and Market (#13).
+  const pageLinks = navPages
+    .map((page) => `<a href="/p/${page.slug}">${escapeHtml(page.title)}</a>\n    `)
+    .join('');
   return `<header class="shell-chrome">
   <a class="shell-brand" href="/">${escapeHtml(groupName)}</a>
   <nav>
     <a href="/">Home</a>
-    <a href="/market">Market</a>
+    ${pageLinks}<a href="/market">Market</a>
     ${session}
   </nav>
 </header>`;
@@ -66,14 +82,19 @@ function shellHeader(groupName: string, memberName: string | undefined): string 
  * chrome style plus the header, so app routes render inside the same shell
  * as brochure pages (decision #12).
  */
-export function appShellFragment(groupName: string, memberName: string | undefined): string {
-  return `${SHELL_STYLE}\n${shellHeader(groupName, memberName)}`;
+export function appShellFragment(
+  groupName: string,
+  memberName: string | undefined,
+  navPages: NavPage[] = [],
+): string {
+  return `${SHELL_STYLE}\n${shellHeader(groupName, memberName, navPages)}`;
 }
 
 /** A full brochure page in the shared layout. */
 function renderPage(
   group: Group,
   memberName: string | undefined,
+  navPages: NavPage[],
   title: string,
   main: string,
 ): string {
@@ -86,7 +107,7 @@ function renderPage(
 ${SHELL_STYLE}
 </head>
 <body>
-${shellHeader(group.name, memberName)}
+${shellHeader(group.name, memberName, navPages)}
 <main class="brochure-main">
 ${main}
 </main>
@@ -104,10 +125,10 @@ const NOT_FOUND_PAGE = `<!doctype html>
 <body><h1>Not found</h1><p>No group is served at this address.</p></body>
 </html>`;
 
-/** Placeholder brochure home until the CMS (page, news_item) lands. */
-function renderHome(group: Group, memberName: string | undefined): string {
+/** Placeholder brochure home, shown until an admin authors a `home` page (#13). */
+function renderHome(group: Group, memberName: string | undefined, navPages: NavPage[]): string {
   const name = escapeHtml(group.name);
-  return renderPage(group, memberName, group.name, `<h1>Welcome to ${name}</h1>
+  return renderPage(group, memberName, navPages, group.name, `<h1>Welcome to ${name}</h1>
 <p>${name} is a local exchange trading system (LETS): a community of
 neighbours who trade skills, goods and time with each other using our own
 community currency instead of money.</p>
@@ -132,6 +153,7 @@ function renderListing(listing: Listing, categoryNames: Map<string, string>): st
 function renderMarket(
   group: Group,
   memberName: string | undefined,
+  navPages: NavPage[],
   listings: Listing[],
   categoryNames: Map<string, string>,
 ): string {
@@ -143,7 +165,7 @@ function renderMarket(
   };
   const offers = listings.filter((listing) => listing.type === 'offer');
   const wants = listings.filter((listing) => listing.type === 'want');
-  return renderPage(group, memberName, `Market — ${group.name}`, `<h1>Market</h1>
+  return renderPage(group, memberName, navPages, `Market — ${group.name}`, `<h1>Market</h1>
 <p>What members of ${escapeHtml(group.name)} are offering and looking for.
 <a href="/app/apply">Join</a> to get in touch and trade.</p>
 ${section('Offers', offers)}
@@ -160,26 +182,47 @@ export async function resolveGroupFromHost(
 }
 
 /**
- * The session cookie's member display name for this group, or undefined —
- * an invalid, expired or foreign-group cookie never throws, it just renders
- * the logged-out header.
+ * The session cookie's member for this group, or undefined — an invalid,
+ * expired or foreign-group cookie never throws, it just renders the
+ * logged-out header. The member (not just the name) drives page visibility
+ * tiers (#13): role 'admin' unlocks admin-visibility pages.
  */
-export async function sessionMemberName(
+export async function sessionMember(
   storage: Storage,
   request: FastifyRequest,
   groupId: string,
-): Promise<string | undefined> {
+): Promise<Member | undefined> {
   const token = request.cookies[SESSION_COOKIE];
   if (token === undefined) return undefined;
   try {
     const context = await authenticate(storage, token);
     const member = context?.member;
-    return member !== undefined && member.groupId === groupId
-      ? member.displayName
-      : undefined;
+    return member !== undefined && member.groupId === groupId ? member : undefined;
   } catch {
     return undefined;
   }
+}
+
+/** Visibility tiers (#13): public for all, members with a session, admin by role. */
+function canSee(page: Page, member: Member | undefined): boolean {
+  if (page.visibility === 'public') return true;
+  if (page.visibility === 'members') return member !== undefined;
+  return member?.role === 'admin';
+}
+
+/**
+ * CMS pages for the shell nav: what this viewer may see, in storage order
+ * (position then slug). `home` is excluded — it is served at / itself (#13).
+ */
+export async function navPagesFor(
+  storage: Storage,
+  groupId: string,
+  member: Member | undefined,
+): Promise<NavPage[]> {
+  const pages = await storage.listPages(groupId);
+  return pages
+    .filter((page) => page.slug !== 'home' && canSee(page, member))
+    .map((page) => ({ slug: page.slug, title: page.title }));
 }
 
 /** Register the server-rendered brochure routes (decision #12) at the root. */
@@ -191,19 +234,48 @@ export function registerBrochureRoutes(app: FastifyInstance, storage: Storage): 
   app.get('/', hidden, async (request, reply) => {
     const group = await resolveGroupFromHost(storage, request);
     if (group === undefined) return reply.status(404).type(htmlType).send(NOT_FOUND_PAGE);
-    const memberName = await sessionMemberName(storage, request, group.id);
-    return reply.type(htmlType).send(renderHome(group, memberName));
+    const member = await sessionMember(storage, request, group.id);
+    const navPages = await navPagesFor(storage, group.id, member);
+    // Home override (#13): a page with slug `home` replaces the placeholder
+    // copy. It renders whatever its visibility field says — putting it at
+    // `home` is the admin's explicit choice of front page, and a front page
+    // that 404s for visitors helps nobody.
+    const home = await storage.pageBySlug(group.id, 'home');
+    const html = home === undefined
+      ? renderHome(group, member?.displayName, navPages)
+      : renderPage(group, member?.displayName, navPages, home.title, renderMarkdown(home.body));
+    return reply.type(htmlType).send(html);
+  });
+
+  // CMS pages (#13): markdown body rendered server-side into the shell. A
+  // page the viewer may not see 404s exactly like a missing one — visibility
+  // hides existence, not just content.
+  app.get('/p/:slug', hidden, async (request, reply) => {
+    const group = await resolveGroupFromHost(storage, request);
+    if (group === undefined) return reply.status(404).type(htmlType).send(NOT_FOUND_PAGE);
+    const member = await sessionMember(storage, request, group.id);
+    const { slug } = request.params as { slug: string };
+    const page = await storage.pageBySlug(group.id, slug);
+    if (page === undefined || !canSee(page, member)) {
+      return reply.status(404).type(htmlType).send(NOT_FOUND_PAGE);
+    }
+    const navPages = await navPagesFor(storage, group.id, member);
+    // The <h1> comes from the markdown itself; page.title only names the tab.
+    return reply
+      .type(htmlType)
+      .send(renderPage(group, member?.displayName, navPages, page.title, renderMarkdown(page.body)));
   });
 
   app.get('/market', hidden, async (request, reply) => {
     const group = await resolveGroupFromHost(storage, request);
     if (group === undefined) return reply.status(404).type(htmlType).send(NOT_FOUND_PAGE);
-    const memberName = await sessionMemberName(storage, request, group.id);
+    const member = await sessionMember(storage, request, group.id);
+    const navPages = await navPagesFor(storage, group.id, member);
     const listings = await browse(storage, group.id, {});
     const categories = await storage.listCategories(group.id);
     const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
     return reply
       .type(htmlType)
-      .send(renderMarket(group, memberName, listings, categoryNames));
+      .send(renderMarket(group, member?.displayName, navPages, listings, categoryNames));
   });
 }
