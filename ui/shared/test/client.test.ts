@@ -252,6 +252,44 @@ describe('path construction', () => {
     expect(lastCall(mock).init.method).toBe('DELETE');
   });
 
+  it('routes email templates: list, override, revert (#16)', async () => {
+    const mock = stubFetch(200, { templates: [] });
+    const client = new ApiClient({ group: 'g1' });
+    await client.adminEmailTemplates();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/email-templates');
+    expect(lastCall(mock).init.method).toBe('GET');
+
+    await client.putEmailTemplate('welcome', { subject: 'Hi {{memberName}}', body: 'b' });
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/email-templates/welcome');
+    expect(lastCall(mock).init.method).toBe('PUT');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      subject: 'Hi {{memberName}}',
+      body: 'b',
+    });
+
+    await client.deleteEmailTemplate('payment_held');
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/email-templates/payment_held');
+    expect(lastCall(mock).init.method).toBe('DELETE');
+  });
+
+  it('routes the admin group read and sender patch (#16)', async () => {
+    const mock = stubFetch(200, { group: {} });
+    const client = new ApiClient({ group: 'g1' });
+    await client.adminGroup();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/group');
+    expect(lastCall(mock).init.method).toBe('GET');
+
+    await client.patchAdminGroup({ emailFrom: 'lets@example.org' });
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/group');
+    expect(lastCall(mock).init.method).toBe('PATCH');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      emailFrom: 'lets@example.org',
+    });
+
+    await client.patchAdminGroup({ emailFrom: null }); // clear → instance default
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({ emailFrom: null });
+  });
+
   it('lists active restrictions on the admin route', async () => {
     const mock = stubFetch(200, { restrictions: [] });
     const client = new ApiClient({ group: 'g1' });

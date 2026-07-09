@@ -4,6 +4,8 @@
 import { vi } from 'vitest';
 import type {
   Currency,
+  EmailTemplate,
+  Group,
   Image,
   Me,
   Member,
@@ -101,6 +103,28 @@ export function makeImage(overrides: Partial<Image> = {}): Image {
   };
 }
 
+export function makeEmailTemplate(
+  overrides: Partial<EmailTemplate> = {},
+): EmailTemplate {
+  return {
+    kind: 'welcome',
+    subject: 'Welcome to {{groupName}}',
+    body: 'Hello {{memberName}}, your membership has been approved.',
+    isDefault: true,
+    ...overrides,
+  };
+}
+
+export function makeGroup(overrides: Partial<Group> = {}): Group {
+  return {
+    id: 'g-1',
+    slug: 'camlets',
+    name: 'CamLETS',
+    createdAt: '2026-07-01T12:00:00Z',
+    ...overrides,
+  };
+}
+
 export type MockAdminApi = { [K in keyof AdminApi]: ReturnType<typeof vi.fn> };
 
 export function makeMockApi(): MockAdminApi {
@@ -138,5 +162,10 @@ export function makeMockApi(): MockAdminApi {
     adminCreateNews: vi.fn().mockResolvedValue(undefined),
     adminUpdateNews: vi.fn().mockResolvedValue(undefined),
     adminDeleteNews: vi.fn().mockResolvedValue(true),
+    adminEmailTemplates: vi.fn().mockResolvedValue([]),
+    putEmailTemplate: vi.fn().mockResolvedValue(undefined),
+    deleteEmailTemplate: vi.fn().mockResolvedValue(true),
+    adminGroup: vi.fn().mockResolvedValue(makeGroup()),
+    patchAdminGroup: vi.fn().mockResolvedValue(undefined),
   };
 }

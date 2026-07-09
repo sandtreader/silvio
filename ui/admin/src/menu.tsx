@@ -7,6 +7,7 @@ import { MenuStructure, StaticMenuProvider } from '@sandtreader/rafiki';
 import { ApprovalQueuePage } from './pages/ApprovalQueuePage';
 import { BrandingPage } from './pages/BrandingPage';
 import { CategoriesPage } from './pages/CategoriesPage';
+import { EmailTemplatesPage } from './pages/EmailTemplatesPage';
 import { ImagesPage } from './pages/ImagesPage';
 import { MembersPage } from './pages/MembersPage';
 import { NewsPage } from './pages/NewsPage';
@@ -103,6 +104,14 @@ const pages: PageDefinition[] = [
     name: 'Branding',
     icon: 'palette',
     content: <BrandingPage />,
+    requirements: ['admin.content'],
+  },
+  // Email templates and sender (decision #16)
+  {
+    id: 'email-templates',
+    name: 'Email templates',
+    icon: 'mail',
+    content: <EmailTemplatesPage />,
     requirements: ['admin.content'],
   },
 ];

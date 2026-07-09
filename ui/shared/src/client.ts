@@ -11,6 +11,8 @@ import type {
   Currency,
   DemurrageBand,
   DirectoryMember,
+  EmailTemplate,
+  EmailTemplateKind,
   Flag,
   Group,
   Image,
@@ -463,6 +465,37 @@ export class ApiClient {
 
   deleteBrandImage(slot: BrandSlot): Promise<{ ok: boolean }> {
     return this.tenant('DELETE', `/admin/branding/${slot}`);
+  }
+
+  // Email templates and per-group sender (decision #16): PUT stores a group
+  // override for the kind, DELETE reverts it to the built-in default;
+  // emailFrom: null on the group PATCH clears the per-group sender so
+  // delivery falls back to the instance-wide address.
+
+  adminEmailTemplates(): Promise<{ templates: EmailTemplate[] }> {
+    return this.tenant('GET', '/admin/email-templates');
+  }
+
+  putEmailTemplate(
+    kind: EmailTemplateKind,
+    input: { subject: string; body: string },
+  ): Promise<{ template: EmailTemplate }> {
+    return this.tenant('PUT', `/admin/email-templates/${encodeURIComponent(kind)}`, input);
+  }
+
+  deleteEmailTemplate(kind: EmailTemplateKind): Promise<{ ok: boolean }> {
+    return this.tenant('DELETE', `/admin/email-templates/${encodeURIComponent(kind)}`);
+  }
+
+  adminGroup(): Promise<{ group: Group }> {
+    return this.tenant('GET', '/admin/group');
+  }
+
+  patchAdminGroup(patch: {
+    name?: string;
+    emailFrom?: string | null;
+  }): Promise<{ group: Group }> {
+    return this.tenant('PATCH', '/admin/group', patch);
   }
 
   adminNews(): Promise<{ news: NewsItem[] }> {

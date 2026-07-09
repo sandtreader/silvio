@@ -11,7 +11,10 @@ import {
   type CreditPolicyConfig,
   type Currency,
   type DemurrageBand,
+  type EmailTemplate,
+  type EmailTemplateKind,
   type Flag,
+  type Group,
   type Image,
   type Me,
   type Member,
@@ -116,6 +119,14 @@ export interface AdminApi {
     patch: Partial<NewsInput>,
   ): Promise<NewsItem | undefined>;
   adminDeleteNews(id: string): Promise<boolean>;
+  adminEmailTemplates(): Promise<EmailTemplate[] | undefined>;
+  putEmailTemplate(
+    kind: EmailTemplateKind,
+    input: { subject: string; body: string },
+  ): Promise<EmailTemplate | undefined>;
+  deleteEmailTemplate(kind: EmailTemplateKind): Promise<boolean>;
+  adminGroup(): Promise<Group | undefined>;
+  patchAdminGroup(patch: { emailFrom?: string | null }): Promise<Group | undefined>;
 }
 
 /** The real implementation over the shared ApiClient. */
@@ -169,4 +180,12 @@ export const api: AdminApi = {
   adminUpdateNews: async (id, patch) =>
     (await call(client.adminUpdateNews(id, patch)))?.newsItem,
   adminDeleteNews: async (id) => (await call(client.adminDeleteNews(id)))?.ok ?? false,
+  adminEmailTemplates: async () =>
+    (await call(client.adminEmailTemplates()))?.templates,
+  putEmailTemplate: async (kind, input) =>
+    (await call(client.putEmailTemplate(kind, input)))?.template,
+  deleteEmailTemplate: async (kind) =>
+    (await call(client.deleteEmailTemplate(kind)))?.ok ?? false,
+  adminGroup: async () => (await call(client.adminGroup()))?.group,
+  patchAdminGroup: async (patch) => (await call(client.patchAdminGroup(patch)))?.group,
 };

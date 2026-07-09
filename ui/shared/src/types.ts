@@ -63,6 +63,14 @@ export type BrandSlot =
 export type ShellInfo =
   paths['/api/v1/shell']['get']['responses']['200']['content']['application/json'];
 
+// --- Email templates (decision #16) -------------------------------------------
+
+/** Effective template for one notification kind: the group's override or the
+ * built-in default (isDefault). Subject and body carry {{placeholder}}s. */
+export type EmailTemplate =
+  paths['/api/v1/admin/email-templates']['get']['responses']['200']['content']['application/json']['templates'][number];
+export type EmailTemplateKind = EmailTemplate['kind'];
+
 // --- Credit control (decision #3) -------------------------------------------
 
 export type Policy = Schemas['CreditPolicy'];
