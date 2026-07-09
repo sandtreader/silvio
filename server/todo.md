@@ -87,6 +87,10 @@ Remaining server-side work, grouped by area. References are to
       manifest start_url/scope), shell chrome injected server-side and hidden
       in standalone display mode; logged-out public market removed from the
       app; SW precaches only the app bundle
+- [ ] Shell chrome on app routes: the service worker and SPA state defeat
+      the server-injected chrome — options + recommendation written up in
+      [ui/shell-chrome.md](../ui/shell-chrome.md); needs a #12 follow-up
+      ruling
 - [ ] Group skinning (#12): `group.branding` logo + header image as SQLite
       blobs with size limits, admin upload routes, public asset route
 - [ ] Group-editable email templates + per-group sender address (decisions
