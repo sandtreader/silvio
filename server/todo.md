@@ -87,15 +87,17 @@ Remaining server-side work, grouped by area. References are to
       manifest start_url/scope), shell chrome injected server-side and hidden
       in standalone display mode; logged-out public market removed from the
       app; SW precaches only the app bundle
-- [ ] Shell chrome on app routes: the service worker and SPA state defeat
-      the server-injected chrome — options + recommendation written up in
-      [ui/shell-chrome.md](../ui/shell-chrome.md); needs a #12 follow-up
-      ruling
-- [ ] Group skinning (#12): `group.branding` logo + header image as SQLite
-      blobs with size limits, admin upload routes, public asset route
-- [ ] Group-editable email templates + per-group sender address (decisions
-      line: per-group "CMS pages/news, email sender") — bodies are currently
-      hard-coded strings in services/notifications.ts
+- [x] Shell chrome on app routes (#15, resolving the gap in
+      [ui/shell-chrome.md](../ui/shell-chrome.md)): the app renders its own
+      chrome from the public session-aware `GET /shell`; server-side
+      injection into the app's index.html dropped
+- [x] Group skinning (#12/#15): logo + header background image as `brand`
+      images (one per slot, replace-on-upload), admin Branding page,
+      rendered on the brochure shell and the app's client chrome
+- [x] Group-editable email templates + per-group sender address (#16):
+      per-kind markdown overrides with {{placeholder}} substitution, admin
+      editor with live preview, multipart delivery (markdown text + rendered
+      HTML), `group.emailFrom` snapshotted onto queued events
 
 ## Admin & governance
 

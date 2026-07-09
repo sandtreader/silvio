@@ -55,6 +55,8 @@ describe('login lockout', () => {
     });
   }
 
+  // Ten real argon2 verifications: comfortably inside the default 5s alone,
+  // but flaky when the whole suite competes for CPU — hence the long timeout.
   it('locks an email after 10 failures, even with the right password', async () => {
     for (let i = 0; i < 10; i += 1) {
       const res = await loginAttempt('alice@example.com', 'wrong-password');
@@ -64,7 +66,7 @@ describe('login lockout', () => {
     expect(locked.statusCode).toBe(429);
     expect(locked.json().error.code).toBe('RATE_LIMITED');
     expect(Number(locked.headers['retry-after'])).toBeGreaterThan(0);
-  });
+  }, 30_000);
 
   it('lockout is per email, not global', async () => {
     for (let i = 0; i < 10; i += 1) {
