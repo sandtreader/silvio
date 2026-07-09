@@ -9,6 +9,7 @@ import type {
   CreateAccountInput,
   CreateCurrencyInput,
   CreateGroupInput,
+  CreatePageInput,
   EnqueueEmailInput,
   Storage,
   TransactionFilter,
@@ -37,6 +38,8 @@ import type {
   MemberStatus,
   MemberType,
   NewTransaction,
+  Page,
+  PageVisibility,
   Person,
   Restriction,
   Session,
@@ -238,8 +241,28 @@ interface ListingRow {
   updated_at: string;
 }
 
+interface PageRow {
+  id: string;
+  group_id: string;
+  slug: string;
+  title: string;
+  body: string;
+  visibility: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
 function now(): string {
   return new Date().toISOString();
+}
+
+/** better-sqlite3 surfaces UNIQUE violations as SqliteError with this code. */
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    (err as { code?: string }).code === 'SQLITE_CONSTRAINT_UNIQUE'
+  );
 }
 
 export class SqliteStorage implements Storage {
@@ -1706,6 +1729,112 @@ export class SqliteStorage implements Storage {
     return Promise.resolve(rows.map((row) => this.listingFromRow(row)));
   }
 
+  // --- CMS pages (decision #13, data-model §6) -------------------------------
+
+  createPage(input: CreatePageInput): Promise<Page> {
+    try {
+      const id = uuidv7();
+      const createdAt = now();
+      this.db
+        .prepare(
+          `INSERT INTO pages (
+             id, group_id, slug, title, body, visibility, position,
+             created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          id,
+          input.groupId,
+          input.slug,
+          input.title,
+          input.body,
+          input.visibility,
+          input.position ?? 0,
+          createdAt,
+          createdAt,
+        );
+      return Promise.resolve(this.loadPage(id));
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        return Promise.reject(
+          new StorageError('CONFLICT', `page slug '${input.slug}' already exists in the group`),
+        );
+      }
+      return Promise.reject(err);
+    }
+  }
+
+  getPage(id: Id): Promise<Page> {
+    try {
+      return Promise.resolve(this.loadPage(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  pageBySlug(groupId: Id, slug: string): Promise<Page | undefined> {
+    const row = this.db
+      .prepare('SELECT * FROM pages WHERE group_id = ? AND slug = ?')
+      .get(groupId, slug) as PageRow | undefined;
+    return Promise.resolve(row ? this.pageFromRow(row) : undefined);
+  }
+
+  listPages(groupId: Id): Promise<Page[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM pages WHERE group_id = ? ORDER BY position, slug')
+      .all(groupId) as PageRow[];
+    return Promise.resolve(rows.map((row) => this.pageFromRow(row)));
+  }
+
+  updatePage(
+    id: Id,
+    patch: Partial<{
+      slug: string;
+      title: string;
+      body: string;
+      visibility: PageVisibility;
+      position: number;
+    }>,
+  ): Promise<Page> {
+    try {
+      this.loadPage(id);
+      const sets: string[] = [];
+      const values: (string | number)[] = [];
+      const columns: [keyof typeof patch, string][] = [
+        ['slug', 'slug'],
+        ['title', 'title'],
+        ['body', 'body'],
+        ['visibility', 'visibility'],
+        ['position', 'position'],
+      ];
+      for (const [key, column] of columns) {
+        const value = patch[key];
+        if (value !== undefined) {
+          sets.push(`${column} = ?`);
+          values.push(value);
+        }
+      }
+      if (sets.length > 0) {
+        sets.push('updated_at = ?');
+        values.push(now());
+        this.db.prepare(`UPDATE pages SET ${sets.join(', ')} WHERE id = ?`).run(...values, id);
+      }
+      return Promise.resolve(this.loadPage(id));
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        return Promise.reject(
+          new StorageError('CONFLICT', `page slug '${patch.slug}' already exists in the group`),
+        );
+      }
+      return Promise.reject(err);
+    }
+  }
+
+  deletePage(id: Id): Promise<void> {
+    this.db.prepare('DELETE FROM pages WHERE id = ?').run(id);
+    return Promise.resolve();
+  }
+
   close(): void {
     this.db.close();
   }
@@ -1833,6 +1962,28 @@ export class SqliteStorage implements Storage {
       .get(id) as ListingRow | undefined;
     if (!row) throw new StorageError('NOT_FOUND', `listing ${id} not found`);
     return this.listingFromRow(row);
+  }
+
+  private pageFromRow(row: PageRow): Page {
+    return {
+      id: row.id,
+      groupId: row.group_id,
+      slug: row.slug,
+      title: row.title,
+      body: row.body,
+      visibility: row.visibility as PageVisibility,
+      position: row.position,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private loadPage(id: Id): Page {
+    const row = this.db
+      .prepare('SELECT * FROM pages WHERE id = ?')
+      .get(id) as PageRow | undefined;
+    if (!row) throw new StorageError('NOT_FOUND', `page ${id} not found`);
+    return this.pageFromRow(row);
   }
 
   private runFromRow(row: DemurrageRunRow): DemurrageRun {

@@ -229,6 +229,21 @@ CREATE TABLE email_events (
   last_error TEXT
 );
 
+-- CMS pages (decision #13, data-model §6): body is markdown source; slug is
+-- unique per group so each page has one stable URL within its tenant.
+CREATE TABLE pages (
+  id         TEXT PRIMARY KEY,
+  group_id   TEXT NOT NULL REFERENCES groups(id),
+  slug       TEXT NOT NULL,
+  title      TEXT NOT NULL,
+  body       TEXT NOT NULL,
+  visibility TEXT NOT NULL,
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (group_id, slug)
+);
+
 CREATE INDEX idx_entries_transaction ON entries(transaction_id);
 CREATE INDEX idx_entries_account ON entries(account_id);
 CREATE INDEX idx_transactions_group_seq ON transactions(group_id, seq);
@@ -242,4 +257,6 @@ CREATE INDEX idx_api_tokens_member ON api_tokens(member_id);
 -- Partial index matching the pending-delivery query exactly.
 CREATE INDEX idx_email_events_pending ON email_events(created_at)
   WHERE sent_at IS NULL AND attempts < 3;
+-- Matches the listPages ordering (position, then slug).
+CREATE INDEX idx_pages_group_position ON pages(group_id, position);
 `;

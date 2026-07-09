@@ -28,6 +28,8 @@ import type {
   MemberStatus,
   MemberType,
   NewTransaction,
+  Page,
+  PageVisibility,
   Person,
   Restriction,
   StatementLine,
@@ -73,6 +75,16 @@ export interface EnqueueEmailInput {
   subject: string;
   body: string;
   createdAt: string;
+}
+
+/** CMS page to create (decision #13, data-model §6). body is markdown source. */
+export interface CreatePageInput {
+  groupId: Id;
+  slug: string;
+  title: string;
+  body: string;
+  visibility: PageVisibility;
+  position?: number; // default 0
 }
 
 /** Admin transaction search (todo: API polish). All fields optional; AND-composed. */
@@ -310,6 +322,26 @@ export interface Storage extends Ledger {
       status?: ListingStatus; // default 'active'
     },
   ): Promise<Listing[]>;
+
+  // CMS pages (decision #13, data-model §6). A duplicate (groupId, slug) is
+  // a CONFLICT; slugs are only unique within their group.
+  /** Create a page; position defaults to 0, timestamps are set here. */
+  createPage(input: CreatePageInput): Promise<Page>;
+  getPage(id: Id): Promise<Page>;
+  pageBySlug(groupId: Id, slug: string): Promise<Page | undefined>;
+  /** Pages of a group, ordered by position then slug. */
+  listPages(groupId: Id): Promise<Page[]>;
+  updatePage(
+    id: Id,
+    patch: Partial<{
+      slug: string;
+      title: string;
+      body: string;
+      visibility: PageVisibility;
+      position: number;
+    }>,
+  ): Promise<Page>;
+  deletePage(id: Id): Promise<void>;
 
   close(): void;
 }

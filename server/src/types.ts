@@ -298,6 +298,22 @@ export interface EmailEvent {
   lastError?: string;
 }
 
+// CMS pages (decision #13, data-model §6): per-group content, slug-addressed.
+// body is markdown source; rendering happens at the edge (renderMarkdown).
+export type PageVisibility = 'public' | 'members' | 'admin';
+
+export interface Page {
+  id: Id;
+  groupId: Id;
+  slug: string; // unique within the group
+  title: string;
+  body: string; // markdown source (#13)
+  visibility: PageVisibility;
+  position: number; // menu ordering, ascending
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface StatementLine {
   seq: number;
   transactionId: Id;

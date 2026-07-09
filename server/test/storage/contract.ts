@@ -738,6 +738,88 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
     });
   });
 
+  describe('pages (CMS, decision #13, data-model §6)', () => {
+    function draft(overrides: Record<string, unknown> = {}) {
+      return {
+        groupId: f.group.id,
+        slug: 'agreement',
+        title: 'Our Agreement',
+        body: '# Agreement\n\nBe excellent to each other.',
+        visibility: 'public' as const,
+        ...overrides,
+      };
+    }
+
+    it('creates a page, position defaulting to 0', async () => {
+      const page = await f.storage.createPage(draft());
+      expect(page.id).toBeTruthy();
+      expect(page.groupId).toBe(f.group.id);
+      expect(page.slug).toBe('agreement');
+      expect(page.title).toBe('Our Agreement');
+      expect(page.body).toContain('Be excellent');
+      expect(page.visibility).toBe('public');
+      expect(page.position).toBe(0);
+      expect(page.createdAt).toBeTruthy();
+      expect(page.updatedAt).toBeTruthy();
+    });
+
+    it('slug is unique per group, not globally', async () => {
+      await f.storage.createPage(draft());
+      await expectStorageError(
+        f.storage.createPage(draft({ title: 'Duplicate' })),
+        'CONFLICT',
+      );
+      // Same slug in another group is fine.
+      const other = await f.storage.createPage(draft({ groupId: f.otherGroup.id }));
+      expect(other.groupId).toBe(f.otherGroup.id);
+    });
+
+    it('pageBySlug fetches within the group; unknown slug is undefined', async () => {
+      await f.storage.createPage(draft());
+      const page = await f.storage.pageBySlug(f.group.id, 'agreement');
+      expect(page?.title).toBe('Our Agreement');
+      expect(await f.storage.pageBySlug(f.group.id, 'missing')).toBeUndefined();
+      expect(await f.storage.pageBySlug(f.otherGroup.id, 'agreement')).toBeUndefined();
+    });
+
+    it('listPages is group-scoped, ordered by position then slug', async () => {
+      await f.storage.createPage(draft({ slug: 'zebra', title: 'Z', position: 1 }));
+      await f.storage.createPage(draft({ slug: 'help', title: 'Help', position: 2 }));
+      await f.storage.createPage(draft({ slug: 'about', title: 'About', position: 1 }));
+      await f.storage.createPage(draft({ groupId: f.otherGroup.id, slug: 'elsewhere' }));
+      const pages = await f.storage.listPages(f.group.id);
+      expect(pages.map((p) => p.slug)).toEqual(['about', 'zebra', 'help']);
+    });
+
+    it('updatePage patches fields; a slug collision is a conflict', async () => {
+      const page = await f.storage.createPage(draft());
+      await f.storage.createPage(draft({ slug: 'help', title: 'Help' }));
+      const updated = await f.storage.updatePage(page.id, {
+        title: 'The Agreement',
+        body: 'New body',
+        visibility: 'members',
+        position: 5,
+      });
+      expect(updated.title).toBe('The Agreement');
+      expect(updated.body).toBe('New body');
+      expect(updated.visibility).toBe('members');
+      expect(updated.position).toBe(5);
+      expect(updated.slug).toBe('agreement'); // untouched
+      await expectStorageError(
+        f.storage.updatePage(page.id, { slug: 'help' }),
+        'CONFLICT',
+      );
+    });
+
+    it('deletePage removes it; getPage on the gone id is NOT_FOUND', async () => {
+      const page = await f.storage.createPage(draft());
+      expect((await f.storage.getPage(page.id)).id).toBe(page.id);
+      await f.storage.deletePage(page.id);
+      expect(await f.storage.pageBySlug(f.group.id, 'agreement')).toBeUndefined();
+      await expectStorageError(f.storage.getPage(page.id), 'NOT_FOUND');
+    });
+  });
+
   describe('email events (outbound log, data-model §6)', () => {
     function draft(overrides: Record<string, string> = {}) {
       return {

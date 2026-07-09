@@ -5,6 +5,7 @@ export type StorageErrorCode =
   | 'INVALID_TRANSACTION' // < 2 legs, zero/non-integer amounts, bad refs
   | 'CROSS_GROUP' // a leg's account belongs to another group (decision #2)
   | 'INVALID_TRANSITION' // not a legal #5 state-machine edge
+  | 'CONFLICT' // uniqueness violated, e.g. a duplicate page slug (#13)
   | 'NOT_FOUND';
 
 export class StorageError extends Error {
