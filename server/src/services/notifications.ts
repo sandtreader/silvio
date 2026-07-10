@@ -6,7 +6,7 @@
 // with the group sender snapshotted onto each event at enqueue time.
 
 import type { Storage } from '../storage/interface.js';
-import type { Currency, Id, Member, Restriction, Transaction } from '../types.js';
+import type { Currency, Id, Listing, Member, Restriction, Transaction } from '../types.js';
 import {
   effectiveEmailTemplate,
   renderTemplate,
@@ -22,6 +22,7 @@ function formatAmount(amount: number, currency: Currency): string {
  * Enqueue one email per person on the membership with an email; none is a
  * no-op. Resolves the group's effective template for templateKind (#16) and
  * substitutes vars plus {{memberName}}/{{groupName}} for the recipient.
+ * Returns how many emails were newly enqueued (dedup no-ops don't count).
  */
 async function enqueueForMember(
   storage: Storage,
@@ -31,7 +32,7 @@ async function enqueueForMember(
   dedupScope: string,
   vars: Record<string, string>,
   nowIso?: string,
-): Promise<void> {
+): Promise<number> {
   const member = await storage.getMember(memberId);
   const group = (await storage.listGroups()).find((candidate) => candidate.id === member.groupId);
   const template = await effectiveEmailTemplate(storage, member.groupId, templateKind);
@@ -42,9 +43,10 @@ async function enqueueForMember(
   };
   const subject = renderTemplate(template.subject, allVars);
   const body = renderTemplate(template.body, allVars).trimEnd();
+  let enqueued = 0;
   for (const person of await storage.personsForMember(memberId)) {
     if (person.email === undefined) continue;
-    await storage.enqueueEmail({
+    const event = await storage.enqueueEmail({
       groupId: member.groupId,
       personId: person.id,
       kind,
@@ -56,7 +58,31 @@ async function enqueueForMember(
       ...(group?.emailFrom !== undefined ? { fromEmail: group.emailFrom } : {}),
       createdAt: nowIso ?? new Date().toISOString(),
     });
+    if (event !== undefined) enqueued += 1;
   }
+  return enqueued;
+}
+
+/**
+ * Listing expiry warning (#18): dedup scopes to (listing, expiry date), so
+ * each expiry date warns once and a renewal re-arms the warning. Returns
+ * true when anything was newly enqueued — the sweep counts listings warned.
+ */
+export async function notifyListingExpiryWarning(
+  storage: Storage,
+  listing: Listing,
+  nowIso: string,
+): Promise<boolean> {
+  const enqueued = await enqueueForMember(
+    storage,
+    listing.memberId,
+    'listing_expiry_warning',
+    'listing_expiry_warning',
+    `${listing.id}:${listing.expiresAt}`,
+    { listingTitle: listing.title, expiresOn: (listing.expiresAt ?? '').slice(0, 10) },
+    nowIso,
+  );
+  return enqueued > 0;
 }
 
 /** Membership approval (#7): welcome the new member by group name. */

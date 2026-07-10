@@ -713,3 +713,23 @@ queued through the standard outbox (multipart, per-group sender). No
 template and no storage of its own: a broadcast is ad-hoc by nature, and
 the email_events log already records what was sent to whom. No
 targeting/segments until a group asks.
+
+## 18. Listing shelf life — DECIDED 2026-07-10
+
+Listings expire by default so the market stays honest (the
+reference-standard "inactive member" cure, keyed to the listing rather
+than heuristics about its owner).
+
+- **Default shelf life**: new listings get `expiresAt = now +
+  listingMaxAgeDays` (group setting, default 180 days); an explicitly
+  supplied expiry wins. Pre-existing rows without an expiry are left
+  eternal — the default applies at posting time.
+- **Warning email 14 days out** (template kind `listing_expiry_warning`,
+  #16 pathway): sent once per (listing, expiry date) via the standard
+  dedup, from the same scheduler sweep that expires listings.
+- **Renew is one tap by the owner**: `POST /listings/{id}/renew` resets
+  the clock to a full shelf life, and within the purge window it also
+  revives an already-expired listing (status back to active).
+- **Purge 90 days after expiry** (constant): the sweep hard-deletes the
+  listing row and its photos — expired listings are clutter, not ledger
+  history; nothing references them.

@@ -22,6 +22,11 @@ describe('SettingsPage', () => {
       'placeholder',
       '14',
     );
+    const shelfLife = screen.getByLabelText('Listing shelf life (days)');
+    expect(shelfLife).toHaveValue(null);
+    expect(shelfLife).toHaveAttribute('placeholder', '180');
+    expect(shelfLife).toHaveAttribute('min', '1');
+    expect(shelfLife).toHaveAttribute('max', '730');
     expect(screen.getByText('Monthly')).toBeInTheDocument();
   });
 
@@ -54,7 +59,13 @@ describe('SettingsPage', () => {
       makeGroup({ settings: { autoAcceptDays: 7, invoiceExpiryDays: 60 } }),
     );
     api.patchAdminGroup.mockResolvedValue(
-      makeGroup({ settings: { autoAcceptDays: 21, digestDefault: 'monthly' } }),
+      makeGroup({
+        settings: {
+          autoAcceptDays: 21,
+          listingMaxAgeDays: 365,
+          digestDefault: 'monthly',
+        },
+      }),
     );
 
     render(<SettingsPage api={api} />);
@@ -64,6 +75,10 @@ describe('SettingsPage', () => {
     await userEvent.type(auto, '21');
     // Blanking the expiry drops its key so the platform default applies
     await userEvent.clear(screen.getByLabelText('Invoice expiry days'));
+    await userEvent.type(
+      screen.getByLabelText('Listing shelf life (days)'),
+      '365',
+    );
     await userEvent.click(
       screen.getByLabelText('Digest default for new members'),
     );
@@ -71,7 +86,11 @@ describe('SettingsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /save settings/i }));
     await waitFor(() =>
       expect(api.patchAdminGroup).toHaveBeenCalledWith({
-        settings: { autoAcceptDays: 21, digestDefault: 'monthly' },
+        settings: {
+          autoAcceptDays: 21,
+          listingMaxAgeDays: 365,
+          digestDefault: 'monthly',
+        },
       }),
     );
     expect(await screen.findByText(/settings saved/i)).toBeInTheDocument();

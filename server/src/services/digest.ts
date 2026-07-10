@@ -61,7 +61,7 @@ export async function sweepDigests(
     },
   };
 
-  const active = await storage.listListings(groupId); // status defaults to 'active'
+  const active = await storage.listListings(groupId, { status: 'active' });
   const template = await effectiveEmailTemplate(storage, groupId, 'digest');
   let sent = 0;
   for (const member of await storage.listMembers(groupId, 'active')) {

@@ -31,6 +31,7 @@ export interface GroupSettings {
   autoAcceptDays?: number; // held-payment auto-accept horizon (#5)
   invoiceExpiryDays?: number; // invoice expiry horizon (#5)
   digestDefault?: DigestFrequency; // applied to new members at join (#17)
+  listingMaxAgeDays?: number; // listing shelf life at post/renew time (#18)
 }
 
 export interface Group {
@@ -380,6 +381,21 @@ export interface NewsItem {
   expiresAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Generic search (data-model Search interface): one request shape across the
+// searchable domains; how it's indexed is the storage layer's private
+// decision (SQLite: FTS5).
+export type SearchDomain = 'listings' | 'directory' | 'pages' | 'news';
+
+/** Caller's tier — results respect it (#2). */
+export type SearchVisibility = 'public' | 'member' | 'admin';
+
+export interface SearchResult {
+  domain: SearchDomain;
+  id: Id;
+  title: string;
+  snippet?: string; // short match highlight, when available
 }
 
 // Images (decision #14): one general blob store, four owners. This is the

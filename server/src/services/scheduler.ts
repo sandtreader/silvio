@@ -17,6 +17,8 @@ export interface TickReport {
   autoAccepted: number;
   expired: number;
   listingsExpired: number;
+  listingsWarned: number; // shelf-life warnings (#18)
+  listingsPurged: number; // hard-deleted after the purge window (#18)
   digestsSent: number; // offers & wants digest (#17)
   verifyFailures: number;
 }
@@ -32,7 +34,7 @@ export async function tick(
 ): Promise<TickReport> {
   const report: TickReport = {
     demurrageRuns: 0, autoAccepted: 0, expired: 0, listingsExpired: 0,
-    digestsSent: 0, verifyFailures: 0,
+    listingsWarned: 0, listingsPurged: 0, digestsSent: 0, verifyFailures: 0,
   };
   const alert = opts?.alert ?? console.error;
   const at = new Date(nowIso);
@@ -57,6 +59,8 @@ export async function tick(
 
     const listings = await sweepListings(storage, group.id, nowIso);
     report.listingsExpired += listings.expired;
+    report.listingsWarned += listings.warned;
+    report.listingsPurged += listings.purged;
 
     const digests = await sweepDigests(storage, group.id, nowIso);
     report.digestsSent += digests.sent;

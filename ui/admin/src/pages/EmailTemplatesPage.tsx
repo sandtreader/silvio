@@ -48,6 +48,7 @@ const KIND_LABELS: Record<EmailTemplateKind, string> = {
   password_reset: 'Password reset',
   email_verify: 'Email verification',
   digest: 'Offers & wants digest', // decision #17
+  listing_expiry_warning: 'Listing expiry warning', // #18
 };
 
 /** Every substitutable variable (#16); which apply depends on the kind. */

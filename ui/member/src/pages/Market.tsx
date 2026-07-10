@@ -1,7 +1,9 @@
 // Market: browse active listings and post a new one via the FAB. An
 // authenticated tab like the rest (decision #12: public browse lives on the
 // brochure site, not in the app). Listing cards carry a photo strip
-// (decision #14 phase 3); owners manage their own photos inline.
+// (decision #14 phase 3); owners manage their own photos inline. A debounced
+// search box narrows the loaded browse to the FTS matches (#18), and owners
+// see their listing's expiry with a one-tap renew (#18 shelf life).
 import AddIcon from '@mui/icons-material/Add';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import CloseIcon from '@mui/icons-material/Close';
@@ -17,6 +19,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Fab from '@mui/material/Fab';
 import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
@@ -48,13 +51,31 @@ type Filter = 'all' | ListingType;
 const MAX_LISTING_PHOTOS = 5;
 const LISTING_PHOTO_EDGE = 1200;
 
+// Search-as-you-type settles for this long before hitting GET /search (#18).
+const SEARCH_DEBOUNCE_MS = 300;
+
+/** "6 Jan 2027" — compact day-month-year for the listing expiry. */
+function formatExpiry(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 export function Market() {
   const client = useClient();
   const { me } = useAuth();
-  const { run } = useApi();
+  const { run, busy } = useApi();
+  const feedback = useFeedback();
   const [filter, setFilter] = useState<Filter>('all');
   const [listings, setListings] = useState<Listing[] | null>(null);
   const [posting, setPosting] = useState(false);
+  const [query, setQuery] = useState('');
+  // Ids matched by the last search; null means no search is active so the
+  // full browse shows. The browse data stays loaded — search only narrows it,
+  // keeping photo/category rendering identical (#18).
+  const [matchIds, setMatchIds] = useState<Set<string> | null>(null);
 
   const load = useCallback(async () => {
     const result = await run(() =>
@@ -67,7 +88,38 @@ export function Market() {
     void load();
   }, [load]);
 
+  // Debounced search-as-you-type (#18); empty text restores the full browse.
+  useEffect(() => {
+    const q = query.trim();
+    if (q === '') {
+      setMatchIds(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      void run(() => client.search('listings', q)).then((result) => {
+        if (result !== undefined)
+          setMatchIds(new Set(result.items.map((item) => item.id)));
+      });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [query, client, run]);
+
   if (me === null) return null;
+
+  const visible =
+    listings === null
+      ? null
+      : matchIds === null
+        ? listings
+        : listings.filter((listing) => matchIds.has(listing.id));
+
+  const renew = async (listing: Listing) => {
+    const result = await run(() => client.renewListing(listing.id));
+    if (result !== undefined) {
+      feedback.show('Listing renewed', 'success');
+      void load();
+    }
+  };
 
   return (
     <PageContainer title="Market">
@@ -86,14 +138,42 @@ export function Market() {
         <ToggleButton value="want">Wants</ToggleButton>
       </ToggleButtonGroup>
 
-      {listings === null ? (
+      <TextField
+        fullWidth
+        size="small"
+        placeholder="Search listings"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        sx={{ mb: 2 }}
+        slotProps={{
+          htmlInput: { 'aria-label': 'search listings' },
+          input: {
+            endAdornment:
+              query === '' ? undefined : (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    aria-label="clear search"
+                    onClick={() => setQuery('')}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+          },
+        }}
+      />
+
+      {visible === null ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <CircularProgress />
         </Box>
-      ) : listings.length === 0 ? (
-        <Typography color="text.secondary">No listings yet.</Typography>
+      ) : visible.length === 0 ? (
+        <Typography color="text.secondary">
+          {matchIds === null ? 'No listings yet.' : 'No matches'}
+        </Typography>
       ) : (
-        listings.map((listing) => (
+        visible.map((listing) => (
           <Card key={listing.id} sx={{ mb: 2 }}>
             <CardContent>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
@@ -121,6 +201,26 @@ export function Market() {
               <Typography variant="body2" color="text.secondary">
                 {listing.description}
               </Typography>
+              {listing.memberId === me.member.id &&
+                listing.expiresAt !== undefined && (
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    sx={{ mt: 1 }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Expires {formatExpiry(listing.expiresAt)}
+                    </Typography>
+                    <Button
+                      size="small"
+                      disabled={busy}
+                      onClick={() => void renew(listing)}
+                    >
+                      Renew
+                    </Button>
+                  </Stack>
+                )}
               <ListingPhotos
                 listing={listing}
                 own={listing.memberId === me.member.id}

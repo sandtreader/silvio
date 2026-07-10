@@ -22,6 +22,7 @@ export const EMAIL_TEMPLATE_KINDS = [
   'password_reset',
   'email_verify',
   'digest',
+  'listing_expiry_warning',
 ] as const;
 
 export type EmailTemplateKind = (typeof EMAIL_TEMPLATE_KINDS)[number];
@@ -124,6 +125,15 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<
     body:
       'Hello {{memberName}},\n\nHere is what is new at {{groupName}}:\n\n' +
       '{{listings}}',
+  },
+  // Listing shelf life (#18): {{listingTitle}} and {{expiresOn}} (the date).
+  listing_expiry_warning: {
+    subject: 'Your listing "{{listingTitle}}" expires on {{expiresOn}}',
+    body:
+      'Hello {{memberName}},\n\nYour listing "{{listingTitle}}" at ' +
+      '{{groupName}} expires on {{expiresOn}}. Renew it in the app to reset ' +
+      'the clock for a full shelf life; otherwise it will leave the ' +
+      'marketplace on that day.',
   },
 };
 

@@ -320,6 +320,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    domain: "listings" | "directory" | "pages" | "news";
+                    q: string;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["SearchResult"][];
+                            total: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -1184,6 +1236,54 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listings/{id}/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            listing: components["schemas"]["Listing"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3058,6 +3158,7 @@ export interface paths {
                             invoiceExpiryDays?: number;
                             /** @enum {string} */
                             digestDefault?: "none" | "weekly" | "monthly";
+                            listingMaxAgeDays?: number;
                         };
                     };
                 };
@@ -3112,7 +3213,7 @@ export interface paths {
                         "application/json": {
                             templates: {
                                 /** @enum {string} */
-                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
+                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
                                 subject: string;
                                 body: string;
                                 isDefault: boolean;
@@ -3153,7 +3254,7 @@ export interface paths {
                 header?: never;
                 path: {
                     slug: string;
-                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
+                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
                 };
                 cookie?: never;
             };
@@ -3175,7 +3276,7 @@ export interface paths {
                         "application/json": {
                             template: {
                                 /** @enum {string} */
-                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
+                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
                                 subject: string;
                                 body: string;
                                 isDefault: boolean;
@@ -3201,7 +3302,7 @@ export interface paths {
                 header?: never;
                 path: {
                     slug: string;
-                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
+                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
                 };
                 cookie?: never;
             };
@@ -3540,6 +3641,60 @@ export interface paths {
                             member?: {
                                 displayName: string;
                             };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/g/{slug}/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    domain: "listings" | "directory" | "pages" | "news";
+                    q: string;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["SearchResult"][];
+                            total: number;
                         };
                     };
                 };
@@ -4450,6 +4605,54 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/g/{slug}/listings/{id}/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            listing: components["schemas"]["Listing"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6368,6 +6571,7 @@ export interface paths {
                             invoiceExpiryDays?: number;
                             /** @enum {string} */
                             digestDefault?: "none" | "weekly" | "monthly";
+                            listingMaxAgeDays?: number;
                         };
                     };
                 };
@@ -6424,7 +6628,7 @@ export interface paths {
                         "application/json": {
                             templates: {
                                 /** @enum {string} */
-                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
+                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
                                 subject: string;
                                 body: string;
                                 isDefault: boolean;
@@ -6465,7 +6669,7 @@ export interface paths {
                 header?: never;
                 path: {
                     slug: string;
-                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
+                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
                 };
                 cookie?: never;
             };
@@ -6487,7 +6691,7 @@ export interface paths {
                         "application/json": {
                             template: {
                                 /** @enum {string} */
-                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
+                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
                                 subject: string;
                                 body: string;
                                 isDefault: boolean;
@@ -6513,7 +6717,7 @@ export interface paths {
                 header?: never;
                 path: {
                     slug: string;
-                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
+                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
                 };
                 cookie?: never;
             };
@@ -6748,6 +6952,7 @@ export interface components {
                 invoiceExpiryDays?: number;
                 /** @enum {string} */
                 digestDefault?: "none" | "weekly" | "monthly";
+                listingMaxAgeDays?: number;
             };
             createdAt: string;
         };
@@ -6975,6 +7180,13 @@ export interface components {
                 [key: string]: unknown;
             };
             at: string;
+        };
+        SearchResult: {
+            /** @enum {string} */
+            domain: "listings" | "directory" | "pages" | "news";
+            id: string;
+            title: string;
+            snippet?: string;
         };
         AccountFlag: {
             accountId: string;

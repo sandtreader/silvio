@@ -319,6 +319,66 @@ CREATE TABLE audit_events (
   at                   TEXT NOT NULL
 );
 
+-- Generic search (data-model Search interface): one FTS5 index over every
+-- searchable domain, kept in sync by the triggers below. Deliberately no
+-- status/visibility here — tier rules live in search()'s JOIN back to the
+-- source table, so a status flip needs no index write.
+CREATE VIRTUAL TABLE search_index USING fts5(
+  title, body, domain UNINDEXED, entity_id UNINDEXED, group_id UNINDEXED
+);
+
+CREATE TRIGGER listings_search_ai AFTER INSERT ON listings BEGIN
+  INSERT INTO search_index (title, body, domain, entity_id, group_id)
+  VALUES (new.title, new.description, 'listings', new.id, new.group_id);
+END;
+CREATE TRIGGER listings_search_au AFTER UPDATE ON listings BEGIN
+  DELETE FROM search_index WHERE domain = 'listings' AND entity_id = old.id;
+  INSERT INTO search_index (title, body, domain, entity_id, group_id)
+  VALUES (new.title, new.description, 'listings', new.id, new.group_id);
+END;
+CREATE TRIGGER listings_search_ad AFTER DELETE ON listings BEGIN
+  DELETE FROM search_index WHERE domain = 'listings' AND entity_id = old.id;
+END;
+
+CREATE TRIGGER members_search_ai AFTER INSERT ON members BEGIN
+  INSERT INTO search_index (title, body, domain, entity_id, group_id)
+  VALUES (new.display_name, '', 'directory', new.id, new.group_id);
+END;
+CREATE TRIGGER members_search_au AFTER UPDATE ON members BEGIN
+  DELETE FROM search_index WHERE domain = 'directory' AND entity_id = old.id;
+  INSERT INTO search_index (title, body, domain, entity_id, group_id)
+  VALUES (new.display_name, '', 'directory', new.id, new.group_id);
+END;
+CREATE TRIGGER members_search_ad AFTER DELETE ON members BEGIN
+  DELETE FROM search_index WHERE domain = 'directory' AND entity_id = old.id;
+END;
+
+CREATE TRIGGER pages_search_ai AFTER INSERT ON pages BEGIN
+  INSERT INTO search_index (title, body, domain, entity_id, group_id)
+  VALUES (new.title, new.body, 'pages', new.id, new.group_id);
+END;
+CREATE TRIGGER pages_search_au AFTER UPDATE ON pages BEGIN
+  DELETE FROM search_index WHERE domain = 'pages' AND entity_id = old.id;
+  INSERT INTO search_index (title, body, domain, entity_id, group_id)
+  VALUES (new.title, new.body, 'pages', new.id, new.group_id);
+END;
+CREATE TRIGGER pages_search_ad AFTER DELETE ON pages BEGIN
+  DELETE FROM search_index WHERE domain = 'pages' AND entity_id = old.id;
+END;
+
+CREATE TRIGGER news_items_search_ai AFTER INSERT ON news_items BEGIN
+  INSERT INTO search_index (title, body, domain, entity_id, group_id)
+  VALUES (new.title, new.body, 'news', new.id, new.group_id);
+END;
+CREATE TRIGGER news_items_search_au AFTER UPDATE ON news_items BEGIN
+  DELETE FROM search_index WHERE domain = 'news' AND entity_id = old.id;
+  INSERT INTO search_index (title, body, domain, entity_id, group_id)
+  VALUES (new.title, new.body, 'news', new.id, new.group_id);
+END;
+CREATE TRIGGER news_items_search_ad AFTER DELETE ON news_items BEGIN
+  DELETE FROM search_index WHERE domain = 'news' AND entity_id = old.id;
+END;
+
 CREATE INDEX idx_entries_transaction ON entries(transaction_id);
 CREATE INDEX idx_entries_account ON entries(account_id);
 CREATE INDEX idx_transactions_group_seq ON transactions(group_id, seq);

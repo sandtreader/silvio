@@ -84,6 +84,13 @@ export type Restriction = Schemas['Restriction'];
 /** GET /admin/flags item (computed, never blocking by itself). */
 export type Flag = Schemas['AccountFlag'];
 
+// --- Search (#18) ---------------------------------------------------------------
+
+/** One GET /search hit: the domain it came from, the entity id, and a title
+ * (plus an optional matched-text snippet). */
+export type SearchResult = Schemas['SearchResult'];
+export type SearchDomain = SearchResult['domain'];
+
 // --- Audit log ----------------------------------------------------------------
 
 /** One audit-log event (GET /admin/audit): dotted action (e.g.

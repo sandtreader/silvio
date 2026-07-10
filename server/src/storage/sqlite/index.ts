@@ -17,6 +17,7 @@ import type {
   CreatePageInput,
   EnqueueEmailInput,
   ImageFilter,
+  SearchQuery,
   SetEmailTemplateInput,
   Storage,
   TransactionFilter,
@@ -58,6 +59,8 @@ import type {
   PageVisibility,
   Person,
   Restriction,
+  SearchDomain,
+  SearchResult,
   Session,
   StatementLine,
   TradeStats,
@@ -334,6 +337,20 @@ const IMAGE_COLUMNS =
 
 function now(): string {
   return new Date().toISOString();
+}
+
+/**
+ * User text -> FTS5 MATCH expression: each whitespace token becomes a quoted
+ * prefix phrase ("veg"*), so operators in user input can never break the
+ * query or error; undefined when nothing searchable remains.
+ */
+function ftsMatch(text: string): string | undefined {
+  const tokens = text
+    .split(/\s+/)
+    .map((token) => token.replaceAll('"', ''))
+    .filter((token) => token.length > 0);
+  if (tokens.length === 0) return undefined;
+  return tokens.map((token) => `"${token}"*`).join(' ');
 }
 
 /** better-sqlite3 surfaces UNIQUE violations as SqliteError with this code. */
@@ -1956,8 +1973,12 @@ export class SqliteStorage implements Storage {
       status?: ListingStatus;
     },
   ): Promise<Listing[]> {
-    const clauses = ['group_id = ?', 'status = ?'];
-    const values: string[] = [groupId, filter?.status ?? 'active'];
+    const clauses = ['group_id = ?'];
+    const values: string[] = [groupId];
+    if (filter?.status !== undefined) {
+      clauses.push('status = ?');
+      values.push(filter.status);
+    }
     if (filter?.type !== undefined) {
       clauses.push('type = ?');
       values.push(filter.type);
@@ -1974,6 +1995,12 @@ export class SqliteStorage implements Storage {
       .prepare(`SELECT * FROM listings WHERE ${clauses.join(' AND ')} ORDER BY created_at, id`)
       .all(...values) as ListingRow[];
     return Promise.resolve(rows.map((row) => this.listingFromRow(row)));
+  }
+
+  // Purge (#18): the FTS delete trigger keeps the search index in sync.
+  deleteListing(id: Id): Promise<void> {
+    this.db.prepare('DELETE FROM listings WHERE id = ?').run(id);
+    return Promise.resolve();
   }
 
   // --- CMS pages (decision #13, data-model §6) -------------------------------
@@ -2336,6 +2363,79 @@ export class SqliteStorage implements Storage {
       events: rows.map((row) => this.auditEventFromRow(row)),
       total,
     });
+  }
+
+  // --- Generic search (data-model Search interface) ---------------------------
+
+  search(
+    groupId: Id,
+    domain: SearchDomain,
+    query: SearchQuery,
+  ): Promise<{ items: SearchResult[]; total: number }> {
+    const empty = { items: [] as SearchResult[], total: 0 };
+    // The directory is member-tier content: public callers get an empty page.
+    if (domain === 'directory' && query.visibility === 'public') {
+      return Promise.resolve(empty);
+    }
+    const match = ftsMatch(query.text);
+    if (match === undefined) return Promise.resolve(empty);
+    // Tier rules live here, against the live source row — the FTS index
+    // carries text only, so status/visibility flips need no index write.
+    let join: string;
+    const joinValues: string[] = [];
+    switch (domain) {
+      case 'listings':
+        join = "JOIN listings d ON d.id = s.entity_id AND d.status = 'active'";
+        break;
+      case 'directory':
+        join = "JOIN members d ON d.id = s.entity_id AND d.status = 'active'";
+        break;
+      case 'pages': {
+        const tiers =
+          query.visibility === 'admin'
+            ? ['public', 'members', 'admin']
+            : query.visibility === 'member'
+              ? ['public', 'members']
+              : ['public'];
+        join = `JOIN pages d ON d.id = s.entity_id
+                AND d.visibility IN (${tiers.map(() => '?').join(', ')})`;
+        joinValues.push(...tiers);
+        break;
+      }
+      case 'news': {
+        // Rows store ISO 8601 strings, so lexical comparison is time order.
+        const nowIso = now();
+        join = `JOIN news_items d ON d.id = s.entity_id
+                AND d.published_at <= ? AND (d.expires_at IS NULL OR d.expires_at > ?)`;
+        joinValues.push(nowIso, nowIso);
+        break;
+      }
+    }
+    const from = `FROM search_index s ${join}
+                  WHERE s.domain = ? AND s.group_id = ? AND search_index MATCH ?`;
+    const values = [...joinValues, domain, groupId, match];
+    const { total } = this.db
+      .prepare(`SELECT COUNT(*) AS total ${from}`)
+      .get(...values) as { total: number };
+    const limit = Math.min(query.limit ?? 20, 100);
+    const offset = query.offset ?? 0;
+    const rows = this.db
+      .prepare(
+        // Best match first; entity_id DESC (uuidv7 = creation order) breaks
+        // rank ties newest-first and keeps pagination stable.
+        `SELECT s.entity_id AS id, s.title AS title,
+                snippet(search_index, -1, '', '', '…', 12) AS snippet
+         ${from}
+         ORDER BY bm25(search_index), s.entity_id DESC
+         LIMIT ? OFFSET ?`,
+      )
+      .all(...values, limit, offset) as { id: string; title: string; snippet: string }[];
+    const items = rows.map((row) => {
+      const result: SearchResult = { domain, id: row.id, title: row.title };
+      if (row.snippet !== '') result.snippet = row.snippet;
+      return result;
+    });
+    return Promise.resolve({ items, total });
   }
 
   // SQLite's online backup API: safe against a live database.

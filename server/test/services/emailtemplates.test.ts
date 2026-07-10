@@ -44,6 +44,7 @@ describe('default templates (#16)', () => {
       'password_reset',
       'email_verify',
       'digest',
+      'listing_expiry_warning',
     ]);
     for (const kind of EMAIL_TEMPLATE_KINDS) {
       const template = DEFAULT_EMAIL_TEMPLATES[kind];

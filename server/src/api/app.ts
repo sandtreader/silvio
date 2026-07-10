@@ -18,7 +18,12 @@ import { join } from 'node:path';
 import cookie from '@fastify/cookie';
 import swagger from '@fastify/swagger';
 import fastifyStatic from '@fastify/static';
-import type { AuditEventFilter, Storage, TransactionFilter } from '../storage/interface.js';
+import type {
+  AuditEventFilter,
+  SearchQuery,
+  Storage,
+  TransactionFilter,
+} from '../storage/interface.js';
 import type {
   ApiScope,
   ApiToken,
@@ -39,6 +44,7 @@ import type {
   NewsItem,
   Page,
   PageVisibility,
+  SearchDomain,
   Session,
   TxFlow,
   TxType,
@@ -65,7 +71,12 @@ import {
 } from '../services/trading.js';
 import { authenticateApiToken, checkTokenCaps, issueApiToken } from '../services/tokens.js';
 import { recordAudit } from '../services/audit.js';
-import { OK_RESPONSE, PUBLIC_MEMBER_WITH_PHOTO, sharedSchemas } from './schemas.js';
+import {
+  OK_RESPONSE,
+  PUBLIC_MEMBER_WITH_PHOTO,
+  SEARCH_DOMAIN,
+  sharedSchemas,
+} from './schemas.js';
 import { evaluateFlags } from '../services/creditcontrol.js';
 import {
   notifyRestrictionImposed,
@@ -76,7 +87,7 @@ import {
   EMAIL_TEMPLATE_KINDS,
   type EmailTemplateKind,
 } from '../services/emailtemplates.js';
-import { browse, postListing } from '../services/marketplace.js';
+import { browse, postListing, renewListing } from '../services/marketplace.js';
 import {
   addListingPhoto,
   brandingFor,
@@ -701,6 +712,49 @@ export async function buildApp(
         },
       );
 
+      // Generic search (data-model Search interface): one public endpoint,
+      // domain-scoped. The optional session sets the caller's tier — no
+      // session searches the public face, a member adds the directory and
+      // member pages, an admin sees admin pages too.
+      scope.get(
+        '/search',
+        {
+          schema: {
+            querystring: {
+              type: 'object',
+              required: ['domain', 'q'],
+              properties: {
+                domain: { type: 'string', enum: SEARCH_DOMAIN },
+                q: { type: 'string', minLength: 1 },
+                limit: { type: 'integer', minimum: 1, maximum: 100 },
+                offset: { type: 'integer', minimum: 0 },
+              },
+            },
+            response: respond(
+              200,
+              body({ items: arrayOf('SearchResult'), total: { type: 'integer' } }),
+            ),
+          },
+        },
+        async (request) => {
+          const { domain, q, limit, offset } = request.query as {
+            domain: SearchDomain;
+            q: string;
+            limit?: number;
+            offset?: number;
+          };
+          const member = await sessionMember(storage, request, request.group!.id);
+          const query: SearchQuery = {
+            text: q,
+            visibility:
+              member === undefined ? 'public' : member.role === 'admin' ? 'admin' : 'member',
+          };
+          if (limit !== undefined) query.limit = limit;
+          if (offset !== undefined) query.offset = offset;
+          return storage.search(request.group!.id, domain, query);
+        },
+      );
+
       // account:read (decision #9): a token may see its member's own state.
       const accountRead: ApiScope[] = ['account:read'];
       scope.get(
@@ -1275,6 +1329,29 @@ export async function buildApp(
           await targetListing(request, id);
           await removeListingPhoto(storage, id, imageId, request.auth!.member.id);
           return { ok: true };
+        },
+      );
+
+      // Renew (#18): the owner resets the shelf life with one POST — a human
+      // act like accept, so cookie sessions only (no token scope).
+      scope.post(
+        '/listings/:id/renew',
+        {
+          preHandler: requireMember,
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            response: respond(200, body({ listing: ref('Listing') })),
+          },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          await targetListing(request, id);
+          const listing = await renewListing(storage, id, request.auth!.member.id);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'listing.renew', entityType: 'listing', entityId: id,
+          });
+          return { listing };
         },
       );
 
@@ -2504,6 +2581,7 @@ export async function buildApp(
                     autoAcceptDays: { type: 'integer', minimum: 1, maximum: 365 },
                     invoiceExpiryDays: { type: 'integer', minimum: 1, maximum: 365 },
                     digestDefault: { type: 'string', enum: ['none', 'weekly', 'monthly'] },
+                    listingMaxAgeDays: { type: 'integer', minimum: 1, maximum: 730 },
                   },
                 },
               },
