@@ -269,6 +269,10 @@ export interface BuildAppOptions {
     adminDist?: string; // built admin app, served at /admin/
     operatorDist?: string; // built operator console, served at /operator/ (#21)
   };
+  // Per-token request allowance (decision #9). The default (60 requests a
+  // minute) is deliberately generous: this is an anti-runaway guard against
+  // a looping agent, not a usage quota.
+  tokenRateLimit?: { maxRequests?: number; windowMs?: number };
 }
 
 export async function buildApp(
@@ -504,6 +508,17 @@ export async function buildApp(
     return reply.status(500).send(errorBody('INTERNAL', 'internal server error'));
   });
 
+  // Per-token rate limiting (decision #9): LoginThrottle's sliding window
+  // counts "failures" per key; here every authenticated request is recorded,
+  // so maxFailures doubles as the request allowance. Cookie sessions are
+  // untouched. MCP traffic is covered too: each tool call re-injects into
+  // the REST layer with the bearer header and lands in requireTokenMember —
+  // only the /mcp handshake itself goes uncounted (see mcpHandler).
+  const tokenThrottle = new LoginThrottle({
+    maxFailures: opts.tokenRateLimit?.maxRequests ?? 60,
+    windowMs: opts.tokenRateLimit?.windowMs ?? 60_000,
+  });
+
   /**
    * Bearer token -> live auth context (decision #9): the token acts as its
    * member, the acting user resolved via the issuing person, and access is
@@ -521,6 +536,18 @@ export async function buildApp(
         .send(errorBody('NOT_AUTHORISED', 'a valid API token is required'));
     }
     const { token, member } = result;
+    // Count every authenticated request against the token id (decision #9);
+    // over the allowance the reply is 429 with the same Retry-After idiom as
+    // checkThrottled.
+    const nowMs = Date.now();
+    const waitMs = tokenThrottle.retryAfterMs(token.id, nowMs);
+    if (waitMs > 0) {
+      reply.header('retry-after', Math.max(1, Math.ceil(waitMs / 1000)));
+      return reply
+        .status(429)
+        .send(errorBody('RATE_LIMITED', 'this token has used its request allowance; slow down'));
+    }
+    tokenThrottle.recordFailure(token.id, nowMs);
     if (member.groupId !== request.group!.id) {
       return reply
         .status(403)
@@ -1773,6 +1800,9 @@ export async function buildApp(
       ): Promise<unknown> => {
         // Bearer-only auth, done here rather than via requireMember: the MCP
         // handshake itself needs no scope, and tokens are the only principal.
+        // Deliberately uncounted by the per-token rate limit — every tool
+        // call re-injects with this bearer header and is counted where it
+        // lands, in requireTokenMember; counting here would double-charge.
         const authorization = request.headers.authorization;
         if (authorization === undefined || !authorization.startsWith('Bearer ')) {
           return reply
@@ -2332,6 +2362,21 @@ export async function buildApp(
             action: 'demurrage.bands', entityType: 'currency', entityId: currencyId,
           });
           return { bands: await storage.demurrageBands(currencyId) };
+        },
+      );
+
+      // Run history (todo: Admin & governance): when each posting ran and
+      // completed, newest first.
+      scope.get(
+        '/admin/runs',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            response: respond(200, body({ runs: arrayOf('DemurrageRun') })),
+          },
+        },
+        async (request) => {
+          return { runs: await storage.listDemurrageRuns(request.group!.id) };
         },
       );
 

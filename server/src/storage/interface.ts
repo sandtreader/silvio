@@ -256,6 +256,8 @@ export interface Storage extends Ledger {
   /** Begin a run, or return the existing one for (currency, period) — idempotent. */
   beginDemurrageRun(groupId: Id, currencyId: Id, period: string): Promise<DemurrageRun>;
   completeDemurrageRun(runId: Id): Promise<DemurrageRun>;
+  /** All the group's runs, newest first (started_at, id as tiebreak). */
+  listDemurrageRuns(groupId: Id): Promise<DemurrageRun[]>;
   /** Committed transactions referencing this run (recovery: who is already charged). */
   transactionsForRun(runId: Id): Promise<Transaction[]>;
 

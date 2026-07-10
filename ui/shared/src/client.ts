@@ -15,6 +15,7 @@ import type {
   Currency,
   DecodedPaymentRequest,
   DemurrageBand,
+  DemurrageRun,
   DigestFrequency,
   DirectoryMember,
   EmailTemplate,
@@ -522,6 +523,11 @@ export class ApiClient {
     return this.tenant('PUT', `/admin/demurrage/${encodeURIComponent(currencyId)}/bands`, {
       bands,
     });
+  }
+
+  /** Demurrage run history, newest first. */
+  adminRuns(): Promise<{ runs: DemurrageRun[] }> {
+    return this.tenant('GET', '/admin/runs');
   }
 
   adminRestrictions(): Promise<{ restrictions: Restriction[] }> {

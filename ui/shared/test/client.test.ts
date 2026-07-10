@@ -300,6 +300,9 @@ describe('path construction', () => {
     expect(lastCall(mock).init.method).toBe('GET');
     await client.adminSetBands('cur-1', [{ fromAmount: 0, ratePpmPerMonth: 5000 }]);
     expect(lastCall(mock).init.method).toBe('PUT');
+    await client.adminRuns();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/runs');
+    expect(lastCall(mock).init.method).toBe('GET');
     await client.adminUnrestrict('m-1');
     expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/restrictions/m-1');
     expect(lastCall(mock).init.method).toBe('DELETE');

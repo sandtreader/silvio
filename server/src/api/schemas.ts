@@ -19,6 +19,7 @@ import type {
   CreditPolicy,
   Currency,
   DemurrageBand,
+  DemurrageRun,
   Entry,
   Group,
   Image,
@@ -51,6 +52,7 @@ const LISTING_TYPE = ['offer', 'want'] as const;
 const PAGE_VISIBILITY = ['public', 'members', 'admin'] as const;
 const LISTING_STATUS = ['active', 'hidden', 'expired'] as const;
 const CREDIT_POLICY_TYPE = ['soft_threshold', 'hard_limit'] as const;
+const RUN_STATUS = ['running', 'completed'] as const;
 export const SEARCH_DOMAIN = ['listings', 'directory', 'pages', 'news'] as const;
 const IMAGE_OWNER_KIND = ['cms', 'member', 'listing', 'brand'] as const;
 const API_SCOPE = [
@@ -433,6 +435,22 @@ const DEMURRAGE_BAND = {
   },
 } as const;
 
+// One monthly posting run (decision #1): completedAt absent while running.
+const DEMURRAGE_RUN = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'groupId', 'currencyId', 'period', 'status', 'startedAt'],
+  properties: {
+    id: { type: 'string' },
+    groupId: { type: 'string' },
+    currencyId: { type: 'string' },
+    period: { type: 'string' }, // "YYYY-MM"
+    status: { type: 'string', enum: RUN_STATUS },
+    startedAt: { type: 'string' },
+    completedAt: { type: 'string' },
+  },
+} as const;
+
 // CMS page (decision #13): body is markdown source; rendering happens at the
 // brochure edge, so the API round-trips the source verbatim.
 const PAGE = {
@@ -605,6 +623,7 @@ export const sharedSchemas = [
   { $id: 'ApiToken', ...API_TOKEN },
   { $id: 'CreditPolicy', ...CREDIT_POLICY },
   { $id: 'DemurrageBand', ...DEMURRAGE_BAND },
+  { $id: 'DemurrageRun', ...DEMURRAGE_RUN },
   { $id: 'Page', ...PAGE },
   { $id: 'NewsItem', ...NEWS_ITEM },
   { $id: 'Image', ...IMAGE },
@@ -648,6 +667,7 @@ type _DriftGuards = [
   Expect<Equal<FromSchema<typeof API_TOKEN>, ApiToken>>,
   Expect<Equal<FromSchema<typeof CREDIT_POLICY>, CreditPolicy>>,
   Expect<Equal<FromSchema<typeof DEMURRAGE_BAND>, DemurrageBand>>,
+  Expect<Equal<FromSchema<typeof DEMURRAGE_RUN>, DemurrageRun>>,
   Expect<Equal<FromSchema<typeof PAGE>, Page>>,
   Expect<Equal<FromSchema<typeof NEWS_ITEM>, NewsItem>>,
   Expect<Equal<FromSchema<typeof IMAGE>, Image>>,

@@ -17,7 +17,7 @@ Remaining server-side work, grouped by area. References are to
 - [x] Token management routes (member creates/labels/revokes own tokens)
 - [x] The MCP server itself: Streamable HTTP at {tenancy}/mcp, stateless,
       tools filtered by scope, thin client of the REST API via inject
-- [ ] Per-token request rate limiting (decision #9 mentions it; LoginThrottle
+- [x] Per-token request rate limiting (decision #9 mentions it; LoginThrottle
       is reusable)
 - [x] Token management UI in the member PWA: /tokens page (More → API tokens)
       lists/creates/revokes; raw value shown once, caps at the account scale
@@ -142,7 +142,7 @@ Remaining server-side work, grouped by area. References are to
       default for new members — `group.settings` JSON via PATCH /admin/group,
       effective defaults in services/settings.ts (transparency toggles from #3
       remain future)
-- [ ] Demurrage run history route (`GET /admin/runs`)
+- [x] Demurrage run history route (`GET /admin/runs`)
 
 ## Marketplace
 

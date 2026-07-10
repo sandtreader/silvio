@@ -138,6 +138,9 @@ export type AuditEvent = Schemas['AuditEvent'];
 
 export type DemurrageBand = Schemas['DemurrageBand'];
 
+/** One monthly posting run (GET /admin/runs); completedAt absent while running. */
+export type DemurrageRun = Schemas['DemurrageRun'];
+
 // --- Envelope shapes ----------------------------------------------------------
 
 /** GET /me response. */

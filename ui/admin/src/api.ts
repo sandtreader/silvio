@@ -14,6 +14,7 @@ import {
   type CreditPolicyConfig,
   type Currency,
   type DemurrageBand,
+  type DemurrageRun,
   type EmailTemplate,
   type EmailTemplateKind,
   type Flag,
@@ -93,6 +94,8 @@ export interface AdminApi {
     currencyId: string,
     bands: DemurrageBand[],
   ): Promise<DemurrageBand[] | undefined>;
+  /** Demurrage run history, newest first. */
+  adminRuns(): Promise<DemurrageRun[] | undefined>;
   adminFlags(currencyId: string): Promise<Flag[] | undefined>;
   adminStats(currencyId: string): Promise<AdminStats | undefined>;
   adminTransactions(
@@ -168,6 +171,7 @@ export const api: AdminApi = {
     (await call(client.adminGetBands(currencyId)))?.bands,
   adminSetBands: async (currencyId, bands) =>
     (await call(client.adminSetBands(currencyId, bands)))?.bands,
+  adminRuns: async () => (await call(client.adminRuns()))?.runs,
   adminFlags: async (currencyId) => (await call(client.adminFlags(currencyId)))?.flags,
   adminStats: async (currencyId) => call(client.adminStats(currencyId)),
   adminTransactions: async (filter) => call(client.adminTransactions(filter)),

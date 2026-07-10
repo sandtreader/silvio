@@ -620,6 +620,16 @@ export class SqliteStorage implements Storage {
     }
   }
 
+  listDemurrageRuns(groupId: Id): Promise<DemurrageRun[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM demurrage_runs WHERE group_id = ?
+         ORDER BY started_at DESC, id DESC`,
+      )
+      .all(groupId) as DemurrageRunRow[];
+    return Promise.resolve(rows.map((row) => this.runFromRow(row)));
+  }
+
   transactionsForRun(runId: Id): Promise<Transaction[]> {
     const rows = this.db
       .prepare(

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
+  Chip,
   IconButton,
   MenuItem,
   Paper,
@@ -25,6 +26,7 @@ import {
   formatAmount,
   parseAmount,
   type DemurrageBand,
+  type DemurrageRun,
 } from '@silvio/ui-shared';
 import { api as realApi, type AdminApi } from '../api';
 import { useCurrencies } from '../currencies';
@@ -58,6 +60,7 @@ export function DemurragePage({ api = realApi }: { api?: AdminApi }) {
   const currencies = useCurrencies(api);
   const [currencyId, setCurrencyId] = useState('');
   const [rows, setRows] = useState<BandRow[]>();
+  const [runs, setRuns] = useState<DemurrageRun[]>();
   const [formError, setFormError] = useState<string>();
   const [saved, setSaved] = useState(false);
   const scale = scaleFor(currencies, currencyId);
@@ -84,6 +87,17 @@ export function DemurragePage({ api = realApi }: { api?: AdminApi }) {
       cancelled = true;
     };
   }, [api, currencyId, scale]);
+
+  // Run history, newest first (group-wide, so loaded once)
+  useEffect(() => {
+    let cancelled = false;
+    void api.adminRuns().then((result) => {
+      if (!cancelled && result !== undefined) setRuns(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
 
   const update = (index: number, patch: Partial<BandRow>) => {
     setSaved(false);
@@ -199,6 +213,51 @@ export function DemurragePage({ api = realApi }: { api?: AdminApi }) {
 
       {formError !== undefined && <Alert severity="error">{formError}</Alert>}
       {saved && <Alert severity="success">Bands saved.</Alert>}
+
+      {runs !== undefined && (
+        <>
+          <Typography variant="h6">Run history</Typography>
+          <TableContainer component={Paper}>
+            <Table size="small" aria-label="run history">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Period</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Started</TableCell>
+                  <TableCell>Completed</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {runs.map((run) => (
+                  <TableRow key={run.id}>
+                    <TableCell>{run.period}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={run.status}
+                        size="small"
+                        color={run.status === 'completed' ? 'success' : 'warning'}
+                      />
+                    </TableCell>
+                    <TableCell>{new Date(run.startedAt).toLocaleString()}</TableCell>
+                    <TableCell>
+                      {run.completedAt === undefined
+                        ? '—'
+                        : new Date(run.completedAt).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {runs.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4}>
+                      <Typography color="text.secondary">No runs yet.</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
+      )}
     </Stack>
   );
 }
