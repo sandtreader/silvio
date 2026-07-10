@@ -794,3 +794,33 @@ initial admin), list groups with status/plan, and per-group management —
 rename, suspend/reinstate (#20's read-only semantics), plan label,
 operator-private notes, domain add/remove. Anything deeper (billing,
 cross-group reporting) waits for a real SaaS need.
+
+## 22. Signed QR payment requests — DECIDED 2026-07-10
+
+Upgrades the member app's v1 QR flow (#5: a QR is an invoice — the payee
+shows it, the payer scans and authorises) from plain client-encoded JSON
+to server-minted, signed, idempotent payloads.
+
+- **Minting**: `POST /me/payment-requests {currencyId, amount?, reference?,
+  expiresAt?}` returns a compact `payload` string —
+  base64url(JSON `{v, groupId, payee, currencyId, amount?, reference?,
+  expiresAt?, nonce}`) + `.` + base64url(HMAC-SHA256) — signed with a
+  per-group secret minted at group creation and never leaving the server.
+  `amount` optional: fixed for an invoice, open for a stall/donation QR
+  where the payer enters it. No expiry by default — a printed stall code
+  should keep working; the generator can set one.
+- **What the signature buys**: the confirm screen can trust what it shows.
+  The payer's app calls `GET /payment-requests/decode?payload=` and gets
+  back *verified* payee name, amount and reference — a QR that fails
+  verification or names another group is rejected outright. (It cannot
+  stop a payee lying about who they are on a sticker; the displayed,
+  verified payee name is the defence.)
+- **Paying**: `POST /payments/scan {payload, amount?}` — payer is the
+  session member; commits directly via the ledger with idempotency key
+  `qr:{nonce}:{payerMemberId}`, so a double scan is one payment while a
+  reusable stall QR still takes one payment from each customer. A
+  payload-fixed amount must match any supplied one. The payee minted the
+  request, so their confirm-incoming preference does not hold the payment
+  (#5's invoice semantics: the initiator consents by initiating).
+- Restrictions and credit-control authorisation apply exactly as for any
+  payment; scans are ordinary `trade` transactions, channel `web`.
