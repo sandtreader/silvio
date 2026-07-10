@@ -134,6 +134,24 @@ describe('path construction', () => {
     );
   });
 
+  it('builds the admin audit query, omitting it when empty', async () => {
+    const mock = stubFetch(200, { events: [], total: 0 });
+    const client = new ApiClient({ group: 'g1' });
+    await client.adminAudit();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/audit');
+    expect(lastCall(mock).init.method).toBe('GET');
+    await client.adminAudit({
+      action: 'member.approve',
+      entityType: 'member',
+      entityId: 'm-1',
+      limit: 50,
+      offset: 100,
+    });
+    expect(lastCall(mock).url).toBe(
+      '/api/v1/g/g1/admin/audit?action=member.approve&entityType=member&entityId=m-1&limit=50&offset=100',
+    );
+  });
+
   it('encodes path parameters', async () => {
     const mock = stubFetch(200, { member: {}, stats: {} });
     await new ApiClient({ group: 'g1' }).member('id/with?chars');

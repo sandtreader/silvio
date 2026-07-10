@@ -6,6 +6,7 @@
 // anything else.
 
 import type {
+  AuditEvent,
   BrandSlot,
   Category,
   Currency,
@@ -103,6 +104,14 @@ export interface TransactionFilter {
   currencyId?: string;
   type?: TxType;
   state?: TxState;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AuditFilter {
+  action?: string;
+  entityType?: string;
+  entityId?: string;
   limit?: number;
   offset?: number;
 }
@@ -421,6 +430,18 @@ export class ApiClient {
 
   adminReverse(id: string): Promise<{ transaction: Transaction }> {
     return this.tenant('POST', `/admin/transactions/${encodeURIComponent(id)}/reverse`);
+  }
+
+  /** Audit log, newest first; the server defaults limit to 50. */
+  adminAudit(filter: AuditFilter = {}): Promise<{ events: AuditEvent[]; total: number }> {
+    const params = new URLSearchParams();
+    if (filter.action !== undefined) params.set('action', filter.action);
+    if (filter.entityType !== undefined) params.set('entityType', filter.entityType);
+    if (filter.entityId !== undefined) params.set('entityId', filter.entityId);
+    if (filter.limit !== undefined) params.set('limit', String(filter.limit));
+    if (filter.offset !== undefined) params.set('offset', String(filter.offset));
+    const query = params.toString();
+    return this.tenant('GET', query === '' ? '/admin/audit' : `/admin/audit?${query}`);
   }
 
   adminCreateCategory(input: {

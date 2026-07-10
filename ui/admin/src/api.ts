@@ -6,6 +6,8 @@
 import {
   ApiClient,
   ApiError,
+  type AuditEvent,
+  type AuditFilter,
   type BrandSlot,
   type Category,
   type CreditPolicyConfig,
@@ -92,6 +94,9 @@ export interface AdminApi {
     filter?: TransactionFilter,
   ): Promise<{ transactions: Transaction[]; total: number } | undefined>;
   adminReverse(id: string): Promise<Transaction | undefined>;
+  adminAudit(
+    filter?: AuditFilter,
+  ): Promise<{ events: AuditEvent[]; total: number } | undefined>;
   categories(): Promise<Category[] | undefined>;
   currencies(): Promise<Currency[] | undefined>;
   adminCreateCategory(input: {
@@ -156,6 +161,7 @@ export const api: AdminApi = {
   adminFlags: async (currencyId) => (await call(client.adminFlags(currencyId)))?.flags,
   adminTransactions: async (filter) => call(client.adminTransactions(filter)),
   adminReverse: async (id) => (await call(client.adminReverse(id)))?.transaction,
+  adminAudit: async (filter) => call(client.adminAudit(filter)),
   categories: async () => (await call(client.categories()))?.categories,
   currencies: async () => (await call(client.currencies()))?.currencies,
   adminCreateCategory: async (input) =>

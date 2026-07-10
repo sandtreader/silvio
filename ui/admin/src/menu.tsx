@@ -5,6 +5,7 @@
 
 import { MenuStructure, StaticMenuProvider } from '@sandtreader/rafiki';
 import { ApprovalQueuePage } from './pages/ApprovalQueuePage';
+import { AuditPage } from './pages/AuditPage';
 import { BrandingPage } from './pages/BrandingPage';
 import { BroadcastPage } from './pages/BroadcastPage';
 import { CategoriesPage } from './pages/CategoriesPage';
@@ -68,6 +69,13 @@ const pages: PageDefinition[] = [
     icon: 'receipt_long',
     content: <TransactionsPage />,
     requirements: ['admin.transactions'],
+  },
+  {
+    id: 'audit',
+    name: 'Audit log',
+    icon: 'history',
+    content: <AuditPage />,
+    requirements: ['admin.audit'],
   },
   {
     id: 'categories',

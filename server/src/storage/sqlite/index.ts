@@ -6,6 +6,8 @@ import Database from 'better-sqlite3';
 import { v7 as uuidv7 } from 'uuid';
 import type {
   Actor,
+  AppendAuditEventInput,
+  AuditEventFilter,
   CreateAccountInput,
   CreateCurrencyInput,
   CreateGroupInput,
@@ -23,6 +25,7 @@ import type {
   Account,
   ApiScope,
   ApiToken,
+  AuditEvent,
   Category,
   Channel,
   CreditPolicy,
@@ -309,6 +312,18 @@ interface ImageRow {
   size: number;
   created_by: string;
   created_at: string;
+}
+
+interface AuditEventRow {
+  id: string;
+  group_id: string | null;
+  actor_user_id: string | null;
+  acting_for_member_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  detail: string | null;
+  at: string;
 }
 
 /** The images metadata columns (#14): everything but the blob. */
@@ -2231,6 +2246,85 @@ export class SqliteStorage implements Storage {
     return Promise.resolve(row.total);
   }
 
+  // Audit trail (data-model §8). Append-only: deliberately no update or
+  // delete methods — an audit event, once written, is immutable.
+  appendAuditEvent(input: AppendAuditEventInput): Promise<AuditEvent> {
+    const event: AuditEvent = {
+      id: uuidv7(),
+      action: input.action,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      at: input.at,
+    };
+    if (input.groupId !== undefined) event.groupId = input.groupId;
+    if (input.actorUserId !== undefined) event.actorUserId = input.actorUserId;
+    if (input.actingForMemberId !== undefined) {
+      event.actingForMemberId = input.actingForMemberId;
+    }
+    if (input.detail !== undefined) event.detail = input.detail;
+    this.db
+      .prepare(
+        `INSERT INTO audit_events
+           (id, group_id, actor_user_id, acting_for_member_id,
+            action, entity_type, entity_id, detail, at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        event.id,
+        event.groupId ?? null,
+        event.actorUserId ?? null,
+        event.actingForMemberId ?? null,
+        event.action,
+        event.entityType,
+        event.entityId,
+        event.detail === undefined ? null : JSON.stringify(event.detail),
+        event.at,
+      );
+    return Promise.resolve(event);
+  }
+
+  listAuditEvents(
+    groupId: Id,
+    filter: AuditEventFilter,
+  ): Promise<{ events: AuditEvent[]; total: number }> {
+    const clauses = ['group_id = ?'];
+    const values: (string | number)[] = [groupId];
+    if (filter.action !== undefined) {
+      clauses.push('action = ?');
+      values.push(filter.action);
+    }
+    if (filter.entityType !== undefined) {
+      clauses.push('entity_type = ?');
+      values.push(filter.entityType);
+    }
+    if (filter.entityId !== undefined) {
+      clauses.push('entity_id = ?');
+      values.push(filter.entityId);
+    }
+    if (filter.actorUserId !== undefined) {
+      clauses.push('actor_user_id = ?');
+      values.push(filter.actorUserId);
+    }
+    const where = clauses.join(' AND ');
+    const { total } = this.db
+      .prepare(`SELECT COUNT(*) AS total FROM audit_events WHERE ${where}`)
+      .get(...values) as { total: number };
+    const limit = Math.min(filter.limit ?? 50, 200);
+    const offset = filter.offset ?? 0;
+    const rows = this.db
+      .prepare(
+        // Newest first; id DESC breaks `at` ties so pagination is stable.
+        `SELECT * FROM audit_events WHERE ${where}
+         ORDER BY at DESC, id DESC
+         LIMIT ? OFFSET ?`,
+      )
+      .all(...values, limit, offset) as AuditEventRow[];
+    return Promise.resolve({
+      events: rows.map((row) => this.auditEventFromRow(row)),
+      total,
+    });
+  }
+
   // SQLite's online backup API: safe against a live database.
   async backup(destPath: string): Promise<void> {
     await this.db.backup(destPath);
@@ -2296,6 +2390,23 @@ export class SqliteStorage implements Storage {
       config: JSON.parse(row.config) as CreditPolicyConfig,
       enabled: row.enabled !== 0,
     };
+  }
+
+  private auditEventFromRow(row: AuditEventRow): AuditEvent {
+    const event: AuditEvent = {
+      id: row.id,
+      action: row.action,
+      entityType: row.entity_type,
+      entityId: row.entity_id,
+      at: row.at,
+    };
+    if (row.group_id !== null) event.groupId = row.group_id;
+    if (row.actor_user_id !== null) event.actorUserId = row.actor_user_id;
+    if (row.acting_for_member_id !== null) {
+      event.actingForMemberId = row.acting_for_member_id;
+    }
+    if (row.detail !== null) event.detail = JSON.parse(row.detail) as Record<string, unknown>;
+    return event;
   }
 
   private userFromRow(row: UserRow): User {

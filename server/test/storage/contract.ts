@@ -1135,6 +1135,76 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
     });
   });
 
+  describe('audit events (data-model §8): append-only admin trail', () => {
+    function draft(overrides: Record<string, unknown> = {}) {
+      return {
+        groupId: f.group.id,
+        actorUserId: 'user-alice',
+        action: 'member.approve',
+        entityType: 'member',
+        entityId: 'member-bob',
+        at: '2026-01-01T00:00:00.000Z',
+        ...overrides,
+      };
+    }
+
+    it('appends and reads back, detail JSON included', async () => {
+      const event = await f.storage.appendAuditEvent(
+        draft({ detail: { role: 'admin', reason: 'why' } }),
+      );
+      expect(event.id).toBeTruthy();
+      expect(event.action).toBe('member.approve');
+      const { events, total } = await f.storage.listAuditEvents(f.group.id, {});
+      expect(total).toBe(1);
+      expect(events[0]).toMatchObject({
+        actorUserId: 'user-alice',
+        entityType: 'member',
+        entityId: 'member-bob',
+        detail: { role: 'admin', reason: 'why' },
+        at: '2026-01-01T00:00:00.000Z',
+      });
+    });
+
+    it('actor and detail are optional (system/lifecycle events)', async () => {
+      const event = await f.storage.appendAuditEvent(
+        draft({ actorUserId: undefined, detail: undefined }),
+      );
+      expect(event.actorUserId).toBeUndefined();
+      expect(event.detail).toBeUndefined();
+    });
+
+    it('lists newest first with filters and paging', async () => {
+      for (let i = 0; i < 5; i += 1) {
+        await f.storage.appendAuditEvent(draft({
+          action: i % 2 === 0 ? 'member.approve' : 'restriction.impose',
+          entityId: `member-${i}`,
+          at: `2026-01-0${i + 1}T00:00:00.000Z`,
+        }));
+      }
+      await f.storage.appendAuditEvent(
+        draft({ groupId: f.otherGroup.id, at: '2026-02-01T00:00:00.000Z' }),
+      );
+
+      const all = await f.storage.listAuditEvents(f.group.id, {});
+      expect(all.total).toBe(5); // never the other group's
+      expect(all.events.map((e) => e.at.slice(8, 10))).toEqual(['05', '04', '03', '02', '01']);
+
+      const imposed = await f.storage.listAuditEvents(f.group.id, {
+        action: 'restriction.impose',
+      });
+      expect(imposed.total).toBe(2);
+
+      const byEntity = await f.storage.listAuditEvents(f.group.id, {
+        entityType: 'member', entityId: 'member-3',
+      });
+      expect(byEntity.total).toBe(1);
+
+      const page = await f.storage.listAuditEvents(f.group.id, { limit: 2, offset: 2 });
+      expect(page.total).toBe(5);
+      expect(page.events.map((e) => e.at.slice(8, 10))).toEqual(['03', '02']);
+    });
+  });
+
   describe('group sender address (#16)', () => {
     it('updateGroup sets and clears emailFrom', async () => {
       const set = await f.storage.updateGroup(f.group.id, {

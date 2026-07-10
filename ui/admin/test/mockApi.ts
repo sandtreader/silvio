@@ -145,6 +145,7 @@ export function makeMockApi(): MockAdminApi {
     adminFlags: vi.fn().mockResolvedValue([]),
     adminTransactions: vi.fn().mockResolvedValue({ transactions: [], total: 0 }),
     adminReverse: vi.fn().mockResolvedValue(undefined),
+    adminAudit: vi.fn().mockResolvedValue({ events: [], total: 0 }),
     categories: vi.fn().mockResolvedValue([]),
     currencies: vi.fn().mockResolvedValue([makeCurrency()]),
     adminCreateCategory: vi.fn().mockResolvedValue(undefined),

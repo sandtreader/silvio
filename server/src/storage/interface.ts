@@ -8,6 +8,7 @@ import type {
   AccountType,
   ApiScope,
   ApiToken,
+  AuditEvent,
   Category,
   MemberRole,
   Session,
@@ -135,6 +136,19 @@ export interface CreateImageInput {
 export interface ImageFilter {
   ownerKind?: ImageOwnerKind;
   ownerId?: Id;
+}
+
+/** Audit event to append (data-model §8); `at` is stamped by the caller. */
+export type AppendAuditEventInput = Omit<AuditEvent, 'id'>;
+
+/** listAuditEvents filter (§8). AND-composed; {} lists the whole group. */
+export interface AuditEventFilter {
+  action?: string;
+  entityType?: string;
+  entityId?: Id;
+  actorUserId?: Id;
+  limit?: number; // default 50, capped at 200
+  offset?: number; // default 0
 }
 
 /** Admin transaction search (todo: API polish). All fields optional; AND-composed. */
@@ -452,6 +466,16 @@ export interface Storage extends Ledger {
   deleteImage(id: Id): Promise<void>;
   /** Sum of the group's image sizes in bytes; 0 when none (quota check, #14). */
   imagesTotalSize(groupId: Id): Promise<number>;
+
+  // Audit trail (data-model §8). Append-only by contract: there are
+  // deliberately NO update or delete methods for audit events.
+  appendAuditEvent(input: AppendAuditEventInput): Promise<AuditEvent>;
+  /** Filtered, paginated group events, newest first (at DESC, id DESC for
+   *  stability); `total` counts all matches ignoring limit/offset. */
+  listAuditEvents(
+    groupId: Id,
+    filter: AuditEventFilter,
+  ): Promise<{ events: AuditEvent[]; total: number }>;
 
   /** Copy the whole database to destPath, safely against live writers. */
   backup(destPath: string): Promise<void>;
