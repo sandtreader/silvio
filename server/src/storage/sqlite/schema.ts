@@ -77,7 +77,7 @@ CREATE TABLE sessions (
 );
 
 -- One-time tokens (data-model §1): single-use expiring links for password
--- reset and email verification ('invite' reserved), sha256-hashed at rest
+-- reset, email verification and household invites (#23), sha256-hashed at rest
 -- like sessions. user_id is nullable for invites sent before a user exists.
 CREATE TABLE one_time_tokens (
   id         TEXT PRIMARY KEY,

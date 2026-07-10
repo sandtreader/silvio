@@ -38,7 +38,8 @@ loose ends. The tidy-up pass closed everything smaller.
       #22: server-minted HMAC payloads (per-group secret), mint/decode/scan
       endpoints; scans commit without a confirm-incoming hold
 - [ ] Merkle checkpoints + inclusion proofs (#10, parked) and Witness plugins
-      (newsletter/digest/git/peer-group); `verify` extension
+      (newsletter/digest/git/peer-group); `verify` extension — plan:
+      [specs/plan-checkpoints.md](../specs/plan-checkpoints.md)
 - [x] Scheduled `verify()` job with loud alerting (#6 — every tick verifies
       every group; failures alert via console.error by default)
 - [x] Statement pagination + CSV export (newest-first pages with a total,
@@ -46,8 +47,10 @@ loose ends. The tidy-up pass closed everything smaller.
       the whole history oldest-first at the currency's scale; Activity page
       pages and links the download)
 - [ ] Income ties (% of income to a chosen account — legacy feature, multi-leg
-      support already in the ledger)
-- [ ] Same-instance intertrading via paired gateway accounts (#4 first milestone)
+      support already in the ledger) — plan:
+      [specs/plan-income-ties.md](../specs/plan-income-ties.md)
+- [ ] Same-instance intertrading via paired gateway accounts (#4 first
+      milestone) — plan: [specs/plan-intertrading.md](../specs/plan-intertrading.md)
 
 ## Membership & identity
 
@@ -55,7 +58,8 @@ loose ends. The tidy-up pass closed everything smaller.
       single-use hashed tokens, /auth/forgot|reset|verify, throttled forgot,
       reset revokes sessions; verification is recorded on the user only —
       nothing enforces it yet)
-- [ ] Passkeys/WebAuthn + 2FA (deferred from API slice)
+- [ ] Passkeys/WebAuthn + 2FA (deferred from API slice) — plan:
+      [specs/plan-passkeys.md](../specs/plan-passkeys.md)
 - [x] Login lockout / rate limiting on auth endpoints (sliding window: 10
       failures/15 min per email, 30 per IP; 429 + Retry-After)
 - [x] CSRF protection for cookie sessions (SameSite=lax + Origin check on
@@ -63,7 +67,8 @@ loose ends. The tidy-up pass closed everything smaller.
 - [x] Joint members: persons CRUD API (#23: GET/POST/DELETE /me/persons,
       invite emails + POST /auth/accept-invite, last-person guard, access
       revocation on removal, individual->joint auto-typing)
-- [ ] GDPR: anonymise-on-exit after retention window (#7); data export
+- [ ] GDPR: anonymise-on-exit after retention window (#7); data export —
+      plan: [specs/plan-gdpr.md](../specs/plan-gdpr.md)
 - [x] Proxy/buddy: admin acts-for-member with audit trail (#24: act-as/
       stop-acting on the admin's own session, escalation blocked while
       acting; member-appointed buddies remain future)
@@ -182,7 +187,8 @@ loose ends. The tidy-up pass closed everything smaller.
 
 - [x] Operator group management: suspend group, edit domains, plan/status field (#20)
 - [ ] Migration importers: members/balances/listings from Mutual Credit Manager
-      and Local Exchange installs (first-review — likely first adopters)
+      and Local Exchange installs (first-review — likely first adopters) —
+      plan: [specs/plan-importers.md](../specs/plan-importers.md)
 - [x] Backup story (SQLite online backup + restore procedure) — built-in job:
       daily integrity-checked copy, hourly check, 7-daily/4-Monday rotation;
       restore + off-site procedure in [deploy.md](../deploy.md)
@@ -200,9 +206,12 @@ loose ends. The tidy-up pass closed everything smaller.
 
 ## Later / speculative
 
-- [ ] Credit Commons federation (#4)
+- [ ] Credit Commons federation (#4) — phase-2 sketch in
+      [specs/plan-intertrading.md](../specs/plan-intertrading.md)
 - [ ] Events calendar (first-review reference-standard; needs a data-model
-      decision first)
-- [ ] Passkey-signed payment authorisations (non-repudiation, #10)
+      decision first) — plan: [specs/plan-calendar.md](../specs/plan-calendar.md)
+- [ ] Passkey-signed payment authorisations (non-repudiation, #10) —
+      pointers in [specs/plan-passkeys.md](../specs/plan-passkeys.md) and
+      [specs/plan-checkpoints.md](../specs/plan-checkpoints.md)
 - [ ] Optional private-feedback plugin (#8 — only if a group demands it)
 - [ ] i18n

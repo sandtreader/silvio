@@ -13,25 +13,47 @@ session even though the cookie survives (Rafiki has no restore hook yet).
 
 ## Pages
 
+- **Dashboard** — the group's health at a glance for one currency: balance
+  distribution, monthly trade flow, velocity and dormant members.
 - **Approval queue** — members in the `applied` state with approve/reject
   actions (reject uses the API's `remove` action).
 - **Members** — full member list with lifecycle actions (suspend, reinstate,
-  remove), role changes, and manual payment restrictions. Restricted members
-  are marked with a chip (reason on hover); Restrict is offered only to
-  unrestricted members and Unrestrict only to restricted ones.
+  remove), role changes, manual payment restrictions, and "Act as…"
+  (decision #24: the admin's session acts for the member; the member app
+  shows an acting banner with a stop control). Restricted members are marked
+  with a chip (reason on hover); Restrict is offered only to unrestricted
+  members and Unrestrict only to restricted ones.
 - **Credit policies** — per-currency policy table with an enable/disable
   switch and an add dialog. Currency choices come from the group's public
   `GET /currencies` endpoint.
 - **Demurrage bands** — per-currency marginal bands edited as a table of
-  {from balance, % per month} and saved atomically as a whole.
+  {from balance, % per month} and saved atomically as a whole, plus the
+  run history (period, status, timestamps per currency).
 - **Flags** — credit-control flags per currency (level + reason per member),
   the committee-review surface; flags never block by themselves.
 - **Transactions** — search and list the group's transactions (text filter on
   description/reference via `GET /admin/transactions`), and reverse a committed
   one from its row after confirmation (a reversal is a compensating transaction
   linked via `reversesId`; pending/declined rows offer no reverse action).
+- **Audit log** — browse the group's append-only audit trail (who did what
+  to which entity, newest first) with action and entity-id filters.
 - **Categories** — the marketplace category tree with add (name + optional
-  parent) and inline rename.
+  parent), inline rename, and delete (a category still in use prompts for a
+  move-listings-to target).
+- **Pages / News** — the brochure CMS (decision #13): markdown bodies edited
+  with a live preview; the page with slug `home` is the brochure front page.
+- **Images** — CMS image uploads (decision #14) with a
+  copy-the-markdown-snippet affordance; images are downscaled client-side.
+- **Branding** — group skinning (decision #15): the logo and header
+  background slots with upload/replace/remove.
+- **Email templates** — per-kind overrides of the built-in notification
+  templates (decision #16): markdown with `{{placeholder}}` substitution and
+  live preview, plus the per-group sender address.
+- **Broadcast** — compose a markdown email and send it to every person on an
+  active membership (decision #17), behind a confirmation.
+- **Settings** — the group name and per-group tunables (`group.settings`):
+  auto-accept days, invoice expiry days, listing shelf life, digest default,
+  and the group-balances transparency toggle (decision #19).
 
 ## Prerequisite: build the shared library
 

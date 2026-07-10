@@ -3,8 +3,8 @@
 The server for Silvio, a LETS (Local Exchange Trading System) platform with
 Gesellian demurrage: multi-tenant community currencies backed by an
 append-only, hash-chained double-entry ledger. It serves a versioned REST API
-(`/api/v1`), the built member and admin web UIs when present, and an MCP
-endpoint for AI agents.
+(`/api/v1`), each group's server-rendered brochure site, the built member,
+admin and operator web UIs when present, and an MCP endpoint for AI agents.
 
 ## Dependencies
 
@@ -15,6 +15,8 @@ Runtime: Node 22 or newer (ESM, `NodeNext` modules, ES2022 target).
 | `fastify` 5 (+ `@fastify/cookie`, `@fastify/static`, `@fastify/swagger`) | HTTP server, cookie sessions, UI serving, OpenAPI |
 | `better-sqlite3` | SQLite storage backend (WAL mode) |
 | `argon2` | Password hashing (argon2id) |
+| `markdown-it` | Markdown rendering: CMS pages/news, email bodies (#13, #16) |
+| `nodemailer` | Outbound email delivery (SMTP) |
 | `uuid` | UUIDv7 identifiers |
 | `zod` | MCP tool input schemas |
 | `@modelcontextprotocol/sdk` | MCP server over streamable HTTP |
@@ -46,6 +48,7 @@ running server). The live document is also served at `/api/v1/openapi.json`.
 | `SILVIO_MEMBER_UI` / `SILVIO_ADMIN_UI` | sibling `ui/*/dist` | Built UI directories served at `/app/` (the app renders its own chrome from `GET /shell`, #15) and `/admin/`; the group root `/` is the server-rendered brochure |
 | `SILVIO_OPERATOR_UI` | sibling `ui/operator/dist` | Built operator console served at `/operator/` (#21) |
 | `SILVIO_SMTP_URL` / `SILVIO_EMAIL_FROM` | — | Outbound email: nodemailer connection URL (e.g. `smtp://user:pass@mail.example.com:587`; query params pass transport options, e.g. `?tls.rejectUnauthorized=false` for a self-signed relay) and the From address. Unset, emails queue in `email_events` but are not sent |
+| `SILVIO_BACKUP_DIR` | — | Directory for daily rotated, integrity-checked SQLite backups; unset disables them (see [../deploy.md](../deploy.md)) |
 | `SILVIO_CONFIG` | `./silvio.json` | Optional JSON config file (see below); the default path may be absent, an explicit one must exist |
 | `SILVIO_LOG_LEVEL` | `info` | Level for the structured (pino JSON) logging |
 

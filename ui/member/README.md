@@ -13,30 +13,52 @@ hides itself in the installed PWA (`display-mode: standalone`).
 
 ## Features
 
-All routes are under `/app/` and, apart from Login and Apply, require
+All routes are under `/app/` and, apart from the auth pages, require
 authentication.
 
-- **Login / Apply** (`/app/login`, `/app/apply`) — email + password
-  cookie-session login; membership application form (applications await
-  admin approval).
+- **Auth pages** (`/app/login`, `/app/apply`, `/app/forgot`, `/app/reset`,
+  `/app/verify`, `/app/invite`) — email + password cookie-session login;
+  membership application form (applications await admin approval); password
+  reset request and completion, email-verification landing, and joint-member
+  invite acceptance (decision #23) — the emailed links land on the last
+  three.
 - **Home** (`/app/`) — a balance card per account, a pending-actions chip
   linking to Activity, and the last five statement lines.
 - **Market** (`/app/market`) — browse active listings filtered by
-  All / Offers / Wants; post new listings via a FAB (title, description,
-  category, optional price or rate text). The public marketplace browse
-  lives on the brochure site.
-- **Pay** (`/app/pay`) — three tabs:
+  All / Offers / Wants with a debounced full-text search box; post new
+  listings via a FAB (title, description, category, optional price or rate
+  text). Cards carry photo strips (owners manage up to 5 photos inline,
+  decision #14) and admin-verified badges; owners see their listing's
+  expiry with a one-tap renew (shelf life, decision #18). The public
+  marketplace browse lives on the brochure site.
+- **Pay** (`/app/pay`) — three tabs (decision #22: QR payloads are opaque
+  and server-signed):
   - *Scan*: camera QR scanning via the native `BarcodeDetector` API, with a
-    paste-a-code fallback; decoded payment requests are confirmed in a
-    bottom sheet and committed via `POST /payments`.
-  - *Request*: generate a payment-request QR (payee, amount, optional
-    reference) rendered with `qrcode`.
+    paste-a-code fallback; the payload is decoded server-side for a
+    *verified* payee/amount, confirmed in a bottom sheet, and committed via
+    `POST /payments/scan` (idempotent per payload).
+  - *Request*: mint a signed payment-request QR via
+    `POST /me/payment-requests` (amount optional — open for stall/donation
+    codes), rendered with `qrcode`.
   - *Manual*: pick a member from the directory and pay directly.
 - **Activity** (`/app/activity`) — pending transactions with accept /
-  decline / cancel actions, followed by the full statement with running
-  balance.
-- **More** (`/app/more`) — profile, settings (confirm-incoming-payments
-  toggle), member directory, logout.
+  decline / cancel actions, then the statement with running balance, paged
+  50 at a time, with a CSV download of the whole history.
+- **More** (`/app/more`) — profile (photo upload, neighbourhood), settings
+  (confirm-incoming-payments toggle, offers & wants digest cadence), member
+  directory with neighbourhood filter, links to the pages below, logout.
+- **Tokens** (`/app/tokens`, from More) — personal API tokens for MCP
+  agents (decision #9): member-granted scopes, per-token spend caps for
+  `trade:autonomous`; the raw token is shown exactly once.
+- **Household** (`/app/household`, from More) — the persons sharing the
+  membership (decision #23): add by email (existing accounts link, others
+  get a 7-day invite), remove revokes access to this membership only.
+- **Group balances** (`/app/balances`, from More) — every member's balance
+  and 12-month turnover, only when the group publishes them (transparency
+  setting, decision #19).
+
+While an admin is acting for the member (decision #24) the app shows a
+persistent "Acting for … — stop" banner.
 
 ## Prerequisite: build the shared library
 

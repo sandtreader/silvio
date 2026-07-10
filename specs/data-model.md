@@ -1,10 +1,10 @@
 # Silvio — Data Model Specification
 
-Draft v0.2, 2026-07-09. Derives from [decisions.md](decisions.md) #1–#10; decision
+Draft v0.3, 2026-07-10. Derives from [decisions.md](decisions.md) #1–#24; decision
 numbers cited throughout. This is a logical model — concrete DDL belongs to the
 storage implementation (#6: balance caching, indexing strategy etc. are the
 storage layer's private decisions). Audited against the implemented SQLite
-schema on 2026-07-09.
+schema on 2026-07-10.
 
 ## Conventions
 
@@ -51,6 +51,11 @@ erDiagram
     CATEGORY ||--o{ LISTING : categorises
     MEMBER ||--o{ API_TOKEN : "MCP access"
     GROUP ||--o{ AUDIT_EVENT : logs
+    GROUP ||--o{ PAGE : publishes
+    GROUP ||--o{ NEWS_ITEM : posts
+    GROUP ||--o{ IMAGE : stores
+    GROUP ||--o{ EMAIL_EVENT : queues
+    GROUP ||--o{ EMAIL_TEMPLATE : overrides
 ```
 
 ## 1. Tenancy & identity (#2)
@@ -61,10 +66,16 @@ erDiagram
 | id | uuid | |
 | slug | text | unique; default subdomain |
 | name | text | display name |
-| branding | json | *(planned)* logo ref, theme colours (white-label) |
-| settings | json | *(planned)* group toggles: transparency options (#3), pending auto-accept days (#5, default 14), invoice expiry days, digest defaults |
-| plan, status | text | *(planned)* reserved for SaaS billing (#2); status: active \| suspended |
+| status | text | active \| suspended — suspended = read-only, verification still runs (#20) |
+| plan | text? | operator's free-text plan label (#20); a record, no billing logic |
+| notes | text? | operator-private free text (#20); never serialised past operator routes |
+| email_from | text? | per-group sender address (#16); delivery falls back to the instance default |
+| settings | json? | group tunables, absent keys = platform defaults: auto-accept days (#5, 14), invoice expiry days (30), digest default (#17, weekly), listing shelf life days (#18, 180), transparency none \| balances (#19) |
+| qr_secret | text | payment-request HMAC signing key (#22); never leaves the server |
 | created_at | ts | |
+
+Branding (logo, header background, #15) is not a column: brand images live in
+the `image` table under owner kind `brand`, one per slot.
 
 ### group_domain
 Hostname → tenant resolution for white-label custom domains.
@@ -75,7 +86,7 @@ Hostname → tenant resolution for white-label custom domains.
 |---|---|---|
 | id | uuid | |
 | email | text | unique globally; login identifier |
-| email_verified_at | ts? | *(planned)* |
+| email_verified_at | ts? | set by the verify link or an accepted invite (#23) |
 | password_hash | text | argon2id; becomes nullable when passkey-only login lands |
 | totp_secret | text? | *(planned)* 2FA |
 | is_operator | bool | platform super-admin (#2); never listed in groups |
@@ -90,13 +101,15 @@ label, created_at, last_used_at`.
 Server-side, revocable — **domain requirement**: suspension (#7), restriction
 (#3) and logout take effect immediately, so no stateless JWTs. Opaque random
 token, **sha256-hashed at rest** (unique): `id, user_id, token_hash, member_id?
-(selected group context, #2), created_at, expires_at, revoked_at?,
-last_seen_at (planned), client_info (planned)`.
+(selected group context, #2), acting_member_id? (admin acts-for-member, #24),
+created_at, expires_at, revoked_at?, last_seen_at (planned), client_info
+(planned)`.
 
-### one_time_token *(planned)*
+### one_time_token
 Single-use expiring tokens, one table for all purposes: `id, user_id?, email,
 purpose (password_reset | email_verify | invite), token_hash, expires_at,
-used_at?`. Hashed at rest like sessions.
+used_at?`. Hashed at rest like sessions; `invite` carries joint-member
+invitations (#23), user_id nullable because the user may not exist yet.
 
 ### member — a membership of a group (#2, #7)
 | field | type | notes |
@@ -108,9 +121,9 @@ used_at?`. Hashed at rest like sessions.
 | display_name | text | directory name |
 | role | text | member \| committee \| admin (group-level; #2) |
 | status | text | applied \| active \| away \| suspended \| closed (#7 lifecycle) |
-| about, photo_ref | | *(planned)* profile |
-| neighbourhood | text? | *(planned)* coarse location for directory filtering (CamLETS grid pattern); full address lives on person |
-| digest_frequency | text | *(planned)* none \| weekly \| monthly — offers/wants digest |
+| about | | *(planned)* profile text; the profile photo is not a column — it lives in the `image` table under owner kind `member` (#14) |
+| neighbourhood | text? | free-text locality for directory filtering (CamLETS grid pattern); full address lives on person |
+| digest_frequency | text | none \| weekly \| monthly — offers/wants digest (#17); default weekly |
 | confirm_incoming | bool | opt-in payment confirmation (#5) |
 | applied_at, approved_at, closed_at | ts? | applied_at not null |
 | anonymised_at | ts? | *(planned)* GDPR erasure marker (#7): person/user data scrubbed, accounts persist |
@@ -270,36 +283,52 @@ earning stays open. Notifications + audit on impose/lift.
 | category_id | uuid | |
 | price_amount, price_currency_id | ?, uuid? | either a priced amount… |
 | rate_text | text? | …or free-text ("negotiable", "10/hr") |
-| flags | text[] | *(planned)* professional, qualified — **admin-verified** badges (#8) |
+| badges | text[] | professional, qualified — **admin-verified** badges (#8); default [] |
 | status | text | active \| hidden \| expired — hidden covers member `away` (#7) |
-| expires_at | ts? | scheduling (reference-standard) |
-| reactivate_at | ts? | *(planned)* |
+| expires_at | ts? | defaults to posting time + the group's listing shelf life (#18); owner renew resets it and revives within the purge window; purged 90 days after expiry |
 | created_at, updated_at | ts | freshness filters |
 
-`listing_photo` *(planned)*: `id, listing_id, image_ref, position`.
+Listing photos are `image` rows with owner kind `listing` (up to 5, ordered by
+upload) — no separate listing_photo table.
 
-Image storage is a **storage-layer decision** behind the opaque `image_ref` /
-`photo_ref` fields (like balances, #6): the first SQLite implementation will
-store images as blobs in the database, with enforced size and
-per-member/listing count limits; a later backend may move them to files/object
-storage without touching the domain model.
+### image (#14)
+One general blob store, four owner kinds:
+`id, group_id, owner_kind (cms | member | listing | brand), owner_id?, mime,
+size, blob, created_by, created_at`. Bytes live in the blob column (SQLite
+blobs first; a later backend may move them without touching the domain model)
+and are served at `GET /i/{id}` with immutable caching — re-upload mints a new
+id. The server validates only (magic-byte sniff, byte caps, per-owner count
+limits, per-group quota); resizing is client-side. `member` = one profile
+photo, `brand` = one image per slot (`logo` | `header`, #15), `cms` = images
+referenced from page/news markdown.
 
 Public browse shows listings without contact details; directory/contact data is
 member-visibility (#2 settings, CamLETS pattern). Trade-count profile stats (#8)
 are **computed from the journal**, not stored.
 
-## 6. Content & communication *(planned)*
+## 6. Content & communication
 
-- **page**: `id, group_id, slug, title, body, visibility (public | members |
-  admin), position` — CMS-lite (agreement, constitution, help).
-- **news_item**: `id, group_id, title, body, published_at, expires_at?`.
-- **email_event** (outbound log): `id, group_id, person_id, kind, payload_ref,
-  sent_at` — digest/transactional dedup and troubleshooting.
+- **page**: `id, group_id, slug (unique per group), title, body, visibility
+  (public | members | admin), position, created_at, updated_at` — CMS-lite
+  (agreement, constitution, help). Body is markdown source (#13), rendered
+  server-side at request time.
+- **news_item**: `id, group_id, title, body (markdown), published_at,
+  expires_at?, created_at, updated_at` — always public; current between
+  published_at and expires_at.
+- **email_event** (outbound queue + log): `id, group_id, person_id, kind,
+  dedup_key (unique — idempotent enqueue, sweeps never double-send),
+  to_email, subject, body (markdown source; rendered multipart at delivery,
+  #16), from_email? (per-group sender snapshotted at enqueue), created_at,
+  sent_at?, attempts, last_error?`.
+- **email_template** (#16): `id, group_id, kind, subject, body` — unique
+  `(group_id, kind)`; a row overrides the built-in default for that kind,
+  deleting it reverts. Defaults live in code, never seeded.
 
-Listing expiry, demurrage runs, pending-transaction sweeps and journal
-verification are scheduler jobs today; digest generation and dormancy
-evaluation join them *(planned)* (architecture note in first-review) — all
-idempotent, keyed by run records where money is involved.
+Listing expiry/warning/purge, demurrage runs, pending-transaction sweeps,
+digest generation (#17) and journal verification are scheduler jobs today;
+dormancy evaluation joins them *(planned)* (architecture note in
+first-review) — all idempotent, keyed by run records where money is involved.
+Suspended groups (#20) get verification only.
 
 ## 7. API tokens (#9)
 
@@ -322,11 +351,12 @@ transactions) — no separate counter to drift.
 
 ## 8. Audit (#3, #7, #9)
 
-### audit_event *(planned)*
-`id, group_id?, actor_user_id?, acting_for_member_id? (login-as/proxy), action,
-entity_type, entity_id, detail json, at`. Covers admin actions (approve,
-suspend, restrict, reverse, policy change, login-as), MCP grants/revocations,
-and lifecycle transitions. Append-only.
+### audit_event
+`id, group_id? (null = platform-level), actor_user_id?, acting_for_member_id?
+(acts-for-member, #24), action, entity_type, entity_id, detail json, at`.
+Covers admin actions (approve, suspend, restrict, reverse, policy change,
+act-as), operator group management (#20), person add/remove (#23), MCP
+grants/revocations, and lifecycle transitions. Append-only.
 
 ## Uniqueness summary (all group-scoped, #2)
 
@@ -337,7 +367,10 @@ and lifecycle transitions. Append-only.
 - currency: code; demurrage_band: (currency_id, from_amount);
   demurrage_run: (currency_id, period)
 - transaction: idempotency_key; seq
-- session: token_hash (global); api_token: token_hash (global)
+- session: token_hash (global); api_token: token_hash (global);
+  one_time_token: token_hash (global)
+- email_event: dedup_key (global); email_template: (group_id, kind)
+- page: slug
 - checkpoint: (group_id, period) *(planned)*
 - category: (parent_id, name)
 
@@ -370,21 +403,19 @@ checkpoint(groupId: Id, period: string): Promise<Checkpoint>;     // build + sto
 inclusionProof(accountId: Id, checkpointId: Id): Promise<Proof>;  // member-facing verify (#10)
 ```
 
-*(planned)* search interface — not yet implemented:
+The search interface is implemented (on `Storage`, same file):
 
 ```ts
-interface Search {
-  // Generic search over domains; how it's indexed (SQLite: FTS5) is the
-  // storage layer's private decision — same pattern as balances and images.
-  search(groupId: Id, domain: 'listings' | 'directory' | 'pages' | 'news',
-         query: {
-           text?: string;                  // full-text over the domain's fields
-           filters?: Record<string, unknown>; // domain-specific: category, offer/want,
-                                              // freshness, neighbourhood, …
-           visibility: 'public' | 'member' | 'admin'; // caller's tier — results respect it (#2)
-           page?: Cursor;
-         }): Promise<SearchPage>;
-}
+// Generic full-text search over a domain, best match first; results respect
+// the caller's tier (#2). How it's indexed (SQLite: an FTS5 table kept in
+// sync by triggers) is the storage layer's private decision — same pattern
+// as balances and images.
+search(groupId: Id, domain: 'listings' | 'directory' | 'pages' | 'news',
+       query: {
+         text: string;                    // full-text over the domain's fields
+         visibility: 'public' | 'member' | 'admin'; // caller's tier
+         limit?: number; offset?: number;
+       }): Promise<{ items: SearchResult[]; total: number }>;
 ```
 
 Whether `balance()` derives, caches incrementally, or materialises is the

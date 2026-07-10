@@ -1,17 +1,23 @@
 # @silvio/ui-shared
 
-Shared TypeScript library for the Silvio LETS UIs (`ui/member` and
-`ui/admin`). Deliberately free of React and MUI so both apps can consume it.
+Shared TypeScript library for the Silvio LETS UIs (`ui/member`, `ui/admin`
+and `ui/operator`). Deliberately free of React and MUI so all the apps can
+consume it.
 
 ## Contents
 
 - `src/client.ts` — `ApiClient`, a typed HTTP client over global `fetch` for
   the Silvio REST API. Same-origin cookie sessions (`credentials: 'include'`);
   supports hostname-based tenancy by default with the `/api/v1/g/{slug}` path
-  prefix as a fallback (`group` option). Covers auth/profile, directory,
-  payments/invoices, transaction actions, marketplace listings, categories,
-  applications, the admin endpoints (members, policies, demurrage bands,
-  restrictions, flags, reversals, categories) and platform operator endpoints.
+  prefix as a fallback (`group` option). Covers auth/profile (including
+  password reset, verification and invites), directory, household persons,
+  payments/invoices, signed QR payment requests, transaction actions, API
+  tokens, marketplace listings and photos, categories, search, group
+  balances, the app-shell info endpoint, applications, the admin endpoints
+  (members, act-as, policies, demurrage bands, restrictions, flags,
+  transactions/reversals, categories, CMS pages/news/images, branding,
+  email templates, broadcast, settings, audit) and platform operator
+  endpoints (login, provisioning, group management).
   Every failure — HTTP error, network failure, malformed body — surfaces as
   `ApiError` (`code`, `message`, `status`).
 - `src/money.ts` — `formatAmount` and `parseAmount`. Amounts are integer
@@ -32,8 +38,8 @@ npm install
 npm run build     # tsc -> dist/ (consumed by member and admin via file:../shared)
 ```
 
-Both apps depend on this package as `file:../shared`, so it must be built
-before installing or building them.
+All three apps depend on this package as `file:../shared`, so it must be
+built before installing or building them.
 
 ## Regenerating the API types
 

@@ -144,7 +144,7 @@ export interface User {
 }
 
 // One-time tokens (data-model §1): single-use expiring links for password
-// reset and email verification ('invite' reserved for member invitations).
+// reset, email verification and household invites (#23).
 // The raw token only ever appears in the emailed URL; hashed at rest like
 // sessions.
 export type OneTimeTokenPurpose = 'password_reset' | 'email_verify' | 'invite';
