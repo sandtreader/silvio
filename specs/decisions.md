@@ -848,3 +848,26 @@ adds the management surface.
   `organisation` is left alone.
 - Offline persons (no email, buddy-managed) remain valid rows — the
   proxy/buddy work (#2) builds on that later.
+
+## 24. Proxy: admin acts-for-member — DECIDED 2026-07-10
+
+The offline-member cure (#2; CamLETS buddy scheme, Falmouth's treasurer
+entering paper trading sheets), admin-flavoured first. Member-appointed
+buddies wait for a real group to shape the grant model.
+
+- **Acting context on the admin's own session**, not a second login:
+  `POST /admin/members/{id}/act-as` stamps `acting_member_id` on the
+  session row; `POST /me/stop-acting` clears it. Same cookie throughout —
+  fully reversible, nothing to restore, no shared passwords.
+- While acting, the session resolves to the target member for every
+  member-scoped route: the admin sees the member's app exactly as they
+  would. **Attribution never lies**: `auth.user` stays the admin, so
+  ledger rows created while acting carry the admin as `createdBy`, and
+  the act-as/stop events are audited with `acting_for_member_id` — the
+  column reserved for this in §8.
+- **Impersonation must not escalate**: while acting, issuing API tokens
+  and managing household persons are refused (access grants), and admin
+  routes themselves 403 (the session presents as the member, who is not
+  an admin). Acting is confined to the admin's own group.
+- Surfaced honestly: `/me` and `/shell` carry the acting state; the
+  member app shows a persistent "Acting for {name} — stop" banner.
