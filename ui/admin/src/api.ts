@@ -115,6 +115,11 @@ export interface AdminApi {
     id: string,
     patch: { name?: string; parentId?: string },
   ): Promise<Category | undefined>;
+  /** Delete a category; 'needs-move' means it has listings and wants a moveTo. */
+  adminDeleteCategory(
+    id: string,
+    moveTo?: string,
+  ): Promise<{ moved: number } | 'needs-move' | undefined>;
   adminPages(): Promise<Page[] | undefined>;
   adminCreatePage(input: PageInput): Promise<Page | undefined>;
   adminUpdatePage(id: string, patch: Partial<PageInput>): Promise<Page | undefined>;
@@ -183,6 +188,22 @@ export const api: AdminApi = {
     (await call(client.adminCreateCategory(input)))?.category,
   adminUpdateCategory: async (id, patch) =>
     (await call(client.adminUpdateCategory(id, patch)))?.category,
+  adminDeleteCategory: async (id, moveTo) => {
+    try {
+      return await client.adminDeleteCategory(id, moveTo);
+    } catch (cause) {
+      // The listings 422 asks for a moveTo (its message says so); re-prompt
+      // instead of snackbaring. Everything else takes the normal path.
+      if (
+        cause instanceof ApiError &&
+        cause.status === 422 &&
+        cause.message.includes('moveTo')
+      ) {
+        return 'needs-move';
+      }
+      return call(Promise.reject(cause));
+    }
+  },
   adminPages: async () => (await call(client.adminPages()))?.pages,
   adminCreatePage: async (input) => (await call(client.adminCreatePage(input)))?.page,
   adminUpdatePage: async (id, patch) =>

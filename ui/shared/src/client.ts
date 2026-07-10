@@ -601,6 +601,12 @@ export class ApiClient {
     return this.tenant('PATCH', `/admin/categories/${encodeURIComponent(id)}`, patch);
   }
 
+  /** Delete a category; moveTo recategorises its listings first. */
+  adminDeleteCategory(id: string, moveTo?: string): Promise<{ ok: boolean; moved: number }> {
+    const query = moveTo === undefined ? '' : `?moveTo=${encodeURIComponent(moveTo)}`;
+    return this.tenant('DELETE', `/admin/categories/${encodeURIComponent(id)}${query}`);
+  }
+
   // --- CMS content (decision #13) --------------------------------------------
 
   adminPages(): Promise<{ pages: Page[] }> {

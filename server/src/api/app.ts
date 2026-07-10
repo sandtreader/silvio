@@ -2714,6 +2714,53 @@ export async function buildApp(
         },
       );
 
+      scope.delete(
+        '/admin/categories/:id',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            querystring: {
+              type: 'object',
+              properties: { moveTo: { type: 'string' } },
+            },
+            response: respond(
+              200,
+              body({ ok: { type: 'boolean' }, moved: { type: 'integer' } }),
+            ),
+          },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          const { moveTo } = request.query as { moveTo?: string };
+          const category = await targetCategory(request, id);
+          if (await storage.categoryHasChildren(id)) {
+            throw new DomainError('LIMIT_BREACHED', 'delete or move its subcategories first');
+          }
+          if (moveTo === id) {
+            throw new DomainError('INVALID', 'moveTo must be a different category');
+          }
+          if (moveTo !== undefined) await targetCategory(request, moveTo);
+          let moved = 0;
+          if (await storage.categoryHasListings(id)) {
+            if (moveTo === undefined) {
+              throw new DomainError(
+                'LIMIT_BREACHED',
+                'this category has listings; pass moveTo to recategorise them',
+              );
+            }
+            moved = await storage.recategoriseListings(id, moveTo);
+          }
+          await storage.deleteCategory(id);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'category.delete', entityType: 'category', entityId: id,
+            detail: { name: category.name, moved },
+          });
+          return { ok: true, moved };
+        },
+      );
+
       // --- CMS pages (decision #13): admin-authored markdown, rendered on
       // the brochure (brochure.ts). Slugs are url-safe lowercase, unique per
       // group — a duplicate is a storage CONFLICT, mapped to 409.

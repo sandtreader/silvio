@@ -292,6 +292,19 @@ describe('path construction', () => {
     expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({ name: 'Garden' });
   });
 
+  it('deletes a category, recategorising via moveTo', async () => {
+    const mock = stubFetch(200, { ok: true, moved: 0 });
+    const client = new ApiClient({ group: 'g1' });
+    await client.adminDeleteCategory('cat-1');
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/categories/cat-1');
+    expect(lastCall(mock).init.method).toBe('DELETE');
+    const { moved } = await client.adminDeleteCategory('cat-1', 'cat/2');
+    expect(lastCall(mock).url).toBe(
+      '/api/v1/g/g1/admin/categories/cat-1?moveTo=cat%2F2',
+    );
+    expect(moved).toBe(0);
+  });
+
   it('uses admin routes with the right methods', async () => {
     const mock = stubFetch(200, { bands: [] });
     const client = new ApiClient({ group: 'g1' });

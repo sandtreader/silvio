@@ -2101,6 +2101,28 @@ export class SqliteStorage implements Storage {
     );
   }
 
+  deleteCategory(id: Id): Promise<void> {
+    this.db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+    return Promise.resolve();
+  }
+
+  categoryHasChildren(id: Id): Promise<boolean> {
+    const row = this.db.prepare('SELECT 1 FROM categories WHERE parent_id = ? LIMIT 1').get(id);
+    return Promise.resolve(row !== undefined);
+  }
+
+  categoryHasListings(id: Id): Promise<boolean> {
+    const row = this.db.prepare('SELECT 1 FROM listings WHERE category_id = ? LIMIT 1').get(id);
+    return Promise.resolve(row !== undefined);
+  }
+
+  recategoriseListings(fromCategoryId: Id, toCategoryId: Id): Promise<number> {
+    const result = this.db
+      .prepare('UPDATE listings SET category_id = ? WHERE category_id = ?')
+      .run(toCategoryId, fromCategoryId);
+    return Promise.resolve(result.changes);
+  }
+
   createListing(input: {
     groupId: Id;
     memberId: Id;

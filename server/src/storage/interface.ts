@@ -460,6 +460,12 @@ export interface Storage extends Ledger {
   getCategory(id: Id): Promise<Category>;
   updateCategory(id: Id, patch: { name?: string; parentId?: Id }): Promise<Category>;
   listCategories(groupId: Id): Promise<Category[]>;
+  /** Hard-delete; the deletion rules (children, listings) live in the route layer. */
+  deleteCategory(id: Id): Promise<void>;
+  categoryHasChildren(id: Id): Promise<boolean>;
+  categoryHasListings(id: Id): Promise<boolean>;
+  /** Move every listing to another category; resolves the number moved. */
+  recategoriseListings(fromCategoryId: Id, toCategoryId: Id): Promise<number>;
   createListing(input: {
     groupId: Id;
     memberId: Id;

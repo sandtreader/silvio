@@ -1,6 +1,7 @@
 // Marketplace categories page: the group's category tree (children indented
-// under their parent), an add dialog (name + optional parent) and inline
-// rename. Errors surface through the api layer's snackbar (decision #11).
+// under their parent), an add dialog (name + optional parent), inline rename
+// and delete (server-driven: a listings 422 re-prompts for a moveTo target).
+// Errors surface through the api layer's snackbar (decision #11).
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -24,6 +25,7 @@ import {
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import type { Category } from '@silvio/ui-shared';
 import { api as realApi, type AdminApi } from '../api';
@@ -68,6 +70,11 @@ export function CategoriesPage({ api = realApi }: { api?: AdminApi }) {
   // Rename dialog state
   const [renaming, setRenaming] = useState<Category>();
   const [newName, setNewName] = useState('');
+
+  // Delete dialog state; needsMove appears when the server 422s for listings
+  const [deleting, setDeleting] = useState<Category>();
+  const [needsMove, setNeedsMove] = useState(false);
+  const [moveTarget, setMoveTarget] = useState('');
 
   const refresh = useCallback(async () => {
     const listed = await api.categories();
@@ -117,6 +124,28 @@ export function CategoriesPage({ api = realApi }: { api?: AdminApi }) {
     }
   };
 
+  const openDelete = (category: Category) => {
+    setNeedsMove(false);
+    setMoveTarget('');
+    setDeleting(category);
+  };
+
+  const submitDelete = async () => {
+    if (deleting === undefined) return;
+    const result =
+      needsMove && moveTarget !== ''
+        ? await api.adminDeleteCategory(deleting.id, moveTarget)
+        : await api.adminDeleteCategory(deleting.id);
+    if (result === 'needs-move') {
+      setNeedsMove(true);
+      return;
+    }
+    if (result !== undefined) {
+      setDeleting(undefined);
+      await refresh();
+    }
+  };
+
   return (
     <Stack spacing={2} sx={{ marginTop: 2, maxWidth: 640 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -150,6 +179,13 @@ export function CategoriesPage({ api = realApi }: { api?: AdminApi }) {
                       onClick={() => openRename(category)}
                     >
                       <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      aria-label={`delete ${category.name}`}
+                      onClick={() => openDelete(category)}
+                    >
+                      <DeleteIcon fontSize="small" />
                     </IconButton>
                   </TableCell>
                 </TableRow>
@@ -220,6 +256,54 @@ export function CategoriesPage({ api = realApi }: { api?: AdminApi }) {
             onClick={() => void submitRename()}
           >
             Rename
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete dialog; a listings 422 turns it into a move-and-delete */}
+      <Dialog
+        open={deleting !== undefined}
+        onClose={() => setDeleting(undefined)}
+        fullWidth
+      >
+        <DialogTitle>Delete category</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ marginTop: 1 }}>
+            <Typography>{`Delete “${deleting?.name ?? ''}”?`}</Typography>
+            {needsMove && (
+              <>
+                <Alert severity="info">
+                  This category has listings — choose where they go.
+                </Alert>
+                <TextField
+                  select
+                  label="Move listings to"
+                  value={moveTarget}
+                  onChange={(e) => setMoveTarget(e.target.value)}
+                  fullWidth
+                >
+                  {rows
+                    .filter(({ category }) => category.id !== deleting?.id)
+                    .map(({ category, depth }) => (
+                      <MenuItem key={category.id} value={category.id}>
+                        {' '.repeat(depth * 4)}
+                        {category.name}
+                      </MenuItem>
+                    ))}
+                </TextField>
+              </>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleting(undefined)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={needsMove && moveTarget === ''}
+            onClick={() => void submitDelete()}
+          >
+            Delete
           </Button>
         </DialogActions>
       </Dialog>

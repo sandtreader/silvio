@@ -69,4 +69,45 @@ describe('CategoriesPage', () => {
       }),
     );
   });
+
+  it('deletes an empty category after confirmation', async () => {
+    const api = makeMockApi();
+    api.categories.mockResolvedValue(categories);
+    api.adminDeleteCategory.mockResolvedValue({ moved: 0 });
+
+    render(<CategoriesPage api={api} />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: /delete services/i }),
+    );
+    expect(await screen.findByText(/delete .services./i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+    await waitFor(() =>
+      expect(api.adminDeleteCategory).toHaveBeenCalledWith('cat-3'),
+    );
+    expect(api.categories).toHaveBeenCalledTimes(2); // refreshed
+  });
+
+  it('re-prompts for a moveTo target when the category has listings', async () => {
+    const api = makeMockApi();
+    api.categories.mockResolvedValue(categories);
+    api.adminDeleteCategory
+      .mockResolvedValueOnce('needs-move')
+      .mockResolvedValueOnce({ moved: 3 });
+
+    render(<CategoriesPage api={api} />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: /delete services/i }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+
+    // Second step: pick a destination and retry
+    expect(await screen.findByText(/has listings/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText(/move listings to/i));
+    await userEvent.click(await screen.findByRole('option', { name: /food/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+    await waitFor(() =>
+      expect(api.adminDeleteCategory).toHaveBeenLastCalledWith('cat-3', 'cat-1'),
+    );
+    expect(api.categories).toHaveBeenCalledTimes(2); // refreshed after success
+  });
 });

@@ -165,6 +165,7 @@ export function makeMockApi(): MockAdminApi {
     currencies: vi.fn().mockResolvedValue([makeCurrency()]),
     adminCreateCategory: vi.fn().mockResolvedValue(undefined),
     adminUpdateCategory: vi.fn().mockResolvedValue(undefined),
+    adminDeleteCategory: vi.fn().mockResolvedValue(undefined),
     adminPages: vi.fn().mockResolvedValue([]),
     adminCreatePage: vi.fn().mockResolvedValue(undefined),
     adminUpdatePage: vi.fn().mockResolvedValue(undefined),
