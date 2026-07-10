@@ -14,6 +14,8 @@ export type Id = string;
 // --- Entities as the API returns them --------------------------------------
 
 export type Group = Schemas['Group'];
+/** Per-group tunables; absent keys fall back to platform defaults. */
+export type GroupSettings = NonNullable<Group['settings']>;
 export type Currency = Schemas['Currency'];
 
 /** Full member record (own /me, and admin listings). */

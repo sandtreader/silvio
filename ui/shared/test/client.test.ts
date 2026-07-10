@@ -326,6 +326,18 @@ describe('path construction', () => {
 
     await client.patchAdminGroup({ emailFrom: null }); // clear → instance default
     expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({ emailFrom: null });
+
+    // Settings replace the whole object; name rides the same PATCH.
+    await client.patchAdminGroup({
+      name: 'CamLETS',
+      settings: { autoAcceptDays: 7, digestDefault: 'monthly' },
+    });
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/group');
+    expect(lastCall(mock).init.method).toBe('PATCH');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      name: 'CamLETS',
+      settings: { autoAcceptDays: 7, digestDefault: 'monthly' },
+    });
   });
 
   it('patches the digest frequency on /me (#17)', async () => {

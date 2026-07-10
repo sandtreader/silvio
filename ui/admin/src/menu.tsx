@@ -15,6 +15,7 @@ import { MembersPage } from './pages/MembersPage';
 import { NewsPage } from './pages/NewsPage';
 import { PagesPage } from './pages/PagesPage';
 import { PoliciesPage } from './pages/PoliciesPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { DemurragePage } from './pages/DemurragePage';
 import { FlagsPage } from './pages/FlagsPage';
 import { TransactionsPage } from './pages/TransactionsPage';
@@ -130,6 +131,14 @@ const pages: PageDefinition[] = [
     icon: 'send',
     content: <BroadcastPage />,
     requirements: ['admin.content'],
+  },
+  // Group name and per-group tunables (group.settings)
+  {
+    id: 'settings',
+    name: 'Settings',
+    icon: 'settings',
+    content: <SettingsPage />,
+    requirements: ['admin.settings'],
   },
 ];
 

@@ -17,6 +17,7 @@ import {
   type EmailTemplateKind,
   type Flag,
   type Group,
+  type GroupSettings,
   type Image,
   type Me,
   type Member,
@@ -131,7 +132,11 @@ export interface AdminApi {
   ): Promise<EmailTemplate | undefined>;
   deleteEmailTemplate(kind: EmailTemplateKind): Promise<boolean>;
   adminGroup(): Promise<Group | undefined>;
-  patchAdminGroup(patch: { emailFrom?: string | null }): Promise<Group | undefined>;
+  patchAdminGroup(patch: {
+    name?: string;
+    emailFrom?: string | null;
+    settings?: GroupSettings;
+  }): Promise<Group | undefined>;
   /** Broadcast to every active member (#17); resolves the queued count. */
   adminBroadcast(subject: string, body: string): Promise<number | undefined>;
 }
