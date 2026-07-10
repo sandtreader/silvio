@@ -5,6 +5,7 @@
 import BalanceIcon from '@mui/icons-material/Balance';
 import KeyIcon from '@mui/icons-material/Key';
 import LogoutIcon from '@mui/icons-material/Logout';
+import PeopleIcon from '@mui/icons-material/People';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -170,6 +171,20 @@ export function More() {
         sx={{ mb: 2 }}
       >
         API tokens
+      </Button>
+
+      {/* Joint-membership household: who shares this membership (#23) */}
+      <Typography variant="h6" sx={{ mb: 1 }}>
+        Membership
+      </Typography>
+      <Button
+        variant="outlined"
+        startIcon={<PeopleIcon />}
+        onClick={() => void navigate('/household')}
+        fullWidth
+        sx={{ mb: 2 }}
+      >
+        Household
       </Button>
 
       <Typography variant="h6" sx={{ mb: 1 }}>

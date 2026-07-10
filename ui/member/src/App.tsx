@@ -16,6 +16,8 @@ import { Apply } from './pages/Apply';
 import { Balances } from './pages/Balances';
 import { Forgot } from './pages/Forgot';
 import { Home } from './pages/Home';
+import { Household } from './pages/Household';
+import { Invite } from './pages/Invite';
 import { Login } from './pages/Login';
 import { Market } from './pages/Market';
 import { More } from './pages/More';
@@ -85,6 +87,15 @@ const routes = [
           </RequireAuth>
         ),
       },
+      // Joint-membership household management (#23): reached from More.
+      {
+        path: '/household',
+        element: (
+          <RequireAuth>
+            <Household />
+          </RequireAuth>
+        ),
+      },
       // Group balances transparency view (#19): reached from More; the page
       // itself explains when the group doesn't publish balances.
       {
@@ -99,10 +110,12 @@ const routes = [
   },
   { path: '/login', element: <Login /> },
   { path: '/apply', element: <Apply /> },
-  // Public token/email flows: the emails link to /app/reset and /app/verify.
+  // Public token/email flows: the emails link to /app/reset, /app/verify
+  // and /app/invite (joint-member invites, #23).
   { path: '/forgot', element: <Forgot /> },
   { path: '/reset', element: <Reset /> },
   { path: '/verify', element: <Verify /> },
+  { path: '/invite', element: <Invite /> },
 ];
 
 const router = createBrowserRouter(routes, { basename: '/app' });

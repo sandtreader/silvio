@@ -555,6 +555,43 @@ describe('API token routes (decision #9)', () => {
   });
 });
 
+describe('joint membership routes (decision #23)', () => {
+  it('lists, adds and removes household persons', async () => {
+    const mock = stubFetch(200, { persons: [] });
+    const client = new ApiClient({ group: 'g1' });
+    await client.myPersons();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/me/persons');
+    expect(lastCall(mock).init.method).toBe('GET');
+
+    await client.addPerson('Bob', 'bob@x.y');
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/me/persons');
+    expect(lastCall(mock).init.method).toBe('POST');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      name: 'Bob',
+      email: 'bob@x.y',
+    });
+
+    await client.removePerson('p/1'); // encoding
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/me/persons/p%2F1');
+    expect(lastCall(mock).init.method).toBe('DELETE');
+  });
+
+  it('accepts an invite with token and password', async () => {
+    const mock = stubFetch(200, { ok: true });
+    const { ok } = await new ApiClient({ group: 'g1' }).acceptInvite(
+      'tok-1',
+      'new password',
+    );
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/auth/accept-invite');
+    expect(lastCall(mock).init.method).toBe('POST');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      token: 'tok-1',
+      password: 'new password',
+    });
+    expect(ok).toBe(true);
+  });
+});
+
 describe('error handling', () => {
   it('parses the {error: {code, message}} shape into ApiError', async () => {
     stubFetch(403, { error: { code: 'NOT_AUTHORISED', message: 'admin role required' } });

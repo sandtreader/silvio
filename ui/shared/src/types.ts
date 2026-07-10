@@ -42,6 +42,10 @@ export type Category = Schemas['Category'];
 export type Listing = Schemas['Listing'];
 
 export type ApiToken = Schemas['ApiToken'];
+
+/** One person on a (joint) membership (#23); no userId means their invite
+ * is still outstanding. */
+export type Person = Schemas['Person'];
 /** Member-grantable MCP/API token scope (decision #9). */
 export type ApiScope = ApiToken['scopes'][number];
 

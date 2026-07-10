@@ -37,6 +37,7 @@ import type {
   PageVisibility,
   PaymentRequestInput,
   PendingItem,
+  Person,
   Policy,
   Restriction,
   SearchDomain,
@@ -262,6 +263,12 @@ export class ApiClient {
     return this.tenant('POST', '/auth/verify', { token });
   }
 
+  /** Joint-member invite acceptance (#23): single-use emailed token + the
+   * invitee's chosen password; 400 when invalid, expired or already used. */
+  acceptInvite(token: string, password: string): Promise<{ ok: boolean }> {
+    return this.tenant('POST', '/auth/accept-invite', { token, password });
+  }
+
   me(): Promise<Me> {
     return this.tenant('GET', '/me');
   }
@@ -307,6 +314,23 @@ export class ApiClient {
 
   deleteMyPhoto(): Promise<{ ok: boolean }> {
     return this.tenant('DELETE', '/me/photo');
+  }
+
+  // Joint memberships (#23): the persons sharing this membership. Adding an
+  // email with no account sends a 7-day invite (an existing account links
+  // silently); removal revokes that person's access to this membership and
+  // 422s when they are the last one.
+
+  myPersons(): Promise<{ persons: Person[] }> {
+    return this.tenant('GET', '/me/persons');
+  }
+
+  addPerson(name: string, email: string): Promise<{ person: Person }> {
+    return this.tenant('POST', '/me/persons', { name, email });
+  }
+
+  removePerson(id: string): Promise<{ ok: boolean }> {
+    return this.tenant('DELETE', `/me/persons/${encodeURIComponent(id)}`);
   }
 
   // API tokens (decision #9): personal access tokens for MCP agents/apps.
