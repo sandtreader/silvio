@@ -418,18 +418,55 @@ describe('path construction', () => {
     expect(lastCall(mock).url).toBe('/api/v1/operator/groups');
   });
 
-  it('routes operator login and group creation', async () => {
+  it('routes operator login and group provisioning', async () => {
     const mock = stubFetch(201, { group: {}, currency: {} });
     const client = new ApiClient({ baseUrl: 'https://silvio.example' });
     await client.operatorLogin('op@x.y', 'pw');
     expect(lastCall(mock).url).toBe('https://silvio.example/api/v1/operator/login');
-    await client.operatorCreateGroup({
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      email: 'op@x.y',
+      password: 'pw',
+    });
+    await client.provisionGroup({
       slug: 's',
       name: 'n',
       currency: { code: 'CAM', name: 'Cam' },
     });
     expect(lastCall(mock).url).toBe('https://silvio.example/api/v1/operator/groups');
     expect(lastCall(mock).init.method).toBe('POST');
+  });
+
+  it('patches an operator group, passing nullable plan/notes through', async () => {
+    const mock = stubFetch(200, { group: { id: 'g-1', status: 'suspended' } });
+    const { group } = await new ApiClient().patchOperatorGroup('g-1', {
+      status: 'suspended',
+      plan: null,
+      notes: 'paused pending renewal',
+    });
+    expect(lastCall(mock).url).toBe('/api/v1/operator/groups/g-1');
+    expect(lastCall(mock).init.method).toBe('PATCH');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      status: 'suspended',
+      plan: null,
+      notes: 'paused pending renewal',
+    });
+    expect(group.status).toBe('suspended');
+  });
+
+  it('adds and removes group domains, encoding the hostname', async () => {
+    const mock = stubFetch(200, { ok: true });
+    const client = new ApiClient();
+    await client.addGroupDomain('g-1', 'lets.example.org');
+    expect(lastCall(mock).url).toBe('/api/v1/operator/groups/g-1/domains');
+    expect(lastCall(mock).init.method).toBe('POST');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      hostname: 'lets.example.org',
+    });
+    await client.removeGroupDomain('g-1', 'lets.example.org');
+    expect(lastCall(mock).url).toBe(
+      '/api/v1/operator/groups/g-1/domains/lets.example.org',
+    );
+    expect(lastCall(mock).init.method).toBe('DELETE');
   });
 });
 

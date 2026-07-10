@@ -30,6 +30,8 @@ import type {
   MemberRole,
   MemberStatus,
   NewsItem,
+  OperatorGroup,
+  OperatorGroupPatch,
   Page,
   PageVisibility,
   PendingItem,
@@ -629,21 +631,41 @@ export class ApiClient {
     return this.tenant('DELETE', `/admin/news/${encodeURIComponent(id)}`);
   }
 
-  // --- Operator (platform level, outside any tenant) -------------------------
+  // --- Operator (platform level, outside any tenant; decision #21) -----------
 
   operatorLogin(email: string, password: string): Promise<{ ok: boolean }> {
     return this.operator('POST', '/login', { email, password });
   }
 
-  operatorGroups(): Promise<{ groups: Group[] }> {
+  operatorGroups(): Promise<{ groups: OperatorGroup[] }> {
     return this.operator('GET', '/groups');
   }
 
-  operatorCreateGroup(input: CreateGroupInput): Promise<{
+  provisionGroup(input: CreateGroupInput): Promise<{
     group: Group;
     currency: Currency;
     admin?: Member;
   }> {
     return this.operator('POST', '/groups', input);
+  }
+
+  patchOperatorGroup(
+    id: string,
+    patch: OperatorGroupPatch,
+  ): Promise<{ group: OperatorGroup }> {
+    return this.operator('PATCH', `/groups/${encodeURIComponent(id)}`, patch);
+  }
+
+  addGroupDomain(id: string, hostname: string): Promise<{ ok: boolean }> {
+    return this.operator('POST', `/groups/${encodeURIComponent(id)}/domains`, {
+      hostname,
+    });
+  }
+
+  removeGroupDomain(id: string, hostname: string): Promise<{ ok: boolean }> {
+    return this.operator(
+      'DELETE',
+      `/groups/${encodeURIComponent(id)}/domains/${encodeURIComponent(hostname)}`,
+    );
   }
 }

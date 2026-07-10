@@ -48,8 +48,10 @@ function uiDist(envVar: string, fallback: string): string | undefined {
 const ui: NonNullable<BuildAppOptions['ui']> = {};
 const memberDist = uiDist('SILVIO_MEMBER_UI', 'ui/member/dist');
 const adminDist = uiDist('SILVIO_ADMIN_UI', 'ui/admin/dist');
+const operatorDist = uiDist('SILVIO_OPERATOR_UI', 'ui/operator/dist');
 if (memberDist !== undefined) ui.memberDist = memberDist;
 if (adminDist !== undefined) ui.adminDist = adminDist;
+if (operatorDist !== undefined) ui.operatorDist = operatorDist;
 
 const app = await buildApp(storage, { ui });
 const stopScheduler = startScheduler(storage);

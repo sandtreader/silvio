@@ -55,8 +55,14 @@ describe('brochure site & app shell (#12)', () => {
       join(adminDist, 'index.html'),
       '<!doctype html><html><body><div id="admin-root"></div></body></html>\n',
     );
+    const operatorDist = join(distRoot, 'operator');
+    mkdirSync(operatorDist, { recursive: true });
+    writeFileSync(
+      join(operatorDist, 'index.html'),
+      '<!doctype html><html><body><div id="operator-root"></div></body></html>\n',
+    );
 
-    app = await buildApp(storage, { ui: { memberDist, adminDist } });
+    app = await buildApp(storage, { ui: { memberDist, adminDist, operatorDist } });
     await app.ready();
   });
 
@@ -277,6 +283,21 @@ describe('brochure site & app shell (#12)', () => {
       });
       expect(res.statusCode).toBe(200);
       expect(res.body).toContain('admin-root');
+    });
+
+    // Operator console (#21): host-independent, so it serves even on a
+    // hostname that resolves to no group.
+    it('the operator console serves at /operator/ with SPA fallback', async () => {
+      const index = await app.inject({
+        method: 'GET', url: '/operator/', headers: { host: 'nogroup.example.net' },
+      });
+      expect(index.statusCode).toBe(200);
+      expect(index.body).toContain('operator-root');
+      const deep = await app.inject({
+        method: 'GET', url: '/operator/groups', headers: { host: HOST },
+      });
+      expect(deep.statusCode).toBe(200);
+      expect(deep.body).toContain('operator-root');
     });
   });
 });

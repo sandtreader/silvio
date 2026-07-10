@@ -233,6 +233,7 @@ export interface BuildAppOptions {
   ui?: {
     memberDist?: string; // built member app, served at /app/ (decision #12)
     adminDist?: string; // built admin app, served at /admin/
+    operatorDist?: string; // built operator console, served at /operator/ (#21)
   };
 }
 
@@ -389,6 +390,7 @@ export async function buildApp(
   // rather than the raw file.
   const memberDist = opts.ui?.memberDist;
   const adminDist = opts.ui?.adminDist;
+  const operatorDist = opts.ui?.operatorDist;
 
   // The member app's index.html, read once and served untouched (#15,
   // amending #12's shell injection): the service worker answers every
@@ -416,6 +418,14 @@ export async function buildApp(
       decorateReply: memberDist === undefined,
     });
   }
+  if (operatorDist !== undefined) {
+    await app.register(fastifyStatic, {
+      root: operatorDist,
+      prefix: '/operator/',
+      // decorateReply only on the first fastify-static registration
+      decorateReply: memberDist === undefined && adminDist === undefined,
+    });
+  }
 
   // Public brochure site (decision #12): server-rendered / and /market,
   // registered whether or not the built member app is available.
@@ -426,6 +436,9 @@ export async function buildApp(
     if (request.method === 'GET' && !path.startsWith('/api/')) {
       if (adminDist !== undefined && path.startsWith('/admin')) {
         return reply.sendFile('index.html', adminDist);
+      }
+      if (operatorDist !== undefined && path.startsWith('/operator')) {
+        return reply.sendFile('index.html', operatorDist);
       }
       if (memberDist !== undefined && path.startsWith('/app')) {
         return serveAppShell(memberDist, reply);

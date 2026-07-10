@@ -102,6 +102,17 @@ export type SearchDomain = SearchResult['domain'];
 export type AdminStats =
   paths['/api/v1/admin/stats']['get']['responses']['200']['content']['application/json'];
 
+// --- Operator console (decision #21) -------------------------------------------
+
+/** Group as the operator routes return it: Group plus notes, always with
+ * status and (optionally) plan. */
+export type OperatorGroup =
+  paths['/api/v1/operator/groups']['get']['responses']['200']['content']['application/json']['groups'][number];
+
+/** PATCH /operator/groups/{id} body: null clears plan/notes. */
+export type OperatorGroupPatch =
+  paths['/api/v1/operator/groups/{id}']['patch']['requestBody']['content']['application/json'];
+
 // --- Audit log ----------------------------------------------------------------
 
 /** One audit-log event (GET /admin/audit): dotted action (e.g.
