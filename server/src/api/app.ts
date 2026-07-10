@@ -61,6 +61,7 @@ import {
   sendEmailVerification,
   verifyEmail,
 } from '../services/recovery.js';
+import { acceptInvite, addPerson, removePerson } from '../services/persons.js';
 import { provisionGroup } from '../services/provisioning.js';
 import { apply, approve, leave, reinstate, suspend } from '../services/membership.js';
 import {
@@ -700,6 +701,30 @@ export async function buildApp(
         async (request) => {
           const body = request.body as { token: string; password: string };
           await resetPassword(storage, body.token, body.password);
+          return { ok: true };
+        },
+      );
+
+      // Joint members (#23): accept an emailed invite — creates the login,
+      // links the person(s), and counts as email verification.
+      scope.post(
+        '/auth/accept-invite',
+        {
+          schema: {
+            body: {
+              type: 'object',
+              required: ['token', 'password'],
+              properties: {
+                token: { type: 'string' },
+                password: { type: 'string' },
+              },
+            },
+            response: respond(200, OK_RESPONSE),
+          },
+        },
+        async (request) => {
+          const body = request.body as { token: string; password: string };
+          await acceptInvite(storage, body.token, body.password);
           return { ok: true };
         },
       );
@@ -1759,6 +1784,73 @@ export async function buildApp(
       scope.post('/mcp', { schema: { hide: true } }, mcpHandler);
       scope.get('/mcp', { schema: { hide: true } }, mcpHandler);
       scope.delete('/mcp', { schema: { hide: true } }, mcpHandler);
+
+      // --- Joint members: the persons surface (#23) -------------------------
+      // Any person on a membership manages its people; adds and removes are
+      // audited — they grant and revoke account access.
+
+      scope.get(
+        '/me/persons',
+        {
+          preHandler: requireMember,
+          schema: { response: respond(200, body({ persons: arrayOf('Person') })) },
+        },
+        async (request) => {
+          return { persons: await storage.personsForMember(request.auth!.member.id) };
+        },
+      );
+
+      scope.post(
+        '/me/persons',
+        {
+          preHandler: requireMember,
+          schema: {
+            body: {
+              type: 'object',
+              required: ['name', 'email'],
+              properties: {
+                name: { type: 'string' },
+                email: { type: 'string' },
+              },
+            },
+            response: respond(201, body({ person: ref('Person') })),
+          },
+        },
+        async (request, reply) => {
+          const payload = request.body as { name: string; email: string };
+          const { person } = await addPerson(
+            storage,
+            request.auth!.member.id,
+            payload,
+            baseUrlFrom(request),
+          );
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'person.add', entityType: 'person', entityId: person.id,
+            detail: { name: payload.name },
+          });
+          reply.status(201);
+          return { person };
+        },
+      );
+
+      scope.delete(
+        '/me/persons/:id',
+        {
+          preHandler: requireMember,
+          schema: { params: ID_PARAM_SCHEMA, response: respond(200, OK_RESPONSE) },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          const person = await removePerson(storage, request.auth!.member.id, id);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'person.remove', entityType: 'person', entityId: id,
+            detail: { name: person.name },
+          });
+          return { ok: true };
+        },
+      );
 
       // --- API token management (decision #9) -------------------------------
       // Cookie-only by design (no scopes config): a token must never mint,

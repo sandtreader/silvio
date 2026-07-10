@@ -26,6 +26,7 @@ import type {
   Member,
   NewsItem,
   Page,
+  Person,
   Restriction,
   SearchResult,
   StatementLine,
@@ -205,6 +206,22 @@ const MEMBER = {
     closedAt: { type: 'string' },
     // Derived from the images table, populated at the API layer (#14 phase 2).
     photoId: { type: 'string' },
+  },
+} as const;
+
+// A person on a membership (#23): userId absent until an invite is accepted
+// (or indefinitely, for offline buddy-managed people).
+const PERSON = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'memberId', 'isPrimary', 'name'],
+  properties: {
+    id: { type: 'string' },
+    memberId: { type: 'string' },
+    userId: { type: 'string' },
+    isPrimary: { type: 'boolean' },
+    name: { type: 'string' },
+    email: { type: 'string' },
   },
 } as const;
 
@@ -577,6 +594,7 @@ export const sharedSchemas = [
   { $id: 'Entry', ...ENTRY },
   { $id: 'Transaction', ...TRANSACTION },
   { $id: 'Member', ...MEMBER },
+  { $id: 'Person', ...PERSON },
   { $id: 'PublicMember', ...PUBLIC_MEMBER },
   { $id: 'PendingItem', ...PENDING_ITEM },
   { $id: 'StatementLine', ...STATEMENT_LINE },
@@ -618,6 +636,7 @@ type _DriftGuards = [
   Expect<Equal<FromSchema<typeof ENTRY>, Entry>>,
   Expect<Equal<FromSchema<typeof TRANSACTION>, Transaction>>,
   Expect<Equal<FromSchema<typeof MEMBER>, Member>>,
+  Expect<Equal<FromSchema<typeof PERSON>, Person>>,
   // PublicMember's photoId lives in the WITH_PHOTO variant (#14 phase 2), so
   // that schema is the one guarded against the interface.
   Expect<Equal<FromSchema<typeof PUBLIC_MEMBER_WITH_PHOTO>, PublicMember>>,

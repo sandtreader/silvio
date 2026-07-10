@@ -54,7 +54,9 @@ Remaining server-side work, grouped by area. References are to
       failures/15 min per email, 30 per IP; 429 + Retry-After)
 - [x] CSRF protection for cookie sessions (SameSite=lax + Origin check on
       state-changing /api/* requests)
-- [ ] Joint members: persons CRUD API (add/remove person on a membership)
+- [x] Joint members: persons CRUD API (#23: GET/POST/DELETE /me/persons,
+      invite emails + POST /auth/accept-invite, last-person guard, access
+      revocation on removal, individual->joint auto-typing)
 - [ ] GDPR: anonymise-on-exit after retention window (#7); data export
 - [ ] Proxy/buddy: admin acts-for-member ("login as") with audit trail (#2)
 - [x] Member photos — done via Image store phase 2 (#14) under Content

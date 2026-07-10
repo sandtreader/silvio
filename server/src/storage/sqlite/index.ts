@@ -1008,6 +1008,17 @@ export class SqliteStorage implements Storage {
     return Promise.resolve();
   }
 
+  revokeSessionsForMember(userId: Id, memberId: Id): Promise<void> {
+    // Only this membership's context (#23): other logins survive.
+    this.db
+      .prepare(
+        `UPDATE sessions SET revoked_at = ?
+         WHERE user_id = ? AND member_id = ? AND revoked_at IS NULL`,
+      )
+      .run(now(), userId, memberId);
+    return Promise.resolve();
+  }
+
   updateUserPassword(userId: Id, passwordHash: string): Promise<void> {
     const result = this.db
       .prepare('UPDATE users SET password_hash = ? WHERE id = ?')
@@ -1199,6 +1210,7 @@ export class SqliteStorage implements Storage {
       confirmIncoming?: boolean;
       role?: MemberRole;
       digestFrequency?: DigestFrequency;
+      type?: MemberType;
     },
   ): Promise<Member> {
     try {
@@ -1218,6 +1230,9 @@ export class SqliteStorage implements Storage {
         this.db
           .prepare('UPDATE members SET digest_frequency = ? WHERE id = ?')
           .run(patch.digestFrequency, id);
+      }
+      if (patch.type !== undefined) {
+        this.db.prepare('UPDATE members SET type = ? WHERE id = ?').run(patch.type, id);
       }
       return Promise.resolve(this.loadMember(id));
     } catch (err) {
@@ -1295,23 +1310,49 @@ export class SqliteStorage implements Storage {
     }
   }
 
+  private personFromRow(row: PersonRow): Person {
+    const person: Person = {
+      id: row.id,
+      memberId: row.member_id,
+      isPrimary: row.is_primary !== 0,
+      name: row.name,
+    };
+    if (row.user_id !== null) person.userId = row.user_id;
+    if (row.email !== null) person.email = row.email;
+    return person;
+  }
+
   personsForMember(memberId: Id): Promise<Person[]> {
     const rows = this.db
       .prepare('SELECT * FROM persons WHERE member_id = ? ORDER BY id')
       .all(memberId) as PersonRow[];
-    return Promise.resolve(
-      rows.map((row) => {
-        const person: Person = {
-          id: row.id,
-          memberId: row.member_id,
-          isPrimary: row.is_primary !== 0,
-          name: row.name,
-        };
-        if (row.user_id !== null) person.userId = row.user_id;
-        if (row.email !== null) person.email = row.email;
-        return person;
-      }),
-    );
+    return Promise.resolve(rows.map((row) => this.personFromRow(row)));
+  }
+
+  deletePerson(id: Id): Promise<void> {
+    const result = this.db.prepare('DELETE FROM persons WHERE id = ?').run(id);
+    if (result.changes === 0) {
+      return Promise.reject(new StorageError('NOT_FOUND', `person ${id} not found`));
+    }
+    return Promise.resolve();
+  }
+
+  linkPersonUser(personId: Id, userId: Id): Promise<Person> {
+    const result = this.db
+      .prepare('UPDATE persons SET user_id = ? WHERE id = ?')
+      .run(userId, personId);
+    if (result.changes === 0) {
+      return Promise.reject(new StorageError('NOT_FOUND', `person ${personId} not found`));
+    }
+    const row = this.db.prepare('SELECT * FROM persons WHERE id = ?').get(personId) as PersonRow;
+    return Promise.resolve(this.personFromRow(row));
+  }
+
+  unlinkedPersonsByEmail(email: string): Promise<Person[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM persons WHERE email = ? AND user_id IS NULL ORDER BY id')
+      .all(email) as PersonRow[];
+    return Promise.resolve(rows.map((row) => this.personFromRow(row)));
   }
 
   listCurrencies(groupId: Id): Promise<Currency[]> {

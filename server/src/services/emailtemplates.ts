@@ -23,6 +23,7 @@ export const EMAIL_TEMPLATE_KINDS = [
   'email_verify',
   'digest',
   'listing_expiry_warning',
+  'invite',
 ] as const;
 
 export type EmailTemplateKind = (typeof EMAIL_TEMPLATE_KINDS)[number];
@@ -134,6 +135,16 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<
       '{{groupName}} expires on {{expiresOn}}. Renew it in the app to reset ' +
       'the clock for a full shelf life; otherwise it will leave the ' +
       'marketplace on that day.',
+  },
+  // Joint members (#23): {{inviterName}} is the membership's display name,
+  // {{inviteUrl}} the single-use accept link (7-day expiry).
+  invite: {
+    subject: 'You have been added to {{inviterName}} at {{groupName}}',
+    body:
+      'You have been added as a person on the {{inviterName}} membership of ' +
+      '{{groupName}}. Follow this link to choose a password and activate ' +
+      'your login — it works once, within seven days:\n\n{{inviteUrl}}\n\n' +
+      'If you were not expecting this, you can ignore this email.',
   },
 };
 

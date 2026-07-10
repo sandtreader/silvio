@@ -208,6 +208,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/accept-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        token: string;
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/verify": {
         parameters: {
             query?: never;
@@ -1640,6 +1693,137 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/persons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            persons: components["schemas"]["Person"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        email: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            person: components["schemas"]["Person"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/persons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -3542,7 +3726,7 @@ export interface paths {
                         "application/json": {
                             templates: {
                                 /** @enum {string} */
-                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
+                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning" | "invite";
                                 subject: string;
                                 body: string;
                                 isDefault: boolean;
@@ -3583,7 +3767,7 @@ export interface paths {
                 header?: never;
                 path: {
                     slug: string;
-                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
+                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning" | "invite";
                 };
                 cookie?: never;
             };
@@ -3605,7 +3789,7 @@ export interface paths {
                         "application/json": {
                             template: {
                                 /** @enum {string} */
-                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
+                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning" | "invite";
                                 subject: string;
                                 body: string;
                                 isDefault: boolean;
@@ -3631,7 +3815,7 @@ export interface paths {
                 header?: never;
                 path: {
                     slug: string;
-                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
+                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning" | "invite";
                 };
                 cookie?: never;
             };
@@ -3822,6 +4006,61 @@ export interface paths {
         trace?: never;
     };
     "/api/v1/g/{slug}/auth/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        token: string;
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/g/{slug}/auth/accept-invite": {
         parameters: {
             query?: never;
             header?: never;
@@ -5352,6 +5591,141 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/g/{slug}/me/persons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            persons: components["schemas"]["Person"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        email: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            person: components["schemas"]["Person"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/g/{slug}/me/persons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -7298,7 +7672,7 @@ export interface paths {
                         "application/json": {
                             templates: {
                                 /** @enum {string} */
-                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
+                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning" | "invite";
                                 subject: string;
                                 body: string;
                                 isDefault: boolean;
@@ -7339,7 +7713,7 @@ export interface paths {
                 header?: never;
                 path: {
                     slug: string;
-                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
+                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning" | "invite";
                 };
                 cookie?: never;
             };
@@ -7361,7 +7735,7 @@ export interface paths {
                         "application/json": {
                             template: {
                                 /** @enum {string} */
-                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
+                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning" | "invite";
                                 subject: string;
                                 body: string;
                                 isDefault: boolean;
@@ -7387,7 +7761,7 @@ export interface paths {
                 header?: never;
                 path: {
                     slug: string;
-                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning";
+                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest" | "listing_expiry_warning" | "invite";
                 };
                 cookie?: never;
             };
@@ -7897,6 +8271,14 @@ export interface components {
             approvedAt?: string;
             closedAt?: string;
             photoId?: string;
+        };
+        Person: {
+            id: string;
+            memberId: string;
+            userId?: string;
+            isPrimary: boolean;
+            name: string;
+            email?: string;
         };
         PublicMember: {
             id: string;

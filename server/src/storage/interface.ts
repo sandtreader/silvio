@@ -279,6 +279,10 @@ export interface Storage extends Ledger {
   revokeSession(id: Id): Promise<void>;
   /** Every open session of the user (a password reset revokes all logins, §1). */
   revokeSessionsForUser(userId: Id): Promise<void>;
+  /** The user's open sessions in one membership's context only (#23):
+   *  removing a person from a joint member revokes that access, not their
+   *  logins elsewhere. */
+  revokeSessionsForMember(userId: Id, memberId: Id): Promise<void>;
   updateUserPassword(userId: Id, passwordHash: string): Promise<void>;
   markUserEmailVerified(userId: Id, whenIso: string): Promise<User>;
 
@@ -312,6 +316,7 @@ export interface Storage extends Ledger {
       confirmIncoming?: boolean;
       role?: MemberRole;
       digestFrequency?: DigestFrequency;
+      type?: MemberType; // individual -> joint auto-typing (#23)
     },
   ): Promise<Member>;
   setMemberStatus(id: Id, status: MemberStatus): Promise<Member>;
@@ -324,6 +329,12 @@ export interface Storage extends Ledger {
     isPrimary?: boolean;
   }): Promise<Person>;
   personsForMember(memberId: Id): Promise<Person[]>;
+  deletePerson(id: Id): Promise<void>; // #23
+  /** Attach a login to a person (accepted invite, #23). */
+  linkPersonUser(personId: Id, userId: Id): Promise<Person>;
+  /** Persons with this email and no login yet — invite acceptance links
+   *  them all (an email pending on two memberships joins both, #23). */
+  unlinkedPersonsByEmail(email: string): Promise<Person[]>;
 
   listCurrencies(groupId: Id): Promise<Currency[]>;
   getAccount(id: Id): Promise<Account>;
