@@ -16,6 +16,9 @@ RUN cd ui/member && npm ci && npm run build
 COPY ui/admin/ ui/admin/
 RUN cd ui/admin && npm ci && npm run build
 
+COPY ui/operator/ ui/operator/
+RUN cd ui/operator && npm ci && npm run build
+
 # Build with dev deps, then reinstall production-only for the runtime copy.
 COPY server/ server/
 RUN cd server && npm ci && npm run build && npm ci --omit=dev
@@ -27,7 +30,8 @@ ENV NODE_ENV=production \
     SILVIO_DB=/data/silvio.sqlite \
     SILVIO_BACKUP_DIR=/data/backups \
     SILVIO_MEMBER_UI=/app/ui/member/dist \
-    SILVIO_ADMIN_UI=/app/ui/admin/dist
+    SILVIO_ADMIN_UI=/app/ui/admin/dist \
+    SILVIO_OPERATOR_UI=/app/ui/operator/dist
 
 WORKDIR /app/server
 
@@ -36,6 +40,7 @@ COPY --from=build /build/server/node_modules ./node_modules
 COPY --from=build /build/server/dist ./dist
 COPY --from=build /build/ui/member/dist /app/ui/member/dist
 COPY --from=build /build/ui/admin/dist /app/ui/admin/dist
+COPY --from=build /build/ui/operator/dist /app/ui/operator/dist
 
 # /data holds the database and backups; owned by the unprivileged user so a
 # named volume inherits writable permissions.

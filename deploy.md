@@ -29,9 +29,12 @@ docker run -d --name silvio \
 
 On first boot the server creates the operator account from the two env
 vars (idempotent — they are ignored once an operator exists, so they can
-stay in place or be removed). Then log in via
-`POST /api/v1/operator/login` and create groups via
-`POST /api/v1/operator/groups`.
+stay in place or be removed). Then open the **operator console** at
+`/operator/` (any hostname the container answers on — it is
+host-independent), log in with those credentials, and provision and
+manage groups from there (#21). The same operations exist as plain API
+calls (`POST /api/v1/operator/login`, `/api/v1/operator/groups`) if you
+prefer curl.
 
 Prefer a named volume as above; the container runs as the unprivileged
 `node` user (uid 1000), so a bind mount (`-v /srv/silvio:/data`) must be
@@ -48,7 +51,7 @@ writable by uid 1000 (`chown 1000:1000 /srv/silvio`).
 | `SILVIO_SMTP_URL` | — | Outbound email: nodemailer URL, e.g. `smtp://user:pass@mail.example.org:587` (query params pass transport options). Unset, emails queue but are not sent |
 | `SILVIO_EMAIL_FROM` | — | From address for outbound email (required together with `SILVIO_SMTP_URL`) |
 | `SILVIO_BACKUP_DIR` | `/data/backups` | Backup directory; unset it to disable backups (don't) |
-| `SILVIO_MEMBER_UI` / `SILVIO_ADMIN_UI` | `/app/ui/member/dist`, `/app/ui/admin/dist` | Built UI directories baked into the image; override only to serve different builds |
+| `SILVIO_MEMBER_UI` / `SILVIO_ADMIN_UI` / `SILVIO_OPERATOR_UI` | `/app/ui/member/dist`, `/app/ui/admin/dist`, `/app/ui/operator/dist` | Built UI directories baked into the image; override only to serve different builds |
 
 ## Reverse proxy
 
