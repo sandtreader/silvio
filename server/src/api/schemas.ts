@@ -72,6 +72,16 @@ const GROUP = {
     name: { type: 'string' },
     // Per-group sender address (#16); absent = instance default.
     emailFrom: { type: 'string' },
+    // Per-group knobs; absent keys = platform defaults (services/settings.ts).
+    settings: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        autoAcceptDays: { type: 'integer' },
+        invoiceExpiryDays: { type: 'integer' },
+        digestDefault: { type: 'string', enum: DIGEST_FREQUENCY },
+      },
+    },
     createdAt: { type: 'string' },
   },
 } as const;

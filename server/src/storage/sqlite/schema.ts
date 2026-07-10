@@ -10,6 +10,7 @@ CREATE TABLE groups (
   slug       TEXT NOT NULL UNIQUE,
   name       TEXT NOT NULL,
   email_from TEXT,
+  settings   TEXT, -- GroupSettings JSON; NULL = all platform defaults
   created_at TEXT NOT NULL
 );
 

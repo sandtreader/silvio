@@ -28,6 +28,26 @@
           "emailFrom": {
             "type": "string"
           },
+          "settings": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "autoAcceptDays": {
+                "type": "integer"
+              },
+              "invoiceExpiryDays": {
+                "type": "integer"
+              },
+              "digestDefault": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "weekly",
+                  "monthly"
+                ]
+              }
+            }
+          },
           "createdAt": {
             "type": "string"
           }
@@ -4349,6 +4369,14 @@
         "parameters": [
           {
             "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          },
+          {
+            "schema": {
               "type": "string",
               "enum": [
                 "logo",
@@ -4394,6 +4422,14 @@
       },
       "delete": {
         "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          },
           {
             "schema": {
               "type": "string",
@@ -4490,6 +4526,30 @@
                       "string",
                       "null"
                     ]
+                  },
+                  "settings": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "autoAcceptDays": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365
+                      },
+                      "invoiceExpiryDays": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365
+                      },
+                      "digestDefault": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "weekly",
+                          "monthly"
+                        ]
+                      }
+                    }
                   }
                 }
               }
@@ -4631,6 +4691,14 @@
         "parameters": [
           {
             "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          },
+          {
+            "schema": {
               "type": "string",
               "enum": [
                 "welcome",
@@ -4725,6 +4793,14 @@
       },
       "delete": {
         "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          },
           {
             "schema": {
               "type": "string",
@@ -8506,6 +8582,14 @@
         "parameters": [
           {
             "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          },
+          {
+            "schema": {
               "type": "string",
               "enum": [
                 "logo",
@@ -8551,6 +8635,14 @@
       },
       "delete": {
         "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          },
           {
             "schema": {
               "type": "string",
@@ -8657,6 +8749,30 @@
                       "string",
                       "null"
                     ]
+                  },
+                  "settings": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "autoAcceptDays": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365
+                      },
+                      "invoiceExpiryDays": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365
+                      },
+                      "digestDefault": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "weekly",
+                          "monthly"
+                        ]
+                      }
+                    }
                   }
                 }
               }
@@ -8818,6 +8934,14 @@
         "parameters": [
           {
             "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          },
+          {
+            "schema": {
               "type": "string",
               "enum": [
                 "welcome",
@@ -8912,6 +9036,14 @@
       },
       "delete": {
         "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          },
           {
             "schema": {
               "type": "string",

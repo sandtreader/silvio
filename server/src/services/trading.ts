@@ -5,9 +5,7 @@ import type { Actor, Storage } from '../storage/interface.js';
 import type { Account, Channel, Id, Member, NewTransaction, Transaction } from '../types.js';
 import { DomainError } from './errors.js';
 import { notifyTrade } from './notifications.js';
-
-const PAYMENT_AUTO_ACCEPT_DAYS = 14;
-const INVOICE_EXPIRY_DAYS = 30;
+import { effectiveSettings, type EffectiveGroupSettings } from './settings.js';
 
 export interface SendPaymentInput {
   groupId: Id;
@@ -37,6 +35,13 @@ export interface RequestPaymentInput {
 
 function daysFromNow(days: number): string {
   return new Date(Date.now() + days * 86_400_000).toISOString();
+}
+
+/** The group's effective settings (no getGroup; cf. notifications.ts). */
+async function groupSettings(storage: Storage, groupId: Id): Promise<EffectiveGroupSettings> {
+  const group = (await storage.listGroups()).find((candidate) => candidate.id === groupId);
+  if (!group) throw new DomainError('NOT_FOUND', `group ${groupId} not found`);
+  return effectiveSettings(group);
 }
 
 function validateAmount(amount: number): void {
@@ -205,7 +210,12 @@ export async function sendPayment(storage: Storage, input: SendPaymentInput): Pr
   };
   if (input.description !== undefined) tx.description = input.description;
   if (input.apiTokenId !== undefined) tx.apiTokenId = input.apiTokenId;
-  if (hold) tx.expiresAt = input.expiresAt ?? daysFromNow(PAYMENT_AUTO_ACCEPT_DAYS);
+  if (hold) {
+    // Only fetch the group when the default horizon is actually needed.
+    tx.expiresAt =
+      input.expiresAt ??
+      daysFromNow((await groupSettings(storage, input.groupId)).autoAcceptDays);
+  }
   const posted = await storage.post(tx);
   // Tell the payee (#5): a hold awaits their confirmation, a commit landed.
   await notifyTrade(storage, posted, hold ? 'payment_held' : 'payment_received');
@@ -237,7 +247,10 @@ export async function requestPayment(
     state: 'pending',
     createdBy: input.actorPersonId,
     channel: input.channel,
-    expiresAt: input.expiresAt ?? daysFromNow(INVOICE_EXPIRY_DAYS),
+    // The group is only fetched when the default horizon is actually needed.
+    expiresAt:
+      input.expiresAt ??
+      daysFromNow((await groupSettings(storage, input.groupId)).invoiceExpiryDays),
     entries: [
       { accountId: payerAccount.id, amount: -input.amount },
       { accountId: payeeAccount.id, amount: input.amount },

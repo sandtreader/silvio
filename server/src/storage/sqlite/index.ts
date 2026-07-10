@@ -39,6 +39,7 @@ import type {
   EmailTemplate,
   Entry,
   Group,
+  GroupSettings,
   Id,
   Image,
   ImageOwnerKind,
@@ -242,6 +243,7 @@ interface GroupRow {
   slug: string;
   name: string;
   email_from: string | null;
+  settings: string | null; // GroupSettings JSON; NULL = all defaults
   created_at: string;
 }
 
@@ -374,7 +376,10 @@ export class SqliteStorage implements Storage {
     return Promise.resolve(rows.map((row) => this.groupFromRow(row)));
   }
 
-  updateGroup(id: Id, patch: { name?: string; emailFrom?: string | null }): Promise<Group> {
+  updateGroup(
+    id: Id,
+    patch: { name?: string; emailFrom?: string | null; settings?: GroupSettings },
+  ): Promise<Group> {
     try {
       this.loadGroup(id);
       if (patch.name !== undefined) {
@@ -383,6 +388,12 @@ export class SqliteStorage implements Storage {
       if (patch.emailFrom !== undefined) {
         // null clears the sender (#16); absent leaves it untouched.
         this.db.prepare('UPDATE groups SET email_from = ? WHERE id = ?').run(patch.emailFrom, id);
+      }
+      if (patch.settings !== undefined) {
+        // Replaces the whole settings object.
+        this.db
+          .prepare('UPDATE groups SET settings = ? WHERE id = ?')
+          .run(JSON.stringify(patch.settings), id);
       }
       return Promise.resolve(this.loadGroup(id));
     } catch (err) {
@@ -1049,6 +1060,7 @@ export class SqliteStorage implements Storage {
     displayName: string;
     type?: MemberType;
     role?: MemberRole;
+    digestFrequency?: DigestFrequency;
   }): Promise<Member> {
     try {
       const member = this.db.transaction((): Member => {
@@ -1064,13 +1076,13 @@ export class SqliteStorage implements Storage {
           displayName: input.displayName,
           status: 'applied',
           confirmIncoming: false,
-          digestFrequency: 'weekly',
+          digestFrequency: input.digestFrequency ?? 'weekly',
           appliedAt: now(),
         };
         this.db
           .prepare(
-            `INSERT INTO members (id, group_id, member_no, type, role, display_name, status, confirm_incoming, applied_at)
-             VALUES (?, ?, ?, ?, ?, ?, 'applied', 0, ?)`,
+            `INSERT INTO members (id, group_id, member_no, type, role, display_name, status, confirm_incoming, digest_frequency, applied_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'applied', 0, ?, ?)`,
           )
           .run(
             member.id,
@@ -1079,6 +1091,7 @@ export class SqliteStorage implements Storage {
             member.type,
             member.role,
             member.displayName,
+            member.digestFrequency,
             member.appliedAt,
           );
         return member;
@@ -2429,6 +2442,7 @@ export class SqliteStorage implements Storage {
       createdAt: row.created_at,
     };
     if (row.email_from !== null) group.emailFrom = row.email_from;
+    if (row.settings !== null) group.settings = JSON.parse(row.settings) as GroupSettings;
     return group;
   }
 

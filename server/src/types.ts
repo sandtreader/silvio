@@ -25,6 +25,14 @@ export type TxFlow = 'payment' | 'invoice';
 
 export type Channel = 'web' | 'mcp' | 'admin' | 'system';
 
+// Per-group knobs; absent keys mean the platform defaults (see
+// services/settings.ts), so a group row never needs migrating.
+export interface GroupSettings {
+  autoAcceptDays?: number; // held-payment auto-accept horizon (#5)
+  invoiceExpiryDays?: number; // invoice expiry horizon (#5)
+  digestDefault?: DigestFrequency; // applied to new members at join (#17)
+}
+
 export interface Group {
   id: Id;
   slug: string;
@@ -32,6 +40,7 @@ export interface Group {
   // Per-group sender address (#16); delivery falls back to the instance-wide
   // default when unset.
   emailFrom?: string;
+  settings?: GroupSettings; // absent = all defaults
   createdAt: string;
 }
 

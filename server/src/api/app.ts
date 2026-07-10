@@ -29,6 +29,7 @@ import type {
   DemurrageBand,
   DigestFrequency,
   Group,
+  GroupSettings,
   Image,
   ListingType,
   Member,
@@ -218,7 +219,9 @@ export async function buildApp(
   storage: Storage,
   opts: BuildAppOptions = {},
 ): Promise<FastifyInstance> {
-  const app = Fastify();
+  // removeAdditional off: additionalProperties:false must 400 on unknown
+  // keys (e.g. group settings), not silently strip them.
+  const app = Fastify({ ajv: { customOptions: { removeAdditional: false } } });
 
   // Raw image upload bodies (decision #14): the whole image/* range parses
   // as a Buffer so every claimed image type reaches the upload service,
@@ -2405,7 +2408,11 @@ export async function buildApp(
       // validation 400, so the handlers only ever see real slots.
       const BRAND_SLOT_PARAMS = {
         type: 'object',
-        properties: { slot: { type: 'string', enum: ['logo', 'header'] } },
+        // slug: the tenancy prefix param is part of request.params too.
+        properties: {
+          slug: { type: 'string' },
+          slot: { type: 'string', enum: ['logo', 'header'] },
+        },
         required: ['slot'],
         additionalProperties: false,
       } as const;
@@ -2464,8 +2471,10 @@ export async function buildApp(
         },
       );
 
-      // --- Group settings (#16): the sender address, admin-editable. name is
-      // patchable too; emailFrom: null clears back to the instance default.
+      // --- Group settings: name and sender address (#16, emailFrom: null
+      // clears back to the instance default) plus the trading/digest knobs
+      // (settings replaces the whole object; services/settings.ts fills
+      // defaults for absent keys).
 
       scope.get(
         '/admin/group',
@@ -2488,16 +2497,30 @@ export async function buildApp(
               properties: {
                 name: { type: 'string' },
                 emailFrom: { type: ['string', 'null'] },
+                settings: {
+                  type: 'object',
+                  additionalProperties: false, // unknown keys 400
+                  properties: {
+                    autoAcceptDays: { type: 'integer', minimum: 1, maximum: 365 },
+                    invoiceExpiryDays: { type: 'integer', minimum: 1, maximum: 365 },
+                    digestDefault: { type: 'string', enum: ['none', 'weekly', 'monthly'] },
+                  },
+                },
               },
             },
             response: respond(200, body({ group: ref('Group') })),
           },
         },
         async (request) => {
-          const draft = request.body as { name?: string; emailFrom?: string | null };
+          const draft = request.body as {
+            name?: string;
+            emailFrom?: string | null;
+            settings?: GroupSettings;
+          };
           const patch: Parameters<typeof storage.updateGroup>[1] = {};
           if (draft.name !== undefined) patch.name = draft.name;
           if (draft.emailFrom !== undefined) patch.emailFrom = draft.emailFrom;
+          if (draft.settings !== undefined) patch.settings = draft.settings;
           const group = await storage.updateGroup(request.group!.id, patch);
           await recordAudit(storage, {
             groupId: group.id, actorUserId: request.auth!.user.id,
@@ -2512,7 +2535,11 @@ export async function buildApp(
 
       const TEMPLATE_KIND_PARAMS = {
         type: 'object',
-        properties: { kind: { type: 'string', enum: EMAIL_TEMPLATE_KINDS } },
+        // slug: the tenancy prefix param is part of request.params too.
+        properties: {
+          slug: { type: 'string' },
+          kind: { type: 'string', enum: EMAIL_TEMPLATE_KINDS },
+        },
         required: ['kind'],
         additionalProperties: false,
       } as const;
