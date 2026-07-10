@@ -107,6 +107,18 @@ export const GROUP_WITH_NOTES = {
   },
 } as const;
 
+// Operator list/patch variant (#21): adds each group's current hostnames.
+// An API-layer join from group_domains, not a Group field, so it lives in
+// this response schema only (no drift guard against the Group type).
+export const GROUP_WITH_NOTES_AND_DOMAINS = {
+  ...GROUP_WITH_NOTES,
+  required: [...GROUP_WITH_NOTES.required, 'domains'],
+  properties: {
+    ...GROUP_WITH_NOTES.properties,
+    domains: { type: 'array', items: { type: 'string' } },
+  },
+} as const;
+
 const CURRENCY = {
   type: 'object',
   additionalProperties: false,

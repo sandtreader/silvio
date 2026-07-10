@@ -15,6 +15,7 @@ discourage hoarding and keep the currency moving.
 | [`cli/`](cli/) | Command-line client for the API |
 | [`ui/member/`](ui/member/) | Member-facing mobile-first PWA (React/MUI) |
 | [`ui/admin/`](ui/admin/) | Group-admin desktop UI (React/MUI/Rafiki) |
+| [`ui/operator/`](ui/operator/) | Platform-operator console: provision and manage groups (React/MUI/Rafiki) |
 | [`ui/shared/`](ui/shared/) | Shared UI library: typed API client generated from the server's OpenAPI doc |
 | [`specs/`](specs/) | Plan, design decisions, data model, prior-art review |
 | [`scripts/`](scripts/) | Demo/lifecycle scripts |

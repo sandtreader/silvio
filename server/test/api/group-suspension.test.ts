@@ -235,6 +235,13 @@ describe('group suspension & operator management (#20)', () => {
     expect(add.statusCode).toBe(201);
     expect(await storage.groupByDomain('camlets.org.uk')).toMatchObject({ id: group.id });
 
+    // The operator list shows each group's current domains (#21).
+    const list = await app.inject({
+      method: 'GET', url: '/api/v1/operator/groups', headers: { cookie: operatorCookie },
+    });
+    const withDomains = (list.json() as { groups: (Group & { domains: string[] })[] }).groups;
+    expect(withDomains[0]!.domains.sort()).toEqual(['cam.example.org', 'camlets.org.uk']);
+
     const remove = await app.inject({
       method: 'DELETE',
       url: `/api/v1/operator/groups/${group.id}/domains/camlets.org.uk`,

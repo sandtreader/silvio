@@ -76,7 +76,7 @@ import { recordAudit } from '../services/audit.js';
 import { dashboardStats } from '../services/stats.js';
 import {
   GROUP_STATUS,
-  GROUP_WITH_NOTES,
+  GROUP_WITH_NOTES_AND_DOMAINS,
   OK_RESPONSE,
   PUBLIC_MEMBER_WITH_PHOTO,
   SEARCH_DOMAIN,
@@ -3044,12 +3044,23 @@ export async function buildApp(
       preHandler: requireOperator,
       schema: {
         // Inline variant, not ref('Group'): operator routes carry the
-        // operator-private notes (#20).
-        response: respond(200, body({ groups: { type: 'array', items: GROUP_WITH_NOTES } })),
+        // operator-private notes (#20) and each group's domains (#21).
+        response: respond(
+          200,
+          body({ groups: { type: 'array', items: GROUP_WITH_NOTES_AND_DOMAINS } }),
+        ),
       },
     },
     async () => {
-      return { groups: await storage.listGroups() };
+      const groups = await storage.listGroups();
+      return {
+        groups: await Promise.all(
+          groups.map(async (group) => ({
+            ...group,
+            domains: await storage.listGroupDomains(group.id),
+          })),
+        ),
+      };
     },
   );
 
@@ -3078,7 +3089,7 @@ export async function buildApp(
             notes: { type: ['string', 'null'] }, // operator-private; null clears
           },
         },
-        response: respond(200, body({ group: GROUP_WITH_NOTES })),
+        response: respond(200, body({ group: GROUP_WITH_NOTES_AND_DOMAINS })),
       },
     },
     async (request, reply) => {
@@ -3117,7 +3128,8 @@ export async function buildApp(
         // No detail: the content is private, the fact of the edit is the record.
         await audit('group.notes');
       }
-      return { group };
+      // Same shape as the list (#21) so clients can fold the result back in.
+      return { group: { ...group, domains: await storage.listGroupDomains(id) } };
     },
   );
 

@@ -10052,7 +10052,8 @@
                           "slug",
                           "name",
                           "status",
-                          "createdAt"
+                          "createdAt",
+                          "domains"
                         ],
                         "properties": {
                           "id": {
@@ -10112,6 +10113,12 @@
                           },
                           "notes": {
                             "type": "string"
+                          },
+                          "domains": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         }
                       }
@@ -10202,7 +10209,8 @@
                         "slug",
                         "name",
                         "status",
-                        "createdAt"
+                        "createdAt",
+                        "domains"
                       ],
                       "properties": {
                         "id": {
@@ -10262,6 +10270,12 @@
                         },
                         "notes": {
                           "type": "string"
+                        },
+                        "domains": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         }
                       }
                     }

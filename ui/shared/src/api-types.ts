@@ -7087,6 +7087,7 @@ export interface paths {
                                 };
                                 createdAt: string;
                                 notes?: string;
+                                domains: string[];
                             }[];
                         };
                     };
@@ -7222,6 +7223,7 @@ export interface paths {
                                 };
                                 createdAt: string;
                                 notes?: string;
+                                domains: string[];
                             };
                         };
                     };
