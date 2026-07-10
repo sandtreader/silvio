@@ -1,9 +1,10 @@
 // Group settings: the group name plus the per-group tunables stored in
 // group.settings — payment auto-accept days, invoice expiry days (both
-// 1..365), and the digest default for new members. Absent keys fall back to
-// platform defaults (14 / 30 / weekly), so a blank field means "use the
-// default" and its key is omitted; the PATCH replaces the whole settings
-// object. The per-group email sender stays on the Email templates page.
+// 1..365), the listing shelf life in days (1..730, #18), and the digest
+// default for new members. Absent keys fall back to platform defaults
+// (14 / 30 / 180 / weekly), so a blank field means "use the default" and its
+// key is omitted; the PATCH replaces the whole settings object. The
+// per-group email sender stays on the Email templates page.
 // API errors surface through the api layer's snackbar (decision #11).
 
 import { useEffect, useState } from 'react';
@@ -23,6 +24,7 @@ import { api as realApi, type AdminApi } from '../api';
 // Platform defaults when a settings key is absent (server settings.ts).
 const DEFAULT_AUTO_ACCEPT_DAYS = 14;
 const DEFAULT_INVOICE_EXPIRY_DAYS = 30;
+const DEFAULT_LISTING_MAX_AGE_DAYS = 180;
 
 const DIGEST_OPTIONS = [
   { value: '', label: 'Platform default (weekly)' },
@@ -35,6 +37,7 @@ const DIGEST_OPTIONS = [
 function buildSettings(
   autoAcceptDays: string,
   invoiceExpiryDays: string,
+  listingMaxAgeDays: string,
   digestDefault: string,
 ): GroupSettings {
   const settings: GroupSettings = {};
@@ -42,6 +45,8 @@ function buildSettings(
   if (!Number.isNaN(auto)) settings.autoAcceptDays = auto;
   const expiry = Number.parseInt(invoiceExpiryDays, 10);
   if (!Number.isNaN(expiry)) settings.invoiceExpiryDays = expiry;
+  const shelfLife = Number.parseInt(listingMaxAgeDays, 10);
+  if (!Number.isNaN(shelfLife)) settings.listingMaxAgeDays = shelfLife;
   if (digestDefault !== '')
     settings.digestDefault = digestDefault as NonNullable<
       GroupSettings['digestDefault']
@@ -56,6 +61,7 @@ export function SettingsPage({ api = realApi }: { api?: AdminApi }) {
   // Settings fields as entered; '' means "use the platform default".
   const [autoAcceptDays, setAutoAcceptDays] = useState('');
   const [invoiceExpiryDays, setInvoiceExpiryDays] = useState('');
+  const [listingMaxAgeDays, setListingMaxAgeDays] = useState('');
   const [digestDefault, setDigestDefault] = useState('');
   const [loaded, setLoaded] = useState(false);
 
@@ -68,6 +74,7 @@ export function SettingsPage({ api = realApi }: { api?: AdminApi }) {
       setName(group.name);
       setAutoAcceptDays(group.settings?.autoAcceptDays?.toString() ?? '');
       setInvoiceExpiryDays(group.settings?.invoiceExpiryDays?.toString() ?? '');
+      setListingMaxAgeDays(group.settings?.listingMaxAgeDays?.toString() ?? '');
       setDigestDefault(group.settings?.digestDefault ?? '');
       setLoaded(true);
     })();
@@ -83,11 +90,17 @@ export function SettingsPage({ api = realApi }: { api?: AdminApi }) {
 
   const saveSettings = async () => {
     const group = await api.patchAdminGroup({
-      settings: buildSettings(autoAcceptDays, invoiceExpiryDays, digestDefault),
+      settings: buildSettings(
+        autoAcceptDays,
+        invoiceExpiryDays,
+        listingMaxAgeDays,
+        digestDefault,
+      ),
     });
     if (group !== undefined) {
       setAutoAcceptDays(group.settings?.autoAcceptDays?.toString() ?? '');
       setInvoiceExpiryDays(group.settings?.invoiceExpiryDays?.toString() ?? '');
+      setListingMaxAgeDays(group.settings?.listingMaxAgeDays?.toString() ?? '');
       setDigestDefault(group.settings?.digestDefault ?? '');
       setSavedNotice('Settings saved');
     }
@@ -140,6 +153,17 @@ export function SettingsPage({ api = realApi }: { api?: AdminApi }) {
             placeholder={String(DEFAULT_INVOICE_EXPIRY_DAYS)}
             helperText={`Days before an unanswered invoice expires; blank uses the platform default (${DEFAULT_INVOICE_EXPIRY_DAYS})`}
             inputProps={{ min: 1, max: 365 }}
+            disabled={!loaded}
+            fullWidth
+          />
+          <TextField
+            label="Listing shelf life (days)"
+            type="number"
+            value={listingMaxAgeDays}
+            onChange={(e) => setListingMaxAgeDays(e.target.value)}
+            placeholder={String(DEFAULT_LISTING_MAX_AGE_DAYS)}
+            helperText={`Days before a marketplace listing expires (#18); blank uses the platform default (${DEFAULT_LISTING_MAX_AGE_DAYS})`}
+            inputProps={{ min: 1, max: 730 }}
             disabled={!loaded}
             fullWidth
           />

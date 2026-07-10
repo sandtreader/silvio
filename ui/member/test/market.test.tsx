@@ -119,6 +119,116 @@ describe('Market price scale', () => {
   });
 });
 
+// Search (#18): typing (debounced) calls GET /search on the listings domain
+// and narrows the already-loaded browse to the returned ids; clearing the
+// text restores the full browse.
+describe('Market search', () => {
+  it('calls search and narrows the visible listings to the matches', async () => {
+    const client = {
+      me: vi.fn().mockResolvedValue(testMe),
+      browse: vi.fn().mockResolvedValue({
+        listings: [
+          listing({ id: 'l1', memberId: 'm2', title: 'Bike repair' }),
+          listing({ id: 'l2', memberId: 'm3', title: 'Dog walking' }),
+        ],
+      }),
+      search: vi.fn().mockResolvedValue({
+        items: [{ domain: 'listings', id: 'l1', title: 'Bike repair' }],
+        total: 1,
+      }),
+      categories: vi.fn().mockResolvedValue({ categories: [] }),
+    };
+    renderWithClient(<Market />, client);
+
+    expect(await screen.findByText('Bike repair')).toBeTruthy();
+    expect(screen.getByText('Dog walking')).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('search listings'), {
+      target: { value: 'bike' },
+    });
+    // Debounced ~300ms; waitFor rides it out.
+    await waitFor(() => expect(client.search).toHaveBeenCalledWith('listings', 'bike'));
+    await waitFor(() => expect(screen.queryByText('Dog walking')).toBeNull());
+    expect(screen.getByText('Bike repair')).toBeTruthy();
+
+    // The clear affordance resets to the full browse without a new search.
+    fireEvent.click(screen.getByLabelText('clear search'));
+    expect(await screen.findByText('Dog walking')).toBeTruthy();
+    expect(client.search).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows "No matches" when the search returns nothing', async () => {
+    const client = {
+      me: vi.fn().mockResolvedValue(testMe),
+      browse: vi.fn().mockResolvedValue({
+        listings: [listing({ id: 'l1', memberId: 'm2' })],
+      }),
+      search: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+      categories: vi.fn().mockResolvedValue({ categories: [] }),
+    };
+    renderWithClient(<Market />, client);
+
+    expect(await screen.findByText('Bike repair')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('search listings'), {
+      target: { value: 'unicycle' },
+    });
+    expect(await screen.findByText('No matches')).toBeTruthy();
+    expect(screen.queryByText('Bike repair')).toBeNull();
+  });
+});
+
+// Shelf life (#18): owners see the expiry date and can renew in one tap;
+// other members' cards carry neither.
+describe('Market: listing expiry and renew', () => {
+  it('renews an own listing and refreshes with a snackbar', async () => {
+    const client = {
+      me: vi.fn().mockResolvedValue(testMe),
+      browse: vi
+        .fn()
+        .mockResolvedValueOnce({
+          listings: [
+            listing({ memberId: 'm1', expiresAt: '2027-01-06T00:00:00Z' }),
+          ],
+        })
+        .mockResolvedValue({
+          listings: [
+            listing({ memberId: 'm1', expiresAt: '2027-07-05T00:00:00Z' }),
+          ],
+        }),
+      renewListing: vi.fn().mockResolvedValue({
+        listing: listing({ memberId: 'm1', expiresAt: '2027-07-05T00:00:00Z' }),
+      }),
+      categories: vi.fn().mockResolvedValue({ categories: [] }),
+    };
+    renderWithClient(<Market />, client);
+
+    expect(await screen.findByText('Expires 6 Jan 2027')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Renew' }));
+
+    await waitFor(() => expect(client.renewListing).toHaveBeenCalledWith('l1'));
+    await waitFor(() => expect(client.browse).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('Expires 5 Jul 2027')).toBeTruthy();
+    expect(await screen.findByText('Listing renewed')).toBeTruthy();
+  });
+
+  it('shows no expiry or renew on another member\'s listing', async () => {
+    const client = {
+      me: vi.fn().mockResolvedValue(testMe),
+      browse: vi.fn().mockResolvedValue({
+        listings: [
+          listing({ memberId: 'm2', expiresAt: '2027-01-06T00:00:00Z' }),
+        ],
+      }),
+      categories: vi.fn().mockResolvedValue({ categories: [] }),
+    };
+    renderWithClient(<Market />, client);
+
+    expect(await screen.findByText('Bike repair')).toBeTruthy();
+    expect(screen.queryByText(/^Expires/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Renew' })).toBeNull();
+  });
+});
+
 // Listing photos (decision #14 phase 3): thumbnails for everyone; add/remove
 // only on the viewer's own listings (server enforces owner-only, 5 max).
 describe('Market: listing photos', () => {

@@ -105,6 +105,28 @@ describe('path construction', () => {
     expect(lastCall(mock).url).toBe('/api/v1/g/g1/listings?type=offer&categoryId=c9');
   });
 
+  it('builds the search query with domain, q and paging (#18)', async () => {
+    const mock = stubFetch(200, { items: [], total: 0 });
+    const client = new ApiClient({ group: 'g1' });
+    const { items, total } = await client.search('listings', 'veg box');
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/search?domain=listings&q=veg+box');
+    expect(lastCall(mock).init.method).toBe('GET');
+    expect(items).toEqual([]);
+    expect(total).toBe(0);
+    await client.search('pages', 'market', { limit: 10, offset: 20 });
+    expect(lastCall(mock).url).toBe(
+      '/api/v1/g/g1/search?domain=pages&q=market&limit=10&offset=20',
+    );
+  });
+
+  it('renews a listing on the owner route (#18)', async () => {
+    const mock = stubFetch(200, { listing: { id: 'l/1' } });
+    const { listing } = await new ApiClient({ group: 'g1' }).renewListing('l/1');
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/listings/l%2F1/renew');
+    expect(lastCall(mock).init.method).toBe('POST');
+    expect(listing.id).toBe('l/1');
+  });
+
   it('routes transaction and member actions', async () => {
     const mock = stubFetch(200, { transaction: {} });
     const client = new ApiClient({ group: 'g1' });

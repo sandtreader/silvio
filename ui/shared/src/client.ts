@@ -31,6 +31,8 @@ import type {
   PendingItem,
   Policy,
   Restriction,
+  SearchDomain,
+  SearchResult,
   ShellInfo,
   StatementLine,
   TradeStats,
@@ -314,6 +316,24 @@ export class ApiClient {
 
   postListing(input: ListingInput): Promise<{ listing: Listing }> {
     return this.tenant('POST', '/listings', input);
+  }
+
+  /** Owner-only: push the listing's expiry out by the group's shelf life (#18). */
+  renewListing(id: string): Promise<{ listing: Listing }> {
+    return this.tenant('POST', `/listings/${encodeURIComponent(id)}/renew`);
+  }
+
+  /** Full-text search within one domain (#18). Public route; a session
+   * raises the visibility tier (e.g. members-only pages appear). */
+  search(
+    domain: SearchDomain,
+    q: string,
+    opts: { limit?: number; offset?: number } = {},
+  ): Promise<{ items: SearchResult[]; total: number }> {
+    const params = new URLSearchParams({ domain, q });
+    if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+    if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+    return this.tenant('GET', `/search?${params.toString()}`);
   }
 
   categories(): Promise<{ categories: Category[] }> {
