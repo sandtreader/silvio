@@ -4,6 +4,12 @@ Remaining server-side work, grouped by area. References are to
 [specs/decisions.md](../specs/decisions.md) (#n) and
 [specs/data-model.md](../specs/data-model.md).
 
+**Status 2026-07-10: feature-complete to current level.** Every unticked
+item below is deliberately **parked** — big pieces waiting on a pilot
+group or a real SaaS need to shape them (passkeys, GDPR, importers,
+income ties, intertrading, Merkle/witness, and the Later section), not
+loose ends. The tidy-up pass closed everything smaller.
+
 ## MCP server (#9)
 
 - [x] `api_tokens` storage: hashed tokens, scopes, per-token spend caps, expiry,
