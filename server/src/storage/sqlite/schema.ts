@@ -302,6 +302,22 @@ CREATE TABLE images (
   created_at TEXT NOT NULL
 );
 
+-- Audit trail (data-model §8): append-only — rows are only ever inserted,
+-- never updated or deleted. group_id is nullable for platform-level events;
+-- actor ids are deliberately loose (no FK), like accounts.member_id, so
+-- system events and tests can use synthetic ids. detail is opaque JSON.
+CREATE TABLE audit_events (
+  id                   TEXT PRIMARY KEY,
+  group_id             TEXT REFERENCES groups(id),
+  actor_user_id        TEXT,
+  acting_for_member_id TEXT,
+  action               TEXT NOT NULL,
+  entity_type          TEXT NOT NULL,
+  entity_id            TEXT NOT NULL,
+  detail               TEXT, /* JSON */
+  at                   TEXT NOT NULL
+);
+
 CREATE INDEX idx_entries_transaction ON entries(transaction_id);
 CREATE INDEX idx_entries_account ON entries(account_id);
 CREATE INDEX idx_transactions_group_seq ON transactions(group_id, seq);
@@ -321,4 +337,6 @@ CREATE INDEX idx_pages_group_position ON pages(group_id, position);
 CREATE INDEX idx_news_items_group_published ON news_items(group_id, published_at DESC);
 -- Matches the listImages filter (group, then owner kind/id) (#14).
 CREATE INDEX idx_images_group_owner ON images(group_id, owner_kind, owner_id);
+-- Matches the listAuditEvents ordering (newest first) per group (§8).
+CREATE INDEX idx_audit_events_group_at ON audit_events(group_id, at);
 `;

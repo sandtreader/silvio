@@ -14,6 +14,7 @@ import type { FromSchema } from 'json-schema-to-ts';
 import type {
   AccountFlag,
   ApiToken,
+  AuditEvent,
   Category,
   CreditPolicy,
   Currency,
@@ -443,6 +444,26 @@ const RESTRICTION = {
   },
 } as const;
 
+// Audit event (data-model §8): detail is a free-form object — each action
+// stores its own context (e.g. { role }, { reason }, { slot }), so unlike
+// CreditPolicy config there is no closed property set to declare.
+const AUDIT_EVENT = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'action', 'entityType', 'entityId', 'at'],
+  properties: {
+    id: { type: 'string' },
+    groupId: { type: 'string' },
+    actorUserId: { type: 'string' },
+    actingForMemberId: { type: 'string' },
+    action: { type: 'string' },
+    entityType: { type: 'string' },
+    entityId: { type: 'string' },
+    detail: { type: 'object', additionalProperties: true },
+    at: { type: 'string' },
+  },
+} as const;
+
 const ACCOUNT_FLAG = {
   type: 'object',
   additionalProperties: false,
@@ -503,6 +524,7 @@ export const sharedSchemas = [
   { $id: 'NewsItem', ...NEWS_ITEM },
   { $id: 'Image', ...IMAGE },
   { $id: 'Restriction', ...RESTRICTION },
+  { $id: 'AuditEvent', ...AUDIT_EVENT },
   { $id: 'AccountFlag', ...ACCOUNT_FLAG },
   { $id: 'ErrorResponse', ...ERROR_RESPONSE },
 ] as const;
@@ -540,5 +562,6 @@ type _DriftGuards = [
   Expect<Equal<FromSchema<typeof NEWS_ITEM>, NewsItem>>,
   Expect<Equal<FromSchema<typeof IMAGE>, Image>>,
   Expect<Equal<FromSchema<typeof RESTRICTION>, Restriction>>,
+  Expect<Equal<FromSchema<typeof AUDIT_EVENT>, AuditEvent>>,
   Expect<Equal<FromSchema<typeof ACCOUNT_FLAG>, AccountFlag>>,
 ];

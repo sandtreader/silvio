@@ -393,6 +393,20 @@ export interface Image {
   createdAt: string;
 }
 
+// Audit trail (data-model §8): admin actions, MCP token grants/revocations,
+// and lifecycle transitions. Append-only — events are only ever added.
+export interface AuditEvent {
+  id: Id;
+  groupId?: Id; // absent for platform-level (operator) events
+  actorUserId?: Id; // absent for system/lifecycle events
+  actingForMemberId?: Id; // login-as/proxy (§8), reserved
+  action: string; // dotted, e.g. 'member.approve', 'token.issue'
+  entityType: string; // e.g. 'member', 'transaction', 'api_token'
+  entityId: Id;
+  detail?: Record<string, unknown>; // free-form action context
+  at: string;
+}
+
 export interface StatementLine {
   seq: number;
   transactionId: Id;

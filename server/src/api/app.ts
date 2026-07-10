@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import cookie from '@fastify/cookie';
 import swagger from '@fastify/swagger';
 import fastifyStatic from '@fastify/static';
-import type { Storage, TransactionFilter } from '../storage/interface.js';
+import type { AuditEventFilter, Storage, TransactionFilter } from '../storage/interface.js';
 import type {
   ApiScope,
   ApiToken,
@@ -63,6 +63,7 @@ import {
   sendPayment,
 } from '../services/trading.js';
 import { authenticateApiToken, checkTokenCaps, issueApiToken } from '../services/tokens.js';
+import { recordAudit } from '../services/audit.js';
 import { OK_RESPONSE, PUBLIC_MEMBER_WITH_PHOTO, sharedSchemas } from './schemas.js';
 import { evaluateFlags } from '../services/creditcontrol.js';
 import {
@@ -965,6 +966,11 @@ export async function buildApp(
             email: body.email,
             userId: user.id,
           });
+          // Lifecycle transition (§8): the freshly registered user applied.
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: user.id,
+            action: 'member.apply', entityType: 'member', entityId: member.id,
+          });
           // Verification email (data-model §1): best-effort — an email
           // hiccup must not fail the application itself.
           try {
@@ -1416,6 +1422,12 @@ export async function buildApp(
           if (body.periodDays !== undefined) input.periodDays = body.periodDays;
           if (body.expiresAt !== undefined) input.expiresAt = body.expiresAt;
           const { token, apiToken } = await issueApiToken(storage, input);
+          // §8 calls out MCP grants explicitly: token issue/revoke is audited.
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'token.issue', entityType: 'api_token', entityId: apiToken.id,
+            detail: { label: body.label, scopes: body.scopes },
+          });
           reply.status(201);
           return { token, apiToken };
         },
@@ -1447,6 +1459,10 @@ export async function buildApp(
             throw new DomainError('NOT_FOUND', `token ${id} not found`);
           }
           await storage.revokeApiToken(id);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'token.revoke', entityType: 'api_token', entityId: id,
+          });
           return { ok: true };
         },
       );
@@ -1501,7 +1517,13 @@ export async function buildApp(
           async (request) => {
             const { id } = request.params as { id: string };
             await targetMember(request, id);
-            return { member: await service(storage, id) };
+            const member = await service(storage, id);
+            // §8: audited under the route's name — member.remove, not .leave.
+            await recordAudit(storage, {
+              groupId: request.group!.id, actorUserId: request.auth!.user.id,
+              action: `member.${action}`, entityType: 'member', entityId: id,
+            });
+            return { member };
           },
         );
       }
@@ -1531,7 +1553,12 @@ export async function buildApp(
           if (id === request.auth!.member.id) {
             throw new DomainError('INVALID', 'cannot change your own role');
           }
-          return { member: await storage.updateMember(id, { role }) };
+          const member = await storage.updateMember(id, { role });
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'member.role', entityType: 'member', entityId: id, detail: { role },
+          });
+          return { member };
         },
       );
 
@@ -1583,6 +1610,11 @@ export async function buildApp(
               if (event !== undefined) queued += 1;
             }
           }
+          await recordAudit(storage, {
+            groupId: group.id, actorUserId: request.auth!.user.id,
+            action: 'broadcast.send', entityType: 'broadcast', entityId: broadcastId,
+            detail: { subject, queued },
+          });
           return { ok: true, queued };
         },
       );
@@ -1627,6 +1659,10 @@ export async function buildApp(
             type: body.type,
             config: body.config,
           });
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'policy.create', entityType: 'credit_policy', entityId: policy.id,
+          });
           reply.status(201);
           return { policy };
         },
@@ -1654,7 +1690,12 @@ export async function buildApp(
           const patch: Parameters<typeof storage.updateCreditPolicy>[1] = {};
           if (body.enabled !== undefined) patch.enabled = body.enabled;
           if (body.config !== undefined) patch.config = body.config;
-          return { policy: await storage.updateCreditPolicy(id, patch) };
+          const policy = await storage.updateCreditPolicy(id, patch);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'policy.update', entityType: 'credit_policy', entityId: id,
+          });
+          return { policy };
         },
       );
 
@@ -1709,6 +1750,10 @@ export async function buildApp(
           const { currencyId } = request.params as { currencyId: string };
           const body = request.body as { bands: DemurrageBand[] };
           await storage.setDemurrageBands(currencyId, body.bands);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'demurrage.bands', entityType: 'currency', entityId: currencyId,
+          });
           return { bands: await storage.demurrageBands(currencyId) };
         },
       );
@@ -1751,6 +1796,11 @@ export async function buildApp(
             request.auth!.member.id,
           );
           await notifyRestrictionImposed(storage, restriction);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'restriction.impose', entityType: 'member', entityId: body.memberId,
+            detail: { reason: body.reason },
+          });
           reply.status(201);
           return { restriction };
         },
@@ -1773,6 +1823,10 @@ export async function buildApp(
           const { memberId } = request.params as { memberId: string };
           await storage.liftRestriction(memberId, request.auth!.member.id);
           await notifyRestrictionLifted(storage, memberId);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'restriction.lift', entityType: 'member', entityId: memberId,
+          });
           return { ok: true };
         },
       );
@@ -1863,8 +1917,52 @@ export async function buildApp(
             throw new DomainError('NOT_FOUND', `transaction ${id} not found in this group`);
           }
           const transaction = await reverse(storage, id, request.auth!.user.id);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'transaction.reverse', entityType: 'transaction', entityId: id,
+          });
           reply.status(201);
           return { transaction };
+        },
+      );
+
+      // Audit trail (data-model §8): the append-only admin/lifecycle log,
+      // newest first, filterable by action/entity.
+      scope.get(
+        '/admin/audit',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            querystring: {
+              type: 'object',
+              properties: {
+                action: { type: 'string' },
+                entityType: { type: 'string' },
+                entityId: { type: 'string' },
+                limit: { type: 'integer' },
+                offset: { type: 'integer' },
+              },
+            },
+            response: respond(
+              200,
+              body({ events: arrayOf('AuditEvent'), total: { type: 'integer' } }),
+            ),
+          },
+        },
+        async (request) => {
+          const query = request.query as {
+            action?: string;
+            entityType?: string;
+            entityId?: string;
+            limit?: number;
+            offset?: number;
+          };
+          const filter: AuditEventFilter = { limit: query.limit ?? 50 };
+          if (query.action !== undefined) filter.action = query.action;
+          if (query.entityType !== undefined) filter.entityType = query.entityType;
+          if (query.entityId !== undefined) filter.entityId = query.entityId;
+          if (query.offset !== undefined) filter.offset = query.offset;
+          return storage.listAuditEvents(request.group!.id, filter);
         },
       );
 
@@ -1904,6 +2002,10 @@ export async function buildApp(
             input.parentId = body.parentId;
           }
           const category = await storage.createCategory(input);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'category.create', entityType: 'category', entityId: category.id,
+          });
           reply.status(201);
           return { category };
         },
@@ -1932,7 +2034,12 @@ export async function buildApp(
           const patch: Parameters<typeof storage.updateCategory>[1] = {};
           if (body.name !== undefined) patch.name = body.name;
           if (body.parentId !== undefined) patch.parentId = body.parentId;
-          return { category: await storage.updateCategory(id, patch) };
+          const category = await storage.updateCategory(id, patch);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'category.update', entityType: 'category', entityId: id,
+          });
+          return { category };
         },
       );
 
@@ -2002,6 +2109,11 @@ export async function buildApp(
           };
           if (draft.position !== undefined) input.position = draft.position;
           const page = await storage.createPage(input);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'page.create', entityType: 'page', entityId: page.id,
+            detail: { slug: page.slug },
+          });
           reply.status(201);
           return { page };
         },
@@ -2042,7 +2154,13 @@ export async function buildApp(
           if (draft.body !== undefined) patch.body = draft.body;
           if (draft.visibility !== undefined) patch.visibility = draft.visibility;
           if (draft.position !== undefined) patch.position = draft.position;
-          return { page: await storage.updatePage(id, patch) };
+          const page = await storage.updatePage(id, patch);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'page.update', entityType: 'page', entityId: id,
+            detail: { slug: page.slug },
+          });
+          return { page };
         },
       );
 
@@ -2057,8 +2175,13 @@ export async function buildApp(
         },
         async (request) => {
           const { id } = request.params as { id: string };
-          await targetPage(request, id);
+          const page = await targetPage(request, id);
           await storage.deletePage(id);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'page.delete', entityType: 'page', entityId: id,
+            detail: { slug: page.slug },
+          });
           return { ok: true };
         },
       );
@@ -2122,6 +2245,10 @@ export async function buildApp(
           };
           if (draft.expiresAt !== undefined) input.expiresAt = draft.expiresAt;
           const newsItem = await storage.createNewsItem(input);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'news.create', entityType: 'news_item', entityId: newsItem.id,
+          });
           reply.status(201);
           return { newsItem };
         },
@@ -2159,7 +2286,12 @@ export async function buildApp(
           if (draft.body !== undefined) patch.body = draft.body;
           if (draft.publishedAt !== undefined) patch.publishedAt = draft.publishedAt;
           if (draft.expiresAt !== undefined) patch.expiresAt = draft.expiresAt;
-          return { newsItem: await storage.updateNewsItem(id, patch) };
+          const newsItem = await storage.updateNewsItem(id, patch);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'news.update', entityType: 'news_item', entityId: id,
+          });
+          return { newsItem };
         },
       );
 
@@ -2176,6 +2308,10 @@ export async function buildApp(
           const { id } = request.params as { id: string };
           await targetNewsItem(request, id);
           await storage.deleteNewsItem(id);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'news.delete', entityType: 'news_item', entityId: id,
+          });
           return { ok: true };
         },
       );
@@ -2212,6 +2348,10 @@ export async function buildApp(
             mime: request.headers['content-type'] ?? '',
             data: request.body,
             createdBy: request.auth!.member.id,
+          });
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'image.upload', entityType: 'image', entityId: image.id,
           });
           reply.status(201);
           return { image };
@@ -2252,6 +2392,10 @@ export async function buildApp(
           const { id } = request.params as { id: string };
           await targetImage(request, id);
           await storage.deleteImage(id);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'image.delete', entityType: 'image', entityId: id,
+          });
           return { ok: true };
         },
       );
@@ -2290,6 +2434,11 @@ export async function buildApp(
             request.body,
             request.auth!.member.id,
           );
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'branding.set', entityType: 'image', entityId: image.id,
+            detail: { slot },
+          });
           return { image };
         },
       );
@@ -2306,6 +2455,11 @@ export async function buildApp(
         async (request) => {
           const { slot } = request.params as { slot: BrandSlot };
           await deleteBrandImage(storage, request.group!.id, slot);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'branding.clear', entityType: 'group', entityId: request.group!.id,
+            detail: { slot },
+          });
           return { ok: true };
         },
       );
@@ -2344,7 +2498,12 @@ export async function buildApp(
           const patch: Parameters<typeof storage.updateGroup>[1] = {};
           if (draft.name !== undefined) patch.name = draft.name;
           if (draft.emailFrom !== undefined) patch.emailFrom = draft.emailFrom;
-          return { group: await storage.updateGroup(request.group!.id, patch) };
+          const group = await storage.updateGroup(request.group!.id, patch);
+          await recordAudit(storage, {
+            groupId: group.id, actorUserId: request.auth!.user.id,
+            action: 'group.update', entityType: 'group', entityId: group.id,
+          });
+          return { group };
         },
       );
 
@@ -2416,6 +2575,11 @@ export async function buildApp(
             subject: draft.subject,
             body: draft.body,
           });
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'email_template.set', entityType: 'email_template', entityId: template.id,
+            detail: { kind },
+          });
           return {
             template: {
               kind,
@@ -2439,6 +2603,11 @@ export async function buildApp(
         async (request) => {
           const { kind } = request.params as { kind: EmailTemplateKind };
           await storage.deleteEmailTemplate(request.group!.id, kind);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'email_template.revert', entityType: 'email_template', entityId: kind,
+            detail: { kind },
+          });
           return { ok: true };
         },
       );

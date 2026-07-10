@@ -108,8 +108,10 @@ Remaining server-side work, grouped by area. References are to
 
 ## Admin & governance
 
-- [ ] Audit-event log (data-model §8): admin actions, MCP grants, lifecycle
-      transitions — append-only, surfaced via `GET /admin/audit`
+- [x] Audit-event log (data-model §8): admin actions, MCP grants, lifecycle
+      transitions — append-only `audit_events` (no update/delete methods),
+      never-throwing `recordAudit` helper, dotted actions across admin/token/
+      application routes, surfaced via `GET /admin/audit`
 - [ ] Dashboard stats endpoints (plan.md): balance distribution, currency flow
       over time, velocity, dormancy
 - [ ] Demurrage projection ("if unspent, ~X on the 1st") for member dashboard (#1)
