@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   Button,
   Chip,
   Dialog,
@@ -15,9 +16,11 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
+  Link,
   Menu,
   MenuItem,
   Paper,
+  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -54,10 +57,12 @@ export function MembersPage({ api = realApi }: { api?: AdminApi }) {
   const [menuMember, setMenuMember] = useState<Member>();
   const [roleAnchor, setRoleAnchor] = useState<HTMLElement>();
 
-  // Dialogs: remove confirmation and restriction reason
+  // Dialogs: remove confirmation, restriction reason, act-as confirmation (#24)
   const [removing, setRemoving] = useState<Member>();
   const [restricting, setRestricting] = useState<Member>();
   const [reason, setReason] = useState('');
+  const [actingAs, setActingAs] = useState<Member>();
+  const [actingStarted, setActingStarted] = useState<Member>();
 
   const refresh = useCallback(async () => {
     const [listed, restricted] = await Promise.all([
@@ -170,6 +175,16 @@ export function MembersPage({ api = realApi }: { api?: AdminApi }) {
             }
           >
             Reinstate
+          </MenuItem>
+        )}
+        {member !== undefined && member.status === 'active' && (
+          <MenuItem
+            onClick={() => {
+              closeMenus();
+              setActingAs(member);
+            }}
+          >
+            Act as…
           </MenuItem>
         )}
         {member !== undefined && member.status !== 'closed' && (
@@ -289,6 +304,48 @@ export function MembersPage({ api = realApi }: { api?: AdminApi }) {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Act-as confirmation (#24) */}
+      <Dialog open={actingAs !== undefined} onClose={() => setActingAs(undefined)}>
+        <DialogTitle>Act as {actingAs?.displayName}?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            You will see the member app exactly as {actingAs?.displayName} does
+            and can trade on their behalf. Every action is recorded in the
+            audit log as you acting for them. Use the banner in the member app
+            to stop.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setActingAs(undefined)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const target = actingAs;
+              setActingAs(undefined);
+              if (target !== undefined)
+                void api.actAsMember(target.id).then((ok) => {
+                  if (ok) setActingStarted(target);
+                });
+            }}
+          >
+            Act as member
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Act-as success: point at the member app (#24) */}
+      <Snackbar
+        open={actingStarted !== undefined}
+        autoHideDuration={10000}
+        onClose={() => setActingStarted(undefined)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success" onClose={() => setActingStarted(undefined)}>
+          Now acting for {actingStarted?.displayName} — open{' '}
+          <Link href="/app/">the member app</Link> to continue.
+        </Alert>
+      </Snackbar>
     </Stack>
   );
 }

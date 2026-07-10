@@ -29,6 +29,7 @@ export interface AuthContext {
   user: User;
   session: Session;
   member?: Member;
+  actingForMemberId?: Id; // acts-for-member (#24): member is the target
 }
 
 function sha256(token: string): string {
@@ -107,6 +108,17 @@ export async function authenticate(
   const context: AuthContext = { user, session };
   if (session.memberId !== undefined) {
     context.member = await storage.getMember(session.memberId);
+  }
+  if (session.actingMemberId !== undefined) {
+    // Acts-for-member (#24): the session presents as the target member while
+    // auth.user stays the admin. A since-removed target simply falls back to
+    // the admin's own context.
+    try {
+      context.member = await storage.getMember(session.actingMemberId);
+      context.actingForMemberId = session.actingMemberId;
+    } catch {
+      // not acting
+    }
   }
   return context;
 }

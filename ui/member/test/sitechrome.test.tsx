@@ -56,6 +56,22 @@ describe('SiteChrome', () => {
     expect(screen.getByText('CamLETS')).toBeTruthy();
   });
 
+  it('shows the acting banner with a working Stop (#24)', async () => {
+    const client = {
+      me: vi.fn().mockResolvedValue(testMe),
+      shellInfo: vi.fn().mockResolvedValue({
+        ...shell,
+        member: { displayName: 'Bob', acting: true },
+      }),
+      stopActing: vi.fn().mockResolvedValue({ ok: true }),
+    };
+    renderWithClient(<SiteChrome />, client);
+
+    expect(await screen.findByText(/Acting for Bob/)).toBeTruthy();
+    screen.getByText('Stop').click();
+    await waitFor(() => expect(client.stopActing).toHaveBeenCalled());
+  });
+
   it('renders nothing while /shell fails (e.g. an unknown host)', async () => {
     const client = {
       me: vi.fn().mockRejectedValue(notAuthorised()),

@@ -164,6 +164,7 @@ export interface Session {
   id: Id;
   userId: Id;
   memberId?: Id; // selected group context (decision #2)
+  actingMemberId?: Id; // admin acts-for-member (#24)
   createdAt: string;
   expiresAt: string;
   revokedAt?: string;

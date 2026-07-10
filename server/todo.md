@@ -58,7 +58,9 @@ Remaining server-side work, grouped by area. References are to
       invite emails + POST /auth/accept-invite, last-person guard, access
       revocation on removal, individual->joint auto-typing)
 - [ ] GDPR: anonymise-on-exit after retention window (#7); data export
-- [ ] Proxy/buddy: admin acts-for-member ("login as") with audit trail (#2)
+- [x] Proxy/buddy: admin acts-for-member with audit trail (#24: act-as/
+      stop-acting on the admin's own session, escalation blocked while
+      acting; member-appointed buddies remain future)
 - [x] Member photos — done via Image store phase 2 (#14) under Content
 
 ## Email & notifications

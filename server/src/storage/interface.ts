@@ -276,6 +276,8 @@ export interface Storage extends Ledger {
     expiresAt: string;
   }): Promise<Session>;
   sessionByTokenHash(tokenHash: string): Promise<Session | undefined>; // unrevoked only
+  /** Acts-for-member (#24): stamp (or clear with null) the acting context. */
+  setSessionActing(sessionId: Id, memberId: Id | null): Promise<void>;
   revokeSession(id: Id): Promise<void>;
   /** Every open session of the user (a password reset revokes all logins, §1). */
   revokeSessionsForUser(userId: Id): Promise<void>;

@@ -273,6 +273,11 @@ export class ApiClient {
     return this.tenant('GET', '/me');
   }
 
+  /** End an acts-for-member session (#24); a no-op when not acting. */
+  stopActing(): Promise<{ ok: boolean }> {
+    return this.tenant('POST', '/me/stop-acting');
+  }
+
   updateMe(patch: {
     confirmIncoming?: boolean;
     displayName?: string;
@@ -480,6 +485,12 @@ export class ApiClient {
 
   adminSetRole(id: string, role: MemberRole): Promise<{ member: Member }> {
     return this.tenant('POST', `/admin/members/${encodeURIComponent(id)}/role`, { role });
+  }
+
+  /** Act for a member (#24): the session presents as them until stopActing;
+   * every action is attributed to the admin and audited. */
+  actAsMember(id: string): Promise<{ ok: boolean }> {
+    return this.tenant('POST', `/admin/members/${encodeURIComponent(id)}/act-as`);
   }
 
   adminPolicies(): Promise<{ policies: Policy[] }> {

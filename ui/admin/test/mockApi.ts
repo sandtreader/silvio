@@ -146,6 +146,7 @@ export function makeMockApi(): MockAdminApi {
     adminMembers: vi.fn().mockResolvedValue([]),
     adminMemberAction: vi.fn().mockResolvedValue(makeMember()),
     adminSetRole: vi.fn().mockResolvedValue(makeMember()),
+    actAsMember: vi.fn().mockResolvedValue(true),
     adminRestrictions: vi.fn().mockResolvedValue([]),
     adminRestrict: vi.fn().mockResolvedValue(undefined),
     adminUnrestrict: vi.fn().mockResolvedValue(true),

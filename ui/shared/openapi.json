@@ -1493,6 +1493,9 @@
                       "properties": {
                         "displayName": {
                           "type": "string"
+                        },
+                        "acting": {
+                          "type": "boolean"
                         }
                       }
                     },
@@ -1625,6 +1628,18 @@
                       "type": "array",
                       "items": {
                         "$ref": "#/components/schemas/AccountBalance"
+                      }
+                    },
+                    "acting": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "forMemberId"
+                      ],
+                      "properties": {
+                        "forMemberId": {
+                          "type": "string"
+                        }
                       }
                     }
                   }
@@ -3604,6 +3619,86 @@
                   "properties": {
                     "member": {
                       "$ref": "#/components/schemas/Member"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/members/{id}/act-as": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/stop-acting": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
                     }
                   }
                 }
@@ -6182,6 +6277,9 @@
                       "properties": {
                         "displayName": {
                           "type": "string"
+                        },
+                        "acting": {
+                          "type": "boolean"
                         }
                       }
                     },
@@ -6332,6 +6430,18 @@
                       "type": "array",
                       "items": {
                         "$ref": "#/components/schemas/AccountBalance"
+                      }
+                    },
+                    "acting": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "forMemberId"
+                      ],
+                      "properties": {
+                        "forMemberId": {
+                          "type": "string"
+                        }
                       }
                     }
                   }
@@ -8529,6 +8639,96 @@
                   "properties": {
                     "member": {
                       "$ref": "#/components/schemas/Member"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/g/{slug}/admin/members/{id}/act-as": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/g/{slug}/me/stop-acting": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
                     }
                   }
                 }

@@ -65,13 +65,14 @@ CREATE TABLE persons (
 );
 
 CREATE TABLE sessions (
-  id         TEXT PRIMARY KEY,
-  user_id    TEXT NOT NULL REFERENCES users(id),
-  member_id  TEXT REFERENCES members(id),
-  token_hash TEXT NOT NULL UNIQUE,
-  created_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL,
-  revoked_at TEXT
+  id               TEXT PRIMARY KEY,
+  user_id          TEXT NOT NULL REFERENCES users(id),
+  member_id        TEXT REFERENCES members(id),
+  acting_member_id TEXT REFERENCES members(id), /* admin acts-for-member (#24) */
+  token_hash       TEXT NOT NULL UNIQUE,
+  created_at       TEXT NOT NULL,
+  expires_at       TEXT NOT NULL,
+  revoked_at       TEXT
 );
 
 -- One-time tokens (data-model §1): single-use expiring links for password

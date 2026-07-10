@@ -237,6 +237,7 @@ interface SessionRow {
   id: string;
   user_id: string;
   member_id: string | null;
+  acting_member_id: string | null;
   token_hash: string;
   created_at: string;
   expires_at: string;
@@ -991,7 +992,19 @@ export class SqliteStorage implements Storage {
       expiresAt: row.expires_at,
     };
     if (row.member_id !== null) session.memberId = row.member_id;
+    if (row.acting_member_id !== null) session.actingMemberId = row.acting_member_id;
     return Promise.resolve(session);
+  }
+
+  setSessionActing(sessionId: Id, memberId: Id | null): Promise<void> {
+    // Acts-for-member (#24): stamp or clear the acting context in place.
+    const result = this.db
+      .prepare('UPDATE sessions SET acting_member_id = ? WHERE id = ?')
+      .run(memberId, sessionId);
+    if (result.changes === 0) {
+      return Promise.reject(new StorageError('NOT_FOUND', `session ${sessionId} not found`));
+    }
+    return Promise.resolve();
   }
 
   revokeSession(id: Id): Promise<void> {

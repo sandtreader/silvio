@@ -36,6 +36,7 @@ import type {
   Group,
   GroupSettings,
   GroupStatus,
+  Id,
   Image,
   ListingType,
   Member,
@@ -119,6 +120,7 @@ import {
   navPagesFor,
   registerBrochureRoutes,
   sessionMember,
+  sessionMemberContext,
 } from './brochure.js';
 import {
   StreamableHTTPServerTransport,
@@ -130,7 +132,15 @@ declare module 'fastify' {
   interface FastifyRequest {
     group?: Group;
     // Exactly one of session (cookie) or token (bearer, decision #9) is set.
-    auth?: { user: User; session?: Session; member: Member; token?: ApiToken };
+    // While acting for a member (#24) member is the target and
+    // actingForMemberId is set; user stays the admin (attribution never lies).
+    auth?: {
+      user: User;
+      session?: Session;
+      member: Member;
+      token?: ApiToken;
+      actingForMemberId?: Id;
+    };
     // Set by requireOperator (#20): the operator user, for audit actor ids.
     operator?: User;
   }
@@ -567,6 +577,9 @@ export async function buildApp(
         .send(errorBody('NOT_AUTHORISED', 'this session belongs to another group'));
     }
     request.auth = { user: context.user, session: context.session, member };
+    if (context.actingForMemberId !== undefined) {
+      request.auth.actingForMemberId = context.actingForMemberId;
+    }
     return undefined;
   }
 
@@ -576,6 +589,19 @@ export async function buildApp(
       return reply
         .status(403)
         .send(errorBody('NOT_AUTHORISED', 'this action requires the admin role'));
+    }
+    return undefined;
+  }
+
+  /** Runs after requireMember: escalation paths are shut while acting (#24). */
+  async function refuseWhileActing(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<unknown> {
+    if (request.auth!.actingForMemberId !== undefined) {
+      return reply
+        .status(403)
+        .send(errorBody('NOT_AUTHORISED', 'not available while acting for a member'));
     }
     return undefined;
   }
@@ -775,7 +801,11 @@ export async function buildApp(
                     type: 'array',
                     items: body({ slug: { type: 'string' }, title: { type: 'string' } }),
                   },
-                  member: body({ displayName: { type: 'string' } }),
+                  // acting (true) only while acting for the member (#24).
+                  member: body(
+                    { displayName: { type: 'string' }, acting: { type: 'boolean' } },
+                    ['displayName'],
+                  ),
                   // Present (true) only while the group is suspended (#20).
                   suspended: { type: 'boolean' },
                 },
@@ -786,19 +816,24 @@ export async function buildApp(
         },
         async (request) => {
           const group = request.group!;
-          const member = await sessionMember(storage, request, group.id);
+          const session = await sessionMemberContext(storage, request, group.id);
+          const member = session?.member;
           const info: {
             group: { name: string; slug: string };
             branding: Awaited<ReturnType<typeof brandingFor>>;
             navPages: { slug: string; title: string }[];
-            member?: { displayName: string };
+            member?: { displayName: string; acting?: boolean };
             suspended?: boolean;
           } = {
             group: { name: group.name, slug: group.slug },
             branding: await brandingFor(storage, group.id),
             navPages: await navPagesFor(storage, group.id, member),
           };
-          if (member !== undefined) info.member = { displayName: member.displayName };
+          if (member !== undefined) {
+            info.member = { displayName: member.displayName };
+            // While acting (#24) displayName is already the target member's.
+            if (session!.acting) info.member.acting = true;
+          }
           // Omitted when active (#20): the flag drives the app's banner.
           if (group.status === 'suspended') info.suspended = true;
           return info;
@@ -858,7 +893,15 @@ export async function buildApp(
           schema: {
             response: respond(
               200,
-              body({ member: ref('Member'), accounts: arrayOf('AccountBalance') }),
+              body(
+                {
+                  member: ref('Member'),
+                  accounts: arrayOf('AccountBalance'),
+                  // Present only while acting for a member (#24).
+                  acting: body({ forMemberId: { type: 'string' } }),
+                },
+                ['member', 'accounts'],
+              ),
             ),
           },
         },
@@ -914,7 +957,14 @@ export async function buildApp(
           }
           accounts.push(entry);
         }
-        return { member, accounts };
+        const result: {
+          member: Member;
+          accounts: typeof accounts;
+          acting?: { forMemberId: string };
+        } = { member, accounts };
+        const actingFor = request.auth!.actingForMemberId;
+        if (actingFor !== undefined) result.acting = { forMemberId: actingFor };
+        return result;
       });
 
       scope.patch(
@@ -1803,7 +1853,7 @@ export async function buildApp(
       scope.post(
         '/me/persons',
         {
-          preHandler: requireMember,
+          preHandler: [requireMember, refuseWhileActing],
           schema: {
             body: {
               type: 'object',
@@ -1837,7 +1887,7 @@ export async function buildApp(
       scope.delete(
         '/me/persons/:id',
         {
-          preHandler: requireMember,
+          preHandler: [requireMember, refuseWhileActing],
           schema: { params: ID_PARAM_SCHEMA, response: respond(200, OK_RESPONSE) },
         },
         async (request) => {
@@ -1860,7 +1910,7 @@ export async function buildApp(
       scope.post(
         '/me/tokens',
         {
-          preHandler: requireMember,
+          preHandler: [requireMember, refuseWhileActing],
           schema: {
             body: {
               type: 'object',
@@ -1932,7 +1982,7 @@ export async function buildApp(
       scope.delete(
         '/me/tokens/:id',
         {
-          preHandler: requireMember,
+          preHandler: [requireMember, refuseWhileActing],
           schema: { params: ID_PARAM_SCHEMA, response: respond(200, OK_RESPONSE) },
         },
         async (request) => {
@@ -2044,6 +2094,48 @@ export async function buildApp(
             action: 'member.role', entityType: 'member', entityId: id, detail: { role },
           });
           return { member };
+        },
+      );
+
+      // Acts-for-member (#24): stamp the acting context on the admin's own
+      // session — the app then presents as the member, auth.user stays the
+      // admin, and both ends are audited with acting_for_member_id.
+      scope.post(
+        '/admin/members/:id/act-as',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: { params: ID_PARAM_SCHEMA, response: respond(200, OK_RESPONSE) },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          await targetMember(request, id);
+          await storage.setSessionActing(request.auth!.session!.id, id);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            actingForMemberId: id,
+            action: 'member.act_as', entityType: 'member', entityId: id,
+          });
+          return { ok: true };
+        },
+      );
+
+      // The reverse of act-as; works while acting, no-op when not.
+      scope.post(
+        '/me/stop-acting',
+        {
+          preHandler: requireMember,
+          schema: { response: respond(200, OK_RESPONSE) },
+        },
+        async (request) => {
+          const actingFor = request.auth!.actingForMemberId;
+          if (actingFor === undefined) return { ok: true };
+          await storage.setSessionActing(request.auth!.session!.id, null);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            actingForMemberId: actingFor,
+            action: 'member.stop_acting', entityType: 'member', entityId: actingFor,
+          });
+          return { ok: true };
         },
       );
 

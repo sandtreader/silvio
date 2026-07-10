@@ -197,6 +197,17 @@ describe('path construction', () => {
     expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/transactions/tx-2/reverse');
   });
 
+  it('routes acts-for-member start and stop (#24)', async () => {
+    const mock = stubFetch(200, { ok: true });
+    const client = new ApiClient({ group: 'g1' });
+    await client.actAsMember('m 1'); // encoding
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/members/m%201/act-as');
+    expect(lastCall(mock).init.method).toBe('POST');
+    await client.stopActing();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/me/stop-acting');
+    expect(lastCall(mock).init.method).toBe('POST');
+  });
+
   it('builds the admin transaction search query, omitting it when empty', async () => {
     const mock = stubFetch(200, { transactions: [], total: 0 });
     const client = new ApiClient({ group: 'g1' });

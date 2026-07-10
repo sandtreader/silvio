@@ -75,6 +75,37 @@ describe('MembersPage', () => {
     expect(screen.queryByRole('menuitem', { name: /unrestrict/i })).not.toBeInTheDocument();
   });
 
+  it('acts for an active member after the confirm dialog (#24)', async () => {
+    const api = makeMockApi();
+    api.adminMembers.mockResolvedValue([
+      makeMember({ id: 'm-1', displayName: 'Alice Smith', status: 'active' }),
+      makeMember({ id: 'm-2', memberNo: 2, displayName: 'Bob Jones', status: 'suspended' }),
+    ]);
+
+    render(<MembersPage api={api} />);
+    // Suspended members get no Act as… action.
+    await userEvent.click(
+      await screen.findByRole('button', { name: /actions for bob jones/i }),
+    );
+    expect(screen.queryByRole('menuitem', { name: /act as…/i })).not.toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /actions for alice smith/i }),
+    );
+    await userEvent.click(await screen.findByRole('menuitem', { name: /act as…/i }));
+    // The confirm dialog explains the recording, then starts acting.
+    expect(await screen.findByText(/recorded in the audit log/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /act as member/i }));
+    await waitFor(() => expect(api.actAsMember).toHaveBeenCalledWith('m-1'));
+    // Success snackbar links to the member app.
+    expect(await screen.findByText(/now acting for alice smith/i)).toBeInTheDocument();
+    expect(screen.getByText('the member app').closest('a')).toHaveAttribute(
+      'href',
+      '/app/',
+    );
+  });
+
   it('marks restricted members and offers only Unrestrict', async () => {
     const api = makeMockApi();
     api.adminMembers.mockResolvedValue([

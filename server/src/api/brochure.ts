@@ -250,12 +250,23 @@ export async function sessionMember(
   request: FastifyRequest,
   groupId: string,
 ): Promise<Member | undefined> {
+  return (await sessionMemberContext(storage, request, groupId))?.member;
+}
+
+/** As sessionMember, but keeping the acting flag (#24) for /shell. */
+export async function sessionMemberContext(
+  storage: Storage,
+  request: FastifyRequest,
+  groupId: string,
+): Promise<{ member: Member; acting: boolean } | undefined> {
   const token = request.cookies[SESSION_COOKIE];
   if (token === undefined) return undefined;
   try {
     const context = await authenticate(storage, token);
     const member = context?.member;
-    return member !== undefined && member.groupId === groupId ? member : undefined;
+    return member !== undefined && member.groupId === groupId
+      ? { member, acting: context!.actingForMemberId !== undefined }
+      : undefined;
   } catch {
     return undefined;
   }

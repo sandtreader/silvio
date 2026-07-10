@@ -103,6 +103,31 @@ export function SiteChrome() {
         {me !== null && <Typography component="span">{me.member.displayName}</Typography>}
       </Box>
     </Box>
+    {info.member?.acting === true && (
+      // Acting banner (#24): /shell's displayName is the acted-for member's
+      // while acting. Stop clears the session context server-side, then a
+      // full reload drops everything cached about the member.
+      <Typography
+        sx={{
+          px: 2.5,
+          py: 1,
+          bgcolor: '#cfe2ff',
+          color: '#084298',
+          borderBottom: '1px solid #9ec5fe',
+        }}
+      >
+        Acting for {info.member.displayName} —{' '}
+        <Link
+          component="button"
+          sx={{ color: 'inherit', fontWeight: 700, verticalAlign: 'baseline' }}
+          onClick={() => {
+            void client.stopActing().then(() => window.location.reload());
+          }}
+        >
+          Stop
+        </Link>
+      </Typography>
+    )}
     {info.suspended === true && (
       // Suspension banner (#20): mirrors the brochure's amber notice.
       <Typography
