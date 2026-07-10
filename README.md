@@ -40,7 +40,9 @@ cd server && npm install && npm run build && npm start
 ```
 
 Then see [server/README.md](server/README.md) for configuration and
-[scripts/demo.sh](scripts/demo.sh) for a full end-to-end demo.
+[scripts/demo.sh](scripts/demo.sh) for a full end-to-end demo. To run
+it in production, see [deploy.md](deploy.md) — one Docker container,
+one data volume.
 
 ## License
 

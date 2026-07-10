@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+**/node_modules
+**/dist
+*.sqlite
+**/*.sqlite*
+backups
+**/backups
+**/coverage
+**/*.log
+**/.vite

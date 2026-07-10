@@ -88,6 +88,19 @@ describe('backups', () => {
     ]);
   });
 
+  it('leaves no temp or WAL sidecar files behind', async () => {
+    // A file-backed source runs in WAL mode (unlike :memory:), which is what
+    // strews -shm/-wal sidecars around the temp copy in real deployments.
+    const fileStorage = new SqliteStorage(join(dir, 'live.sqlite'));
+    try {
+      await fileStorage.createGroup({ slug: 'g', name: 'G' });
+      await runBackup(fileStorage, join(dir, 'backups'), '2026-07-10T03:00:00.000Z');
+      expect(readdirSync(join(dir, 'backups'))).toEqual(['silvio-2026-07-10.sqlite']);
+    } finally {
+      fileStorage.close();
+    }
+  });
+
   it('a copy that fails the integrity check is deleted and alerted, loudly', async () => {
     // Force the check to fail by pointing it at a pre-existing garbage file
     // for a *different* day and asking runBackup to verify today's: instead,

@@ -76,12 +76,22 @@ export async function runBackup(
   const tempPath = join(dir, `.silvio-${date}.sqlite.tmp`);
   await storage.backup(tempPath);
   const error = verifyCopy(tempPath);
+  // The backup/verify connections leave empty -shm/-wal sidecars against the
+  // temp name (the copy inherits the source's WAL mode); with every
+  // connection closed they carry nothing and would otherwise litter the
+  // backups directory forever.
+  const dropSidecars = (): void => {
+    rmSync(`${tempPath}-shm`, { force: true });
+    rmSync(`${tempPath}-wal`, { force: true });
+  };
   if (error !== undefined) {
     rmSync(tempPath, { force: true });
+    dropSidecars();
     alert(`BACKUP FAILED: copy for ${date} failed verification (${error}) — deleted`);
     return { created: false, pruned: 0 };
   }
   renameSync(tempPath, finalPath);
+  dropSidecars();
   return { created: true, pruned: rotate(dir) };
 }
 

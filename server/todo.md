@@ -150,11 +150,18 @@ Remaining server-side work, grouped by area. References are to
 - [ ] Operator group management: suspend group, edit domains, plan/status field
 - [ ] Migration importers: members/balances/listings from Mutual Credit Manager
       and Local Exchange installs (first-review — likely first adopters)
-- [ ] Backup story (SQLite online backup + restore procedure)
+- [x] Backup story (SQLite online backup + restore procedure) — built-in job:
+      daily integrity-checked copy, hourly check, 7-daily/4-Monday rotation;
+      restore + off-site procedure in [deploy.md](../deploy.md)
 - [ ] Config file alternative to env vars; structured logging
 - [x] Demo script: scripts/demo.sh — full lifecycle end-to-end (listings/history seeding still open)
-- [ ] Deployment guide for the minimal-VPS target (#7); systemd unit / Docker
-- [ ] CORS configuration for the UI origin
+- [x] Deployment guide for the minimal-VPS target (#7) — Docker image
+      (root Dockerfile, GHCR publishing via .github/workflows/docker.yml) +
+      [deploy.md](../deploy.md); no systemd unit — the container restart
+      policy covers it
+- [x] CORS configuration for the UI origin — not needed: everything is
+      same-origin behind one hostname per group (see deploy.md); becomes a
+      server feature only if a separately-hosted UI origin ever appears
 
 ## Later / speculative
 
