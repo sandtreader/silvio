@@ -751,3 +751,28 @@ social).
   admins toggle it on the Settings page next to the other group knobs.
 - Flag visibility (#3's other transparency lever) stays future work with
   the credit-control flags themselves.
+
+## 20. Group suspension & operator group management — DECIDED 2026-07-10
+
+Operator-level lifecycle for groups (#2's platform tier), designed for the
+two real cases: a lapsed/hosted group that needs pressure without
+hostage-taking, and an orderly wind-down.
+
+- **`group.status: active | suspended`, suspended means read-only.**
+  Logins and every read keep working — members never lose access to their
+  own records (the GDPR-friendly property) — but every state-changing API
+  call (trades, listings, applications, CMS, admin actions) refuses with a
+  clear `GROUP_SUSPENDED` error. `/auth/*` stays fully open: account
+  access is user-level, not group-level. The scheduler skips the group's
+  sweeps, demurrage and digests; journal **verification keeps running** —
+  suspension must never mask corruption. A darker `closed` state can be
+  added later if ever needed; not designed now.
+- **Public brochure stays up with a suspension notice banner**, and the
+  market browse is replaced by the notice — honest to visitors, graceful
+  for wind-downs. The `/shell` payload carries the flag so the member
+  app's chrome can show the same banner.
+- **`group.plan`**: nullable free-text operator label (the #2 reserved
+  SaaS field) — a record, no billing logic.
+- **Operator management routes**: `PATCH /operator/groups/{id}` (name,
+  status, plan), `POST/DELETE /operator/groups/{id}/domains` — all
+  audited (audit_events already allows platform-level actors).
