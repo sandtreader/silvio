@@ -778,3 +778,19 @@ hostage-taking, and an orderly wind-down.
   audited (audit_events already allows platform-level actors). `group.notes`
   is an operator-private free-text field (contact details, history) kept out
   of the shared Group schema so it can never serialize past operator routes.
+
+## 21. Operator console — DECIDED 2026-07-10
+
+A third UI package, `ui/operator`, served at `/operator/` — the platform
+tier (#2, #20) gets its own small app rather than a mode inside the
+group-scoped admin app: operator identity is a different principal with a
+different login (`/api/v1/operator/login`), host-independent routes, and
+no group context to confuse. Same Rafiki + MUI stack as the admin app,
+same serving pattern (static dist + SPA fallback, `SILVIO_OPERATOR_UI`
+override), same Docker stage.
+
+Scope: provision a group (the existing POST with slug/name/currency/
+initial admin), list groups with status/plan, and per-group management —
+rename, suspend/reinstate (#20's read-only semantics), plan label,
+operator-private notes, domain add/remove. Anything deeper (billing,
+cross-group reporting) waits for a real SaaS need.
