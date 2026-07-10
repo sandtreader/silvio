@@ -1151,6 +1151,30 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
     });
   });
 
+  describe('post with an explicit timestamp (seeding/import support)', () => {
+    it('honours atIso for created/committed and keeps the chain verifiable', async () => {
+      const past = await f.storage.post(
+        trade(f),
+        undefined,
+        '2025-03-15T12:00:00.000Z',
+      );
+      expect(past.createdAt).toBe('2025-03-15T12:00:00.000Z');
+      expect(past.committedAt).toBe('2025-03-15T12:00:00.000Z');
+
+      // A later transaction without atIso stamps now, as ever.
+      const current = await f.storage.post(trade(f));
+      expect(current.committedAt! > past.committedAt!).toBe(true);
+
+      // The backdated timestamp is inside the hash chain, not around it.
+      const report = await f.storage.verify(f.group.id);
+      expect(report.ok).toBe(true);
+
+      // Aggregates see the history where it was placed.
+      const flow = await f.storage.monthlyTradeFlow(f.group.id, f.cams.id, 24);
+      expect(flow.find((bucket) => bucket.month === '2025-03')).toBeDefined();
+    });
+  });
+
   describe('dashboard aggregates (plan.md: Management operations)', () => {
     beforeEach(async () => {
       // Two committed trades: alice pays bob 300, bob pays alice 100.

@@ -188,8 +188,11 @@ export interface Ledger {
    *   balance effect; 'pending' records with none of those (decision #5)
    * - idempotencyKey (unique per group): a replay returns the original
    *   transaction without posting again
+   * - atIso (seeding/import support): stamps createdAt, and committedAt for
+   *   committed-state posts; the hash chain covers it like any timestamp —
+   *   the chain doesn't care what the time is, only that it's hashed
    */
-  post(tx: NewTransaction, idempotencyKey?: string): Promise<Transaction>;
+  post(tx: NewTransaction, idempotencyKey?: string, atIso?: string): Promise<Transaction>;
 
   /**
    * #5 state machine: pending -> committed | declined | cancelled | expired.

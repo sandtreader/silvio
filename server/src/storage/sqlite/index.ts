@@ -644,7 +644,7 @@ export class SqliteStorage implements Storage {
     return Promise.resolve(rows.map((row) => this.loadTransaction(row.id)));
   }
 
-  post(tx: NewTransaction, idempotencyKey?: string): Promise<Transaction> {
+  post(tx: NewTransaction, idempotencyKey?: string, atIso?: string): Promise<Transaction> {
     try {
       const result = this.db.transaction((): Transaction => {
         if (idempotencyKey !== undefined) {
@@ -657,8 +657,10 @@ export class SqliteStorage implements Storage {
         this.validateEntries(tx);
 
         const id = uuidv7();
-        const createdAt = now();
-        const commit = tx.state === 'committed' ? this.nextCommit(tx.groupId) : undefined;
+        // atIso: seeding/import support — the chain doesn't care what the
+        // time is, only that it's hashed.
+        const createdAt = atIso ?? now();
+        const commit = tx.state === 'committed' ? this.nextCommit(tx.groupId, atIso) : undefined;
         const hash =
           commit === undefined
             ? null
@@ -3014,7 +3016,7 @@ export class SqliteStorage implements Storage {
 
   /** Next per-group chain position and the prev hash to link from (#10).
    *  Must be called inside a db.transaction so seq assignment is atomic. */
-  private nextCommit(groupId: Id): { seq: number; prev: string; committedAt: string } {
+  private nextCommit(groupId: Id, atIso?: string): { seq: number; prev: string; committedAt: string } {
     const head = this.db
       .prepare(
         `SELECT seq, hash FROM transactions
@@ -3025,7 +3027,7 @@ export class SqliteStorage implements Storage {
     return {
       seq: (head?.seq ?? 0) + 1,
       prev: head?.hash ?? '',
-      committedAt: now(),
+      committedAt: atIso ?? now(),
     };
   }
 

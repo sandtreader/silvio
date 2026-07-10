@@ -43,6 +43,9 @@ operator console at `/operator/`, and an MCP endpoint for AI agents at
 - **Demo**: `scripts/demo.sh` boots a throwaway instance and walks the
   full lifecycle — provisioning, members, listings, a month of trading,
   demurrage, restrictions — and doubles as an end-to-end smoke test.
+  `scripts/seed.mjs` (build the server first) generates a persistent
+  lived-in demo database: 50 members, listings with photos, a year of
+  backdated trading and demurrage history.
 - **Local dev**: server on :1862 (`npm run dev` equivalents per README);
   the UIs run under Vite with an `/api` proxy.
 

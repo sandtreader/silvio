@@ -73,9 +73,32 @@ jobs:
           npm run build
           npm test
 
+  # The full-lifecycle demo doubles as an end-to-end test: real server,
+  # real CLI, throwaway database, every step must succeed (set -e).
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            cli/package-lock.json
+
+      - name: install
+        run: |
+          (cd server && npm ci)
+          (cd cli && npm ci)
+
+      - name: demo lifecycle
+        run: PORT=18620 bash scripts/demo.sh
+
   build-and-push:
     if: github.event_name != 'pull_request'
-    needs: test
+    needs: [test, e2e]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

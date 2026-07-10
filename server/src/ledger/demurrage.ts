@@ -60,12 +60,14 @@ export interface DemurrageResult {
  * Execute (or resume) the demurrage run for (currency, period).
  * Re-running a completed period is a no-op; a partial run charges only
  * the accounts not already charged under this run id (decision #1).
+ * atIso (seeding support): backdates the posted charges via storage.post.
  */
 export async function runDemurrage(
   storage: Storage,
   groupId: Id,
   currencyId: Id,
   period: string,
+  atIso?: string,
 ): Promise<DemurrageResult> {
   const run = await storage.beginDemurrageRun(groupId, currencyId, period);
   if (run.status === 'completed') {
@@ -110,6 +112,7 @@ export async function runDemurrage(
         ],
       },
       `demurrage:${run.id}:${account.id}`,
+      atIso,
     );
     charged += 1;
     totalCharged += charge;
