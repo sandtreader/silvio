@@ -41,6 +41,7 @@ const CHANNEL = ['web', 'mcp', 'admin', 'system'] as const;
 const MEMBER_STATUS = ['applied', 'active', 'away', 'suspended', 'closed'] as const;
 const MEMBER_TYPE = ['individual', 'joint', 'organisation'] as const;
 const MEMBER_ROLE = ['member', 'committee', 'admin'] as const;
+const DIGEST_FREQUENCY = ['none', 'weekly', 'monthly'] as const; // #17
 const LISTING_TYPE = ['offer', 'want'] as const;
 const PAGE_VISIBILITY = ['public', 'members', 'admin'] as const;
 const LISTING_STATUS = ['active', 'hidden', 'expired'] as const;
@@ -142,6 +143,7 @@ const MEMBER = {
     'displayName',
     'status',
     'confirmIncoming',
+    'digestFrequency',
     'appliedAt',
   ],
   properties: {
@@ -153,6 +155,7 @@ const MEMBER = {
     displayName: { type: 'string' },
     status: { type: 'string', enum: MEMBER_STATUS },
     confirmIncoming: { type: 'boolean' },
+    digestFrequency: { type: 'string', enum: DIGEST_FREQUENCY },
     appliedAt: { type: 'string' },
     approvedAt: { type: 'string' },
     closedAt: { type: 'string' },

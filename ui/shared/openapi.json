@@ -232,6 +232,7 @@
           "displayName",
           "status",
           "confirmIncoming",
+          "digestFrequency",
           "appliedAt"
         ],
         "properties": {
@@ -275,6 +276,14 @@
           },
           "confirmIncoming": {
             "type": "boolean"
+          },
+          "digestFrequency": {
+            "type": "string",
+            "enum": [
+              "none",
+              "weekly",
+              "monthly"
+            ]
           },
           "appliedAt": {
             "type": "string"
@@ -1345,6 +1354,14 @@
                   },
                   "displayName": {
                     "type": "string"
+                  },
+                  "digestFrequency": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "weekly",
+                      "monthly"
+                    ]
                   }
                 }
               }
@@ -2794,6 +2811,67 @@
                   "properties": {
                     "member": {
                       "$ref": "#/components/schemas/Member"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/broadcast": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "subject",
+                  "body"
+                ],
+                "properties": {
+                  "subject": {
+                    "type": "string"
+                  },
+                  "body": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ok",
+                    "queued"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "queued": {
+                      "type": "integer"
                     }
                   }
                 }
@@ -4367,7 +4445,8 @@
                               "restriction_imposed",
                               "restriction_lifted",
                               "password_reset",
-                              "email_verify"
+                              "email_verify",
+                              "digest"
                             ]
                           },
                           "subject": {
@@ -4441,7 +4520,8 @@
                 "restriction_imposed",
                 "restriction_lifted",
                 "password_reset",
-                "email_verify"
+                "email_verify",
+                "digest"
               ]
             },
             "in": "path",
@@ -4486,7 +4566,8 @@
                             "restriction_imposed",
                             "restriction_lifted",
                             "password_reset",
-                            "email_verify"
+                            "email_verify",
+                            "digest"
                           ]
                         },
                         "subject": {
@@ -4535,7 +4616,8 @@
                 "restriction_imposed",
                 "restriction_lifted",
                 "password_reset",
-                "email_verify"
+                "email_verify",
+                "digest"
               ]
             },
             "in": "path",
@@ -5049,6 +5131,14 @@
                   },
                   "displayName": {
                     "type": "string"
+                  },
+                  "digestFrequency": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "weekly",
+                      "monthly"
+                    ]
                   }
                 }
               }
@@ -6652,6 +6742,77 @@
                   "properties": {
                     "member": {
                       "$ref": "#/components/schemas/Member"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/g/{slug}/admin/broadcast": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "subject",
+                  "body"
+                ],
+                "properties": {
+                  "subject": {
+                    "type": "string"
+                  },
+                  "body": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ok",
+                    "queued"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "queued": {
+                      "type": "integer"
                     }
                   }
                 }
@@ -8379,7 +8540,8 @@
                               "restriction_imposed",
                               "restriction_lifted",
                               "password_reset",
-                              "email_verify"
+                              "email_verify",
+                              "digest"
                             ]
                           },
                           "subject": {
@@ -8453,7 +8615,8 @@
                 "restriction_imposed",
                 "restriction_lifted",
                 "password_reset",
-                "email_verify"
+                "email_verify",
+                "digest"
               ]
             },
             "in": "path",
@@ -8498,7 +8661,8 @@
                             "restriction_imposed",
                             "restriction_lifted",
                             "password_reset",
-                            "email_verify"
+                            "email_verify",
+                            "digest"
                           ]
                         },
                         "subject": {
@@ -8547,7 +8711,8 @@
                 "restriction_imposed",
                 "restriction_lifted",
                 "password_reset",
-                "email_verify"
+                "email_verify",
+                "digest"
               ]
             },
             "in": "path",

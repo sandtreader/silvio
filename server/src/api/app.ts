@@ -12,6 +12,7 @@ import type {
   FastifyReply,
   FastifyRequest,
 } from 'fastify';
+import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import cookie from '@fastify/cookie';
@@ -26,6 +27,7 @@ import type {
   CreditPolicyConfig,
   CreditPolicyType,
   DemurrageBand,
+  DigestFrequency,
   Group,
   Image,
   ListingType,
@@ -748,16 +750,22 @@ export async function buildApp(
               properties: {
                 confirmIncoming: { type: 'boolean' },
                 displayName: { type: 'string' },
+                digestFrequency: { type: 'string', enum: ['none', 'weekly', 'monthly'] },
               },
             },
             response: respond(200, body({ member: ref('Member') })),
           },
         },
         async (request) => {
-          const body = request.body as { confirmIncoming?: boolean; displayName?: string };
+          const body = request.body as {
+            confirmIncoming?: boolean;
+            displayName?: string;
+            digestFrequency?: DigestFrequency;
+          };
           const patch: Parameters<typeof storage.updateMember>[1] = {};
           if (body.confirmIncoming !== undefined) patch.confirmIncoming = body.confirmIncoming;
           if (body.displayName !== undefined) patch.displayName = body.displayName;
+          if (body.digestFrequency !== undefined) patch.digestFrequency = body.digestFrequency;
           const member = await storage.updateMember(request.auth!.member.id, patch);
           return { member };
         },
@@ -1524,6 +1532,58 @@ export async function buildApp(
             throw new DomainError('INVALID', 'cannot change your own role');
           }
           return { member: await storage.updateMember(id, { role }) };
+        },
+      );
+
+      // Admin broadcast (#17): subject/body verbatim (body is markdown;
+      // delivery renders the HTML part), one email per person-with-email on
+      // every active membership. Each call is a new event — the dedup key
+      // carries a fresh broadcast id — and 'broadcast' is deliberately not an
+      // email template kind.
+      scope.post(
+        '/admin/broadcast',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            body: {
+              type: 'object',
+              required: ['subject', 'body'],
+              properties: {
+                subject: { type: 'string' },
+                body: { type: 'string' },
+              },
+            },
+            response: respond(
+              200,
+              body({ ok: { type: 'boolean' }, queued: { type: 'integer' } }),
+            ),
+          },
+        },
+        async (request) => {
+          const { subject, body } = request.body as { subject: string; body: string };
+          const group = request.group!;
+          const broadcastId = randomUUID();
+          const nowIso = new Date().toISOString();
+          let queued = 0;
+          for (const member of await storage.listMembers(group.id, 'active')) {
+            for (const person of await storage.personsForMember(member.id)) {
+              if (person.email === undefined) continue;
+              const event = await storage.enqueueEmail({
+                groupId: group.id,
+                personId: person.id,
+                kind: 'broadcast',
+                dedupKey: `broadcast:${broadcastId}:${person.id}`,
+                toEmail: person.email,
+                subject,
+                body,
+                // Snapshot the group sender (#16); absent falls back at delivery.
+                ...(group.emailFrom !== undefined ? { fromEmail: group.emailFrom } : {}),
+                createdAt: nowIso,
+              });
+              if (event !== undefined) queued += 1;
+            }
+          }
+          return { ok: true, queued };
         },
       );
 

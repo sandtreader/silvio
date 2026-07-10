@@ -8,6 +8,7 @@
 
 import type { Storage } from '../storage/interface.js';
 import { runDemurrage } from '../ledger/demurrage.js';
+import { sweepDigests } from './digest.js';
 import { sweepListings } from './marketplace.js';
 import { sweepDue } from './trading.js';
 
@@ -16,6 +17,7 @@ export interface TickReport {
   autoAccepted: number;
   expired: number;
   listingsExpired: number;
+  digestsSent: number; // offers & wants digest (#17)
   verifyFailures: number;
 }
 
@@ -29,7 +31,8 @@ export async function tick(
   opts?: TickOptions,
 ): Promise<TickReport> {
   const report: TickReport = {
-    demurrageRuns: 0, autoAccepted: 0, expired: 0, listingsExpired: 0, verifyFailures: 0,
+    demurrageRuns: 0, autoAccepted: 0, expired: 0, listingsExpired: 0,
+    digestsSent: 0, verifyFailures: 0,
   };
   const alert = opts?.alert ?? console.error;
   const at = new Date(nowIso);
@@ -54,6 +57,9 @@ export async function tick(
 
     const listings = await sweepListings(storage, group.id, nowIso);
     report.listingsExpired += listings.expired;
+
+    const digests = await sweepDigests(storage, group.id, nowIso);
+    report.digestsSent += digests.sent;
 
     for (const currency of await storage.listCurrencies(group.id)) {
       if (currency.demurrageDay === undefined) continue;

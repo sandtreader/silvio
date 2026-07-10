@@ -149,6 +149,8 @@ export interface Session {
 export type MemberStatus = 'applied' | 'active' | 'away' | 'suspended' | 'closed';
 export type MemberType = 'individual' | 'joint' | 'organisation';
 export type MemberRole = 'member' | 'committee' | 'admin';
+// Offers & wants digest cadence (#17); default 'weekly'.
+export type DigestFrequency = 'none' | 'weekly' | 'monthly';
 
 export interface Member {
   id: Id;
@@ -159,6 +161,7 @@ export interface Member {
   displayName: string;
   status: MemberStatus;
   confirmIncoming: boolean; // opt-in payment confirmation (decision #5)
+  digestFrequency: DigestFrequency; // offers & wants digest cadence (#17)
   appliedAt: string;
   approvedAt?: string;
   closedAt?: string;

@@ -691,3 +691,25 @@ markdown pathway).
   domain) is the operator's problem to configure, documented, not policed.
 - **Editing UI** reuses the #13 pattern: subject field + markdown body with
   live preview, plus a substitutable-placeholder reference per kind.
+
+## 17. Offers & wants digest and admin broadcast — DECIDED 2026-07-10
+
+The last two Email & notifications items, mechanised on the #16 pathway.
+
+**Digest**: each member chooses `digestFrequency` — `none | weekly |
+monthly`, default **weekly** (the digest is the modern form of the LETS
+offers-and-wants sheet; joining the group is joining that conversation, and
+opting out is one tap). Content is **what's new**: listings created within
+the period window (7/31 days), grouped offers-then-wants; an empty digest
+is not sent. Generation is a scheduler-tick sweep, idempotent via the
+existing email dedup keys scoped to a period label (the week's Monday date
+or the month) — however often the tick runs, one digest per member per
+period. Wording is group-editable as the `digest` template kind
+({{listings}} carries the pre-rendered markdown section).
+
+**Broadcast**: `POST /admin/broadcast {subject, body}` — markdown body,
+one email per person (with an email address) on every active membership,
+queued through the standard outbox (multipart, per-group sender). No
+template and no storage of its own: a broadcast is ad-hoc by nature, and
+the email_events log already records what was sent to whom. No
+targeting/segments until a group asks.

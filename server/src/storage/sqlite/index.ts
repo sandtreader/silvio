@@ -31,6 +31,7 @@ import type {
   Currency,
   DemurrageBand,
   DemurrageRun,
+  DigestFrequency,
   EmailEvent,
   EmailTemplate,
   Entry,
@@ -127,6 +128,7 @@ interface MemberRow {
   display_name: string;
   status: string;
   confirm_incoming: number;
+  digest_frequency: string;
   applied_at: string;
   approved_at: string | null;
   closed_at: string | null;
@@ -1047,6 +1049,7 @@ export class SqliteStorage implements Storage {
           displayName: input.displayName,
           status: 'applied',
           confirmIncoming: false,
+          digestFrequency: 'weekly',
           appliedAt: now(),
         };
         this.db
@@ -1081,7 +1084,12 @@ export class SqliteStorage implements Storage {
 
   updateMember(
     id: Id,
-    patch: { displayName?: string; confirmIncoming?: boolean; role?: MemberRole },
+    patch: {
+      displayName?: string;
+      confirmIncoming?: boolean;
+      role?: MemberRole;
+      digestFrequency?: DigestFrequency;
+    },
   ): Promise<Member> {
     try {
       this.loadMember(id);
@@ -1095,6 +1103,11 @@ export class SqliteStorage implements Storage {
       }
       if (patch.role !== undefined) {
         this.db.prepare('UPDATE members SET role = ? WHERE id = ?').run(patch.role, id);
+      }
+      if (patch.digestFrequency !== undefined) {
+        this.db
+          .prepare('UPDATE members SET digest_frequency = ? WHERE id = ?')
+          .run(patch.digestFrequency, id);
       }
       return Promise.resolve(this.loadMember(id));
     } catch (err) {
@@ -2261,6 +2274,7 @@ export class SqliteStorage implements Storage {
       displayName: row.display_name,
       status: row.status as MemberStatus,
       confirmIncoming: row.confirm_incoming !== 0,
+      digestFrequency: row.digest_frequency as DigestFrequency,
       appliedAt: row.applied_at,
     };
     if (row.approved_at !== null) member.approvedAt = row.approved_at;

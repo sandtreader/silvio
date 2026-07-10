@@ -43,6 +43,7 @@ CREATE TABLE members (
   role             TEXT NOT NULL DEFAULT 'member',
   status           TEXT NOT NULL,
   confirm_incoming INTEGER NOT NULL DEFAULT 0,
+  digest_frequency TEXT NOT NULL DEFAULT 'weekly',
   applied_at       TEXT NOT NULL,
   approved_at      TEXT,
   closed_at        TEXT,

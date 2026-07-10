@@ -376,6 +376,8 @@ export interface paths {
                     "application/json": {
                         confirmIncoming?: boolean;
                         displayName?: string;
+                        /** @enum {string} */
+                        digestFrequency?: "none" | "weekly" | "monthly";
                     };
                 };
             };
@@ -1710,6 +1712,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/broadcast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        subject: string;
+                        body: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                            queued: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/policies": {
         parameters: {
             query?: never;
@@ -2995,7 +3051,7 @@ export interface paths {
                         "application/json": {
                             templates: {
                                 /** @enum {string} */
-                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify";
+                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
                                 subject: string;
                                 body: string;
                                 isDefault: boolean;
@@ -3035,7 +3091,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify";
+                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
                 };
                 cookie?: never;
             };
@@ -3057,7 +3113,7 @@ export interface paths {
                         "application/json": {
                             template: {
                                 /** @enum {string} */
-                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify";
+                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
                                 subject: string;
                                 body: string;
                                 isDefault: boolean;
@@ -3082,7 +3138,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify";
+                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
                 };
                 cookie?: never;
             };
@@ -3503,6 +3559,8 @@ export interface paths {
                     "application/json": {
                         confirmIncoming?: boolean;
                         displayName?: string;
+                        /** @enum {string} */
+                        digestFrequency?: "none" | "weekly" | "monthly";
                     };
                 };
             };
@@ -4867,6 +4925,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/g/{slug}/admin/broadcast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        subject: string;
+                        body: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                            queued: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/g/{slug}/admin/policies": {
         parameters: {
             query?: never;
@@ -6184,7 +6298,7 @@ export interface paths {
                         "application/json": {
                             templates: {
                                 /** @enum {string} */
-                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify";
+                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
                                 subject: string;
                                 body: string;
                                 isDefault: boolean;
@@ -6224,7 +6338,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify";
+                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
                 };
                 cookie?: never;
             };
@@ -6246,7 +6360,7 @@ export interface paths {
                         "application/json": {
                             template: {
                                 /** @enum {string} */
-                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify";
+                                kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
                                 subject: string;
                                 body: string;
                                 isDefault: boolean;
@@ -6271,7 +6385,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify";
+                    kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
                 };
                 cookie?: never;
             };
@@ -6562,6 +6676,8 @@ export interface components {
             /** @enum {string} */
             status: "applied" | "active" | "away" | "suspended" | "closed";
             confirmIncoming: boolean;
+            /** @enum {string} */
+            digestFrequency: "none" | "weekly" | "monthly";
             appliedAt: string;
             approvedAt?: string;
             closedAt?: string;

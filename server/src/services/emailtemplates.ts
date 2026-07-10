@@ -21,6 +21,7 @@ export const EMAIL_TEMPLATE_KINDS = [
   'restriction_lifted',
   'password_reset',
   'email_verify',
+  'digest',
 ] as const;
 
 export type EmailTemplateKind = (typeof EMAIL_TEMPLATE_KINDS)[number];
@@ -115,6 +116,14 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<
     body:
       'Welcome to {{groupName}}. Please confirm this email address by ' +
       'following the link:\n\n{{verifyUrl}}',
+  },
+  // Offers & wants digest (#17): {{listings}} is the pre-rendered markdown
+  // section the digest service supplies.
+  digest: {
+    subject: 'New offers and wants at {{groupName}}',
+    body:
+      'Hello {{memberName}},\n\nHere is what is new at {{groupName}}:\n\n' +
+      '{{listings}}',
   },
 };
 

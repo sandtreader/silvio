@@ -43,6 +43,7 @@ describe('default templates (#16)', () => {
       'restriction_lifted',
       'password_reset',
       'email_verify',
+      'digest',
     ]);
     for (const kind of EMAIL_TEMPLATE_KINDS) {
       const template = DEFAULT_EMAIL_TEMPLATES[kind];

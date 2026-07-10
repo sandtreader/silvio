@@ -18,6 +18,7 @@ import type {
   Currency,
   DemurrageBand,
   DemurrageRun,
+  DigestFrequency,
   EmailEvent,
   EmailTemplate,
   Group,
@@ -251,7 +252,12 @@ export interface Storage extends Ledger {
   getMember(id: Id): Promise<Member>;
   updateMember(
     id: Id,
-    patch: { displayName?: string; confirmIncoming?: boolean; role?: MemberRole },
+    patch: {
+      displayName?: string;
+      confirmIncoming?: boolean;
+      role?: MemberRole;
+      digestFrequency?: DigestFrequency;
+    },
   ): Promise<Member>;
   setMemberStatus(id: Id, status: MemberStatus): Promise<Member>;
   listMembers(groupId: Id, status?: MemberStatus): Promise<Member[]>;

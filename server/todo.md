@@ -61,9 +61,13 @@ Remaining server-side work, grouped by area. References are to
 - [x] Transactional: welcome/approval, invoice received, payment held/received,
       accepted/declined, auto-accept/invoice-expiry, restriction imposed/lifted
       (no member notification preferences yet — everyone with an email gets them)
-- [ ] Offers & wants digest per member frequency (weekly/monthly/never) —
-      scheduler job; `member.digestFrequency` exists but is unused
-- [ ] Admin broadcast (email all members)
+- [x] Offers & wants digest per member frequency (#17) — `member.digestFrequency`
+      ('none' | 'weekly' | 'monthly', default weekly, set via PATCH /me; it did
+      not exist before, it does now), scheduler tick sweeps per group, 'digest'
+      email template kind, per-period dedup (digest:{period}:{person})
+- [x] Admin broadcast (#17) — POST /admin/broadcast {subject, body}: one
+      markdown email per person on every active membership, kind 'broadcast'
+      (deliberately not a template kind), unique dedup per call
 
 ## Content, brochure site & CMS-lite (#12, data-model §6, first-review)
 
