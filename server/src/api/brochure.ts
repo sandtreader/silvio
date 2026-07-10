@@ -48,6 +48,8 @@ const SHELL_STYLE = `<style>
   .brochure-main .photos img { max-height: 6rem; max-width: 100%; border-radius: 0.25rem; }
   .brochure-footer { max-width: 46rem; margin: 0 auto; padding: 1rem 1.25rem;
     color: #777; font-size: 0.85rem; }
+  .suspended-notice { margin: 0; padding: 0.5rem 1.25rem; background: #fff3cd;
+    color: #664d03; border-bottom: 1px solid #ffe69c; }
   @media (display-mode: standalone) {
     .shell-chrome { display: none; }
   }
@@ -101,6 +103,11 @@ function renderPage(
   title: string,
   main: string,
 ): string {
+  // Suspension notice (#20): every brochure page says so, honestly, under
+  // the header — visitors and members see the same message.
+  const notice = group.status === 'suspended'
+    ? '\n<p class="suspended-notice">This group is currently suspended — trading is paused.</p>'
+    : '';
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -110,7 +117,7 @@ function renderPage(
 ${SHELL_STYLE}
 </head>
 <body>
-${shellHeader(group.name, memberName, navPages, branding)}
+${shellHeader(group.name, memberName, navPages, branding)}${notice}
 <main class="brochure-main">
 ${main}
 </main>
@@ -361,6 +368,16 @@ export function registerBrochureRoutes(app: FastifyInstance, storage: Storage): 
     const member = await sessionMember(storage, request, group.id);
     const navPages = await navPagesFor(storage, group.id, member);
     const branding = await brandingFor(storage, group.id);
+    // Suspension (#20): the market browse is replaced by the notice entirely
+    // — no listings while the group cannot trade.
+    if (group.status === 'suspended') {
+      return reply
+        .type(htmlType)
+        .send(renderPage(
+          group, member?.displayName, navPages, branding, `Market — ${group.name}`,
+          '<h1>Market</h1>\n<p>This group is currently suspended, so the market is closed.</p>',
+        ));
+    }
     const listings = await browse(storage, group.id, {});
     const categories = await storage.listCategories(group.id);
     const categoryNames = new Map(categories.map((category) => [category.id, category.name]));

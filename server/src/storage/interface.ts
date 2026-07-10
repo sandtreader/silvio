@@ -24,6 +24,7 @@ import type {
   EmailTemplate,
   Group,
   GroupSettings,
+  GroupStatus,
   Id,
   Image,
   ImageOwnerKind,
@@ -214,10 +215,16 @@ export interface Ledger {
 export interface Storage extends Ledger {
   createGroup(input: CreateGroupInput): Promise<Group>;
   listGroups(): Promise<Group[]>;
-  /** emailFrom: null clears, absent leaves it (#16). settings replaces the whole object. */
+  /** emailFrom/plan: null clears, absent leaves it (#16, #20). settings replaces the whole object. */
   updateGroup(
     id: Id,
-    patch: { name?: string; emailFrom?: string | null; settings?: GroupSettings },
+    patch: {
+      name?: string;
+      status?: GroupStatus; // #20
+      plan?: string | null; // #20
+      emailFrom?: string | null;
+      settings?: GroupSettings;
+    },
   ): Promise<Group>;
   createCurrency(input: CreateCurrencyInput): Promise<Currency>;
   createAccount(input: CreateAccountInput): Promise<Account>;
@@ -268,6 +275,9 @@ export interface Storage extends Ledger {
   /** Memberships of a user across groups (via persons.user_id). */
   membersForUser(userId: Id): Promise<Member[]>;
   addGroupDomain(groupId: Id, hostname: string): Promise<void>;
+  listGroupDomains(groupId: Id): Promise<string[]>; // #20
+  /** Deletes only when the hostname belongs to that group (#20). */
+  removeGroupDomain(groupId: Id, hostname: string): Promise<void>;
   groupByDomain(hostname: string): Promise<Group | undefined>;
   groupBySlug(slug: string): Promise<Group | undefined>;
 

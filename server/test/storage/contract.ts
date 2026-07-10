@@ -1384,6 +1384,36 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
     });
   });
 
+  describe('group status, plan & domains (#20)', () => {
+    it('groups default active; updateGroup flips status and labels a plan', async () => {
+      expect(f.group.status).toBe('active');
+      const suspended = await f.storage.updateGroup(f.group.id, {
+        status: 'suspended', plan: 'hosted-2026',
+      });
+      expect(suspended.status).toBe('suspended');
+      expect(suspended.plan).toBe('hosted-2026');
+      const cleared = await f.storage.updateGroup(f.group.id, {
+        status: 'active', plan: null,
+      });
+      expect(cleared.status).toBe('active');
+      expect(cleared.plan).toBeUndefined();
+    });
+
+    it('domains list and remove per group', async () => {
+      await f.storage.addGroupDomain(f.group.id, 'one.example.org');
+      await f.storage.addGroupDomain(f.group.id, 'two.example.org');
+      await f.storage.addGroupDomain(f.otherGroup.id, 'other.example.org');
+      expect((await f.storage.listGroupDomains(f.group.id)).sort())
+        .toEqual(['one.example.org', 'two.example.org']);
+      await f.storage.removeGroupDomain(f.group.id, 'one.example.org');
+      expect(await f.storage.listGroupDomains(f.group.id)).toEqual(['two.example.org']);
+      expect(await f.storage.groupByDomain('one.example.org')).toBeUndefined();
+      // Another group's domain cannot be removed through this group.
+      await f.storage.removeGroupDomain(f.group.id, 'other.example.org');
+      expect(await f.storage.groupByDomain('other.example.org')).toBeDefined();
+    });
+  });
+
   describe('group sender address (#16)', () => {
     it('updateGroup sets and clears emailFrom', async () => {
       const set = await f.storage.updateGroup(f.group.id, {

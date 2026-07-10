@@ -9,6 +9,8 @@ CREATE TABLE groups (
   id         TEXT PRIMARY KEY,
   slug       TEXT NOT NULL UNIQUE,
   name       TEXT NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'active', -- active | suspended (#20)
+  plan       TEXT, -- operator's plan label (#20)
   email_from TEXT,
   settings   TEXT, -- GroupSettings JSON; NULL = all platform defaults
   created_at TEXT NOT NULL

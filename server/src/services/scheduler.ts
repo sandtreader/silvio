@@ -53,6 +53,11 @@ export async function tick(
       alert(`JOURNAL VERIFICATION ERROR for group '${group.slug}': ${message}`);
     }
 
+    // Suspension (#20): a suspended group is read-only, so no sweeps,
+    // demurrage or digests — but verification above always runs, because
+    // suspension must never mask journal corruption.
+    if (group.status === 'suspended') continue;
+
     const swept = await sweepDue(storage, group.id, nowIso);
     report.autoAccepted += swept.autoAccepted;
     report.expired += swept.expired;

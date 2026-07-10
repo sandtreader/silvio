@@ -46,6 +46,7 @@ export function SiteChrome() {
 
   const { group, branding, navPages } = info;
   return (
+    <>
     <Box
       component="header"
       sx={{
@@ -102,5 +103,20 @@ export function SiteChrome() {
         {me !== null && <Typography component="span">{me.member.displayName}</Typography>}
       </Box>
     </Box>
+    {info.suspended === true && (
+      // Suspension banner (#20): mirrors the brochure's amber notice.
+      <Typography
+        sx={{
+          px: 2.5,
+          py: 1,
+          bgcolor: '#fff3cd',
+          color: '#664d03',
+          borderBottom: '1px solid #ffe69c',
+        }}
+      >
+        This group is currently suspended — trading is paused.
+      </Typography>
+    )}
+    </>
   );
 }

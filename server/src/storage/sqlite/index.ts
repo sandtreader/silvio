@@ -41,6 +41,7 @@ import type {
   Entry,
   Group,
   GroupSettings,
+  GroupStatus,
   Id,
   Image,
   ImageOwnerKind,
@@ -245,6 +246,8 @@ interface GroupRow {
   id: string;
   slug: string;
   name: string;
+  status: string; // active | suspended (#20)
+  plan: string | null; // operator's plan label (#20)
   email_from: string | null;
   settings: string | null; // GroupSettings JSON; NULL = all defaults
   created_at: string;
@@ -378,6 +381,7 @@ export class SqliteStorage implements Storage {
       id: uuidv7(),
       slug: input.slug,
       name: input.name,
+      status: 'active',
       createdAt: now(),
     };
     this.db
@@ -395,12 +399,25 @@ export class SqliteStorage implements Storage {
 
   updateGroup(
     id: Id,
-    patch: { name?: string; emailFrom?: string | null; settings?: GroupSettings },
+    patch: {
+      name?: string;
+      status?: GroupStatus;
+      plan?: string | null;
+      emailFrom?: string | null;
+      settings?: GroupSettings;
+    },
   ): Promise<Group> {
     try {
       this.loadGroup(id);
       if (patch.name !== undefined) {
         this.db.prepare('UPDATE groups SET name = ? WHERE id = ?').run(patch.name, id);
+      }
+      if (patch.status !== undefined) {
+        this.db.prepare('UPDATE groups SET status = ? WHERE id = ?').run(patch.status, id);
+      }
+      if (patch.plan !== undefined) {
+        // null clears the plan label (#20); absent leaves it untouched.
+        this.db.prepare('UPDATE groups SET plan = ? WHERE id = ?').run(patch.plan, id);
       }
       if (patch.emailFrom !== undefined) {
         // null clears the sender (#16); absent leaves it untouched.
@@ -1052,6 +1069,21 @@ export class SqliteStorage implements Storage {
     } catch (err) {
       return Promise.reject(err);
     }
+  }
+
+  listGroupDomains(groupId: Id): Promise<string[]> {
+    const rows = this.db
+      .prepare('SELECT hostname FROM group_domains WHERE group_id = ? ORDER BY hostname')
+      .all(groupId) as { hostname: string }[];
+    return Promise.resolve(rows.map((row) => row.hostname));
+  }
+
+  removeGroupDomain(groupId: Id, hostname: string): Promise<void> {
+    // Scoped delete (#20): another group's hostname is left untouched.
+    this.db
+      .prepare('DELETE FROM group_domains WHERE group_id = ? AND hostname = ?')
+      .run(groupId, hostname);
+    return Promise.resolve();
   }
 
   groupByDomain(hostname: string): Promise<Group | undefined> {
@@ -2644,8 +2676,10 @@ export class SqliteStorage implements Storage {
       id: row.id,
       slug: row.slug,
       name: row.name,
+      status: row.status as GroupStatus,
       createdAt: row.created_at,
     };
+    if (row.plan !== null) group.plan = row.plan;
     if (row.email_from !== null) group.emailFrom = row.email_from;
     if (row.settings !== null) group.settings = JSON.parse(row.settings) as GroupSettings;
     return group;

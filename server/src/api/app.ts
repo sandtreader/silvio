@@ -35,6 +35,7 @@ import type {
   DigestFrequency,
   Group,
   GroupSettings,
+  GroupStatus,
   Image,
   ListingType,
   Member,
@@ -74,6 +75,7 @@ import { authenticateApiToken, checkTokenCaps, issueApiToken } from '../services
 import { recordAudit } from '../services/audit.js';
 import { dashboardStats } from '../services/stats.js';
 import {
+  GROUP_STATUS,
   OK_RESPONSE,
   PUBLIC_MEMBER_WITH_PHOTO,
   SEARCH_DOMAIN,
@@ -122,6 +124,8 @@ declare module 'fastify' {
     group?: Group;
     // Exactly one of session (cookie) or token (bearer, decision #9) is set.
     auth?: { user: User; session?: Session; member: Member; token?: ApiToken };
+    // Set by requireOperator (#20): the operator user, for audit actor ids.
+    operator?: User;
   }
   interface FastifyContextConfig {
     // Routes opt in to API-token access by listing acceptable scopes
@@ -141,6 +145,7 @@ const DOMAIN_STATUS: Record<DomainErrorCode, number> = {
   NOT_AUTHORISED: 403,
   RESTRICTED: 403,
   SUSPENDED: 403,
+  GROUP_SUSPENDED: 403,
   LIMIT_BREACHED: 422,
   RATE_LIMITED: 429,
 };
@@ -547,6 +552,23 @@ export async function buildApp(
           return reply.status(404).send(errorBody('NOT_FOUND', 'unknown group'));
         }
         request.group = group;
+        // Suspension (#20): read-only. The route pattern minus this plugin's
+        // prefix is the in-plugin path — the concrete request.url cannot be
+        // used because the /g/:slug prefix varies per request. /auth/* stays
+        // open (account access is user-level, not group-level), and /mcp
+        // passes through: its re-injected REST calls hit this same hook, so
+        // writes stay blocked while read tools keep working.
+        if (group.status === 'suspended' && STATE_CHANGING.has(request.method)) {
+          const inPlugin = (request.routeOptions.url ?? '').slice(scope.prefix.length);
+          if (!inPlugin.startsWith('/auth/') && inPlugin !== '/mcp') {
+            return reply
+              .status(403)
+              .send(errorBody(
+                'GROUP_SUSPENDED',
+                'this group is currently suspended; contact its operator',
+              ));
+          }
+        }
         return undefined;
       });
 
@@ -692,6 +714,8 @@ export async function buildApp(
                     items: body({ slug: { type: 'string' }, title: { type: 'string' } }),
                   },
                   member: body({ displayName: { type: 'string' } }),
+                  // Present (true) only while the group is suspended (#20).
+                  suspended: { type: 'boolean' },
                 },
                 ['group', 'branding', 'navPages'],
               ),
@@ -706,12 +730,15 @@ export async function buildApp(
             branding: Awaited<ReturnType<typeof brandingFor>>;
             navPages: { slug: string; title: string }[];
             member?: { displayName: string };
+            suspended?: boolean;
           } = {
             group: { name: group.name, slug: group.slug },
             branding: await brandingFor(storage, group.id),
             navPages: await navPagesFor(storage, group.id, member),
           };
           if (member !== undefined) info.member = { displayName: member.displayName };
+          // Omitted when active (#20): the flag drives the app's banner.
+          if (group.status === 'suspended') info.suspended = true;
           return info;
         },
       );
@@ -2893,6 +2920,7 @@ export async function buildApp(
         .status(403)
         .send(errorBody('NOT_AUTHORISED', 'this action requires operator access'));
     }
+    request.operator = context.user; // audit actor for operator actions (#20)
     return undefined;
   }
 
@@ -3004,6 +3032,132 @@ export async function buildApp(
     },
     async () => {
       return { groups: await storage.listGroups() };
+    },
+  );
+
+  // --- Operator group management (#20): lifecycle status, plan label, ---
+  // name, and domains — every change audited with the operator as actor.
+
+  /** Target group by id; groups are few, so a scan beats a new query. */
+  async function operatorGroup(id: string): Promise<Group | undefined> {
+    return (await storage.listGroups()).find((group) => group.id === id);
+  }
+
+  app.patch(
+    '/api/v1/operator/groups/:id',
+    {
+      preHandler: requireOperator,
+      schema: {
+        params: ID_PARAM_SCHEMA,
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            name: { type: 'string', minLength: 1 },
+            status: { type: 'string', enum: GROUP_STATUS },
+            plan: { type: ['string', 'null'] }, // null clears the label
+          },
+        },
+        response: respond(200, body({ group: ref('Group') })),
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const patch = request.body as {
+        name?: string;
+        status?: GroupStatus;
+        plan?: string | null;
+      };
+      const before = await operatorGroup(id);
+      if (before === undefined) {
+        return reply.status(404).send(errorBody('NOT_FOUND', 'unknown group'));
+      }
+      const group = await storage.updateGroup(id, patch);
+      // One audit event per actual change, actor = the operator (#20).
+      const audit = (action: string, detail: Record<string, unknown>): Promise<void> =>
+        recordAudit(storage, {
+          groupId: id,
+          actorUserId: request.operator!.id,
+          action,
+          entityType: 'group',
+          entityId: id,
+          detail,
+        });
+      if (patch.status !== undefined && patch.status !== before.status) {
+        await audit('group.status', { status: patch.status });
+      }
+      if (patch.plan !== undefined && (patch.plan ?? undefined) !== before.plan) {
+        await audit('group.plan', { plan: patch.plan });
+      }
+      if (patch.name !== undefined && patch.name !== before.name) {
+        await audit('group.rename', { name: patch.name });
+      }
+      return { group };
+    },
+  );
+
+  app.post(
+    '/api/v1/operator/groups/:id/domains',
+    {
+      preHandler: requireOperator,
+      schema: {
+        params: ID_PARAM_SCHEMA,
+        body: {
+          type: 'object',
+          required: ['hostname'],
+          properties: { hostname: { type: 'string', minLength: 1 } },
+        },
+        response: respond(201, OK_RESPONSE),
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const { hostname } = request.body as { hostname: string };
+      if ((await operatorGroup(id)) === undefined) {
+        return reply.status(404).send(errorBody('NOT_FOUND', 'unknown group'));
+      }
+      await storage.addGroupDomain(id, hostname);
+      await recordAudit(storage, {
+        groupId: id,
+        actorUserId: request.operator!.id,
+        action: 'domain.add',
+        entityType: 'domain',
+        entityId: hostname,
+        detail: { hostname },
+      });
+      reply.status(201);
+      return { ok: true };
+    },
+  );
+
+  app.delete(
+    '/api/v1/operator/groups/:id/domains/:hostname',
+    {
+      preHandler: requireOperator,
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id', 'hostname'],
+          properties: { id: { type: 'string' }, hostname: { type: 'string' } },
+        },
+        response: respond(200, OK_RESPONSE),
+      },
+    },
+    async (request, reply) => {
+      const { id, hostname } = request.params as { id: string; hostname: string };
+      if ((await operatorGroup(id)) === undefined) {
+        return reply.status(404).send(errorBody('NOT_FOUND', 'unknown group'));
+      }
+      await storage.removeGroupDomain(id, hostname);
+      await recordAudit(storage, {
+        groupId: id,
+        actorUserId: request.operator!.id,
+        action: 'domain.remove',
+        entityType: 'domain',
+        entityId: hostname,
+        detail: { hostname },
+      });
+      return { ok: true };
     },
   );
 

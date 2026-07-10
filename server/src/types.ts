@@ -38,10 +38,17 @@ export interface GroupSettings {
   transparency?: Transparency; // group balances view visibility (#19)
 }
 
+// Group lifecycle (#20): suspended = read-only (logins and reads keep
+// working; state changes refuse with GROUP_SUSPENDED).
+export type GroupStatus = 'active' | 'suspended';
+
 export interface Group {
   id: Id;
   slug: string;
   name: string;
+  status: GroupStatus;
+  // Operator's free-text plan label (#20) — a record, no billing logic.
+  plan?: string;
   // Per-group sender address (#16); delivery falls back to the instance-wide
   // default when unset.
   emailFrom?: string;

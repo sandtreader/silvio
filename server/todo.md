@@ -159,7 +159,7 @@ Remaining server-side work, grouped by area. References are to
 
 ## Operator & deployment
 
-- [ ] Operator group management: suspend group, edit domains, plan/status field
+- [x] Operator group management: suspend group, edit domains, plan/status field (#20)
 - [ ] Migration importers: members/balances/listings from Mutual Credit Manager
       and Local Exchange installs (first-review — likely first adopters)
 - [x] Backup story (SQLite online backup + restore procedure) — built-in job:

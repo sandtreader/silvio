@@ -8,6 +8,7 @@ export type DomainErrorCode =
   | 'NOT_AUTHORISED' // actor may not perform this action
   | 'RESTRICTED' // outward payments blocked by admin restriction (decision #3)
   | 'SUSPENDED' // member is suspended (decision #7)
+  | 'GROUP_SUSPENDED' // group is suspended: read-only (decision #20)
   | 'LIMIT_BREACHED' // hard credit limit (decision #3)
   | 'RATE_LIMITED'; // too many failed login attempts
 

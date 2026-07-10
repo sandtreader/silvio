@@ -132,6 +132,7 @@ export function makeGroup(overrides: Partial<Group> = {}): Group {
     id: 'g-1',
     slug: 'camlets',
     name: 'CamLETS',
+    status: 'active', // #20
     createdAt: '2026-07-01T12:00:00Z',
     ...overrides,
   };

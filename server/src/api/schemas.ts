@@ -44,6 +44,7 @@ const MEMBER_STATUS = ['applied', 'active', 'away', 'suspended', 'closed'] as co
 const MEMBER_TYPE = ['individual', 'joint', 'organisation'] as const;
 const MEMBER_ROLE = ['member', 'committee', 'admin'] as const;
 const DIGEST_FREQUENCY = ['none', 'weekly', 'monthly'] as const; // #17
+export const GROUP_STATUS = ['active', 'suspended'] as const; // #20
 export const TRANSPARENCY = ['none', 'balances'] as const; // #19
 const LISTING_TYPE = ['offer', 'want'] as const;
 const PAGE_VISIBILITY = ['public', 'members', 'admin'] as const;
@@ -68,11 +69,14 @@ const API_SCOPE = [
 const GROUP = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'slug', 'name', 'createdAt'],
+  required: ['id', 'slug', 'name', 'status', 'createdAt'],
   properties: {
     id: { type: 'string' },
     slug: { type: 'string' },
     name: { type: 'string' },
+    status: { type: 'string', enum: GROUP_STATUS }, // #20
+    // Operator's free-text plan label (#20).
+    plan: { type: 'string' },
     // Per-group sender address (#16); absent = instance default.
     emailFrom: { type: 'string' },
     // Per-group knobs; absent keys = platform defaults (services/settings.ts).

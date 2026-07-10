@@ -42,6 +42,20 @@ describe('SiteChrome', () => {
     expect(await screen.findByText('Alice')).toBeTruthy();
   });
 
+  it('shows the suspension banner when /shell says suspended (#20)', async () => {
+    const client = {
+      me: vi.fn().mockRejectedValue(notAuthorised()),
+      shellInfo: vi.fn().mockResolvedValue({ ...shell, suspended: true }),
+    };
+    renderWithClient(<SiteChrome />, client);
+
+    expect(
+      await screen.findByText('This group is currently suspended — trading is paused.'),
+    ).toBeTruthy();
+    // And the ordinary chrome is still there under it.
+    expect(screen.getByText('CamLETS')).toBeTruthy();
+  });
+
   it('renders nothing while /shell fails (e.g. an unknown host)', async () => {
     const client = {
       me: vi.fn().mockRejectedValue(notAuthorised()),
