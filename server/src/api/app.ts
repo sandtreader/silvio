@@ -50,6 +50,7 @@ import type {
   TxType,
   User,
 } from '../types.js';
+import { demurrageCharge, nextPostingDate } from '../ledger/demurrage.js';
 import { DomainError, type DomainErrorCode } from '../services/errors.js';
 import { StorageError } from '../storage/errors.js';
 import { authenticate, login, logout, register, verifyCredentials } from '../services/auth.js';
@@ -786,15 +787,41 @@ export async function buildApp(
           ]),
         );
         const accounts = [];
+        const bandsByCurrency = new Map<string, DemurrageBand[]>();
         for (const account of await storage.accountsForMember(member.id)) {
           const currency = currencies.get(account.currencyId);
-          accounts.push({
+          const balance = await storage.balance(account.id);
+          const entry: {
+            id: string;
+            currencyId: string;
+            currencyCode: string;
+            scale: number;
+            balance: number;
+            demurrage?: { amount: number; postingDate: string };
+          } = {
             id: account.id,
             currencyId: account.currencyId,
             currencyCode: currency?.code ?? '',
             scale: currency?.scale ?? 0,
-            balance: await storage.balance(account.id),
-          });
+            balance,
+          };
+          // Projection (#1): what the next run would charge this balance,
+          // computed with the run's own band engine.
+          if (currency?.demurrageDay !== undefined) {
+            let bands = bandsByCurrency.get(currency.id);
+            if (bands === undefined) {
+              bands = await storage.demurrageBands(currency.id);
+              bandsByCurrency.set(currency.id, bands);
+            }
+            const amount = demurrageCharge(balance, bands);
+            if (amount > 0) {
+              entry.demurrage = {
+                amount,
+                postingDate: nextPostingDate(currency.demurrageDay, new Date()),
+              };
+            }
+          }
+          accounts.push(entry);
         }
         return { member, accounts };
       });

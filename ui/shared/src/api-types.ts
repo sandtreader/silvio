@@ -7189,6 +7189,10 @@ export interface components {
             currencyCode: string;
             scale: number;
             balance: number;
+            demurrage?: {
+                amount: number;
+                postingDate: string;
+            };
         };
         TradeStats: {
             trades: number;

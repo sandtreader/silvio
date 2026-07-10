@@ -28,6 +28,26 @@ export function demurrageCharge(balance: number, bands: DemurrageBand[]): number
   return Math.floor(sum / 1_000_000);
 }
 
+/**
+ * Next posting date for a currency's demurrageDay, strictly after `from` —
+ * a charge falling due today belongs to the real run, so the projection
+ * (#1) looks to the following occurrence. Mirrors the scheduler: it fires
+ * only when getUTCDate() reaches the day, so a month too short to contain
+ * it is skipped entirely, not clamped to its last day.
+ */
+export function nextPostingDate(demurrageDay: number, from: Date): string {
+  const today = from.toISOString().slice(0, 10);
+  for (let offset = 0; offset <= 24; offset++) {
+    const candidate = new Date(
+      Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + offset, demurrageDay),
+    );
+    if (candidate.getUTCDate() !== demurrageDay) continue; // rolled over: month too short
+    const date = candidate.toISOString().slice(0, 10);
+    if (date > today) return date;
+  }
+  throw new Error(`no posting date for day ${demurrageDay}`); // day > 31 only
+}
+
 export interface DemurrageResult {
   runId: Id;
   period: string;

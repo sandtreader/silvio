@@ -1,5 +1,7 @@
-// Home page: balances from /me, recent statement lines, pending chip.
+// Home page: balances from /me, recent statement lines, pending chip,
+// demurrage projection caption (#1).
 import { screen } from '@testing-library/react';
+import type { Me } from '@silvio/ui-shared';
 import { describe, expect, it, vi } from 'vitest';
 import { Home } from '../src/pages/Home';
 import { renderWithClient, testMe } from './helpers';
@@ -46,5 +48,32 @@ describe('Home', () => {
     expect(client.statement).toHaveBeenCalledWith('c1');
     // Pending chip
     expect(await screen.findByText(/1 pending action/i)).toBeTruthy();
+  });
+
+  it('shows the demurrage nudge only on accounts that carry one (#1)', async () => {
+    const me: Me = {
+      ...testMe,
+      accounts: [
+        {
+          ...testMe.accounts[0]!,
+          demurrage: { amount: 400, postingDate: '2026-08-01' },
+        },
+        { id: 'a2', currencyId: 'c2', currencyCode: 'ACR', scale: 0, balance: 10 },
+      ],
+    };
+    const client = {
+      me: vi.fn().mockResolvedValue(me),
+      pending: vi.fn().mockResolvedValue({ pending: [] }),
+      statement: vi.fn().mockResolvedValue({ lines: [] }),
+    };
+    renderWithClient(<Home />, client);
+
+    expect(
+      await screen.findByText(
+        /If unspent, ~4\.00 CAM goes to the community pot on 1 Aug\./,
+      ),
+    ).toBeTruthy();
+    // The demurrage-free ACR account carries no caption.
+    expect(screen.getAllByText(/If unspent/)).toHaveLength(1);
   });
 });

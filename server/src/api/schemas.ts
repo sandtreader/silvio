@@ -252,6 +252,16 @@ const ACCOUNT_BALANCE = {
     currencyCode: { type: 'string' },
     scale: { type: 'integer' },
     balance: { type: 'integer' },
+    // Projection (#1): what the next demurrage run would charge, and when.
+    demurrage: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['amount', 'postingDate'],
+      properties: {
+        amount: { type: 'integer' },
+        postingDate: { type: 'string' },
+      },
+    },
   },
 } as const;
 

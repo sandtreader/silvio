@@ -494,6 +494,22 @@
           },
           "balance": {
             "type": "integer"
+          },
+          "demurrage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "amount",
+              "postingDate"
+            ],
+            "properties": {
+              "amount": {
+                "type": "integer"
+              },
+              "postingDate": {
+                "type": "string"
+              }
+            }
           }
         }
       },

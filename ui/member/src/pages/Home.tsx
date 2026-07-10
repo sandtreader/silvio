@@ -20,6 +20,14 @@ import { useApi } from '../api/useApi';
 import { PageContainer } from '../components/PageContainer';
 import { scaleOf } from '../scale';
 
+// '2026-08-01' -> '1 Aug' for the demurrage nudge (#1).
+const postingDay = (date: string) =>
+  new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
+
 export function Home() {
   const { me } = useAuth();
   const client = useClient();
@@ -58,6 +66,15 @@ export function Home() {
             <Typography variant="h4">
               {formatAmount(account.balance, account.scale)}
             </Typography>
+            {account.demurrage && (
+              // Spend-it-forward nudge (#1): light, not alarming.
+              <Typography variant="caption" color="text.secondary">
+                If unspent, ~
+                {formatAmount(account.demurrage.amount, account.scale)}{' '}
+                {account.currencyCode} goes to the community pot on{' '}
+                {postingDay(account.demurrage.postingDate)}.
+              </Typography>
+            )}
           </CardContent>
         </Card>
       ))}
