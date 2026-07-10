@@ -21,6 +21,7 @@ function listing(overrides: Partial<Listing> & { memberId: string }): Listing {
     description: 'Punctures and gears',
     categoryId: 'cat1',
     status: 'active',
+    badges: [],
     createdAt: '2026-06-01T00:00:00Z',
     updatedAt: '2026-06-01T00:00:00Z',
     ...overrides,
@@ -44,6 +45,7 @@ describe('Market', () => {
             priceAmount: 500,
             priceCurrencyId: 'c1',
             status: 'active',
+            badges: [],
             createdAt: '2026-06-01T00:00:00Z',
             updatedAt: '2026-06-01T00:00:00Z',
           },
@@ -57,6 +59,7 @@ describe('Market', () => {
             categoryId: 'cat2',
             rateText: 'negotiable',
             status: 'active',
+            badges: [],
             createdAt: '2026-06-02T00:00:00Z',
             updatedAt: '2026-06-02T00:00:00Z',
           },
@@ -74,6 +77,30 @@ describe('Market', () => {
     expect(screen.getByText('negotiable')).toBeTruthy(); // rateText fallback
     // The app is logged-in-only: the FAB is always present
     expect(screen.getByLabelText('post listing')).toBeTruthy();
+  });
+});
+
+// Admin-verified badges (#8): chips beside the title; absent when unbadged.
+describe('Market badges', () => {
+  it('shows badge chips only on badged listings', async () => {
+    const client = {
+      me: vi.fn().mockResolvedValue(testMe),
+      browse: vi.fn().mockResolvedValue({
+        listings: [
+          listing({ id: 'l1', memberId: 'm2', badges: ['professional', 'qualified'] }),
+          listing({ id: 'l2', memberId: 'm3', title: 'Dog walking' }),
+        ],
+      }),
+      categories: vi.fn().mockResolvedValue({ categories: [] }),
+    };
+    renderWithClient(<Market />, client);
+
+    expect(await screen.findByText('Bike repair')).toBeTruthy();
+    expect(screen.getByText('Professional')).toBeTruthy();
+    expect(screen.getByText('Qualified')).toBeTruthy();
+    // Exactly one badged card: one chip of each kind
+    expect(screen.getAllByText('Professional')).toHaveLength(1);
+    expect(screen.getAllByText('Qualified')).toHaveLength(1);
   });
 });
 
@@ -103,6 +130,7 @@ describe('Market price scale', () => {
             priceAmount: 3,
             priceCurrencyId: 'c1',
             status: 'active',
+            badges: [],
             createdAt: '2026-06-01T00:00:00Z',
             updatedAt: '2026-06-01T00:00:00Z',
           },

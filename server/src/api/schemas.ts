@@ -51,6 +51,7 @@ export const TRANSPARENCY = ['none', 'balances'] as const; // #19
 const LISTING_TYPE = ['offer', 'want'] as const;
 const PAGE_VISIBILITY = ['public', 'members', 'admin'] as const;
 const LISTING_STATUS = ['active', 'hidden', 'expired'] as const;
+export const LISTING_BADGE = ['professional', 'qualified'] as const; // #8
 const CREDIT_POLICY_TYPE = ['soft_threshold', 'hard_limit'] as const;
 const RUN_STATUS = ['running', 'completed'] as const;
 export const SEARCH_DOMAIN = ['listings', 'directory', 'pages', 'news'] as const;
@@ -340,6 +341,7 @@ const LISTING = {
     'description',
     'categoryId',
     'status',
+    'badges',
     'createdAt',
     'updatedAt',
   ],
@@ -355,6 +357,7 @@ const LISTING = {
     priceCurrencyId: { type: 'string' },
     rateText: { type: 'string' },
     status: { type: 'string', enum: LISTING_STATUS },
+    badges: { type: 'array', items: { type: 'string', enum: LISTING_BADGE } },
     expiresAt: { type: 'string' },
     createdAt: { type: 'string' },
     updatedAt: { type: 'string' },

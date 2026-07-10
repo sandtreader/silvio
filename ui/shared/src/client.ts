@@ -26,6 +26,7 @@ import type {
   GroupSettings,
   Image,
   Listing,
+  ListingBadge,
   ListingType,
   Me,
   Member,
@@ -489,6 +490,11 @@ export class ApiClient {
 
   adminSetRole(id: string, role: MemberRole): Promise<{ member: Member }> {
     return this.tenant('POST', `/admin/members/${encodeURIComponent(id)}/role`, { role });
+  }
+
+  /** Replace a listing's admin-verified badges (#8). */
+  adminSetListingBadges(id: string, badges: ListingBadge[]): Promise<{ listing: Listing }> {
+    return this.tenant('PUT', `/admin/listings/${encodeURIComponent(id)}/badges`, { badges });
   }
 
   /** Act for a member (#24): the session presents as them until stopActing;

@@ -38,6 +38,7 @@ import type {
   GroupStatus,
   Id,
   Image,
+  ListingBadge,
   ListingType,
   Member,
   MemberRole,
@@ -84,6 +85,7 @@ import { dashboardStats } from '../services/stats.js';
 import {
   GROUP_STATUS,
   GROUP_WITH_NOTES_AND_DOMAINS,
+  LISTING_BADGE,
   OK_RESPONSE,
   PUBLIC_MEMBER_WITH_PHOTO,
   SEARCH_DOMAIN,
@@ -1781,6 +1783,41 @@ export async function buildApp(
           await recordAudit(storage, {
             groupId: request.group!.id, actorUserId: request.auth!.user.id,
             action: 'listing.renew', entityType: 'listing', entityId: id,
+          });
+          return { listing };
+        },
+      );
+
+      // Badges (#8): admin-verified facts are the one blessed reputation
+      // surface — set by admins, never by the listing's owner.
+      scope.put(
+        '/admin/listings/:id/badges',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            body: {
+              type: 'object',
+              required: ['badges'],
+              properties: {
+                badges: {
+                  type: 'array',
+                  uniqueItems: true,
+                  items: { type: 'string', enum: LISTING_BADGE },
+                },
+              },
+            },
+            response: respond(200, body({ listing: ref('Listing') })),
+          },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          const { badges } = request.body as { badges: ListingBadge[] };
+          await targetListing(request, id);
+          const listing = await storage.setListingBadges(id, badges);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'listing.badges', entityType: 'listing', entityId: id, detail: { badges },
           });
           return { listing };
         },

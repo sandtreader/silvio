@@ -29,6 +29,7 @@ import type {
   Image,
   ImageOwnerKind,
   Listing,
+  ListingBadge,
   ListingStatus,
   ListingType,
   Member,
@@ -493,6 +494,8 @@ export interface Storage extends Ledger {
       expiresAt: string;
     }>,
   ): Promise<Listing>;
+  /** Replace the admin-verified badges (#8); owner edits never touch these. */
+  setListingBadges(id: Id, badges: ListingBadge[]): Promise<Listing>;
   listListings(
     groupId: Id,
     filter?: {

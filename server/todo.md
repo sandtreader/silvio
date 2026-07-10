@@ -152,7 +152,10 @@ Remaining server-side work, grouped by area. References are to
 - [x] Category admin routes (create/edit/delete, recategorise)
 - [x] Location/neighbourhood field + directory filtering (one free-text field,
       deliberately simpler than CamLETS's grid)
-- [ ] Qualified/professional flags on listings (#8 — admin-verified badges)
+- [x] Qualified/professional flags on listings (#8 — admin-verified badges;
+      PUT /admin/listings/:id/badges; shown in brochure market and member
+      market. No admin UI yet — the API exists; the badge control belongs on
+      a future listings-admin page)
 
 ## API polish
 

@@ -128,6 +128,15 @@ describe('path construction', () => {
     expect(lastCall(mock).url).toBe('/api/v1/g/g1/listings?type=offer&categoryId=c9');
   });
 
+  it('puts admin listing badges (#8)', async () => {
+    const mock = stubFetch(200, { listing: {} });
+    const client = new ApiClient({ group: 'g1' });
+    await client.adminSetListingBadges('l/1', ['qualified']);
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/listings/l%2F1/badges');
+    expect(lastCall(mock).init.method).toBe('PUT');
+    expect(lastCall(mock).init.body).toBe(JSON.stringify({ badges: ['qualified'] }));
+  });
+
   it('builds the search query with domain, q and paging (#18)', async () => {
     const mock = stubFetch(200, { items: [], total: 0 });
     const client = new ApiClient({ group: 'g1' });

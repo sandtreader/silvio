@@ -172,3 +172,5 @@ export type CreditPolicyType = Policy['type'];
 
 export type ListingType = Listing['type'];
 export type ListingStatus = Listing['status'];
+/** Admin-verified badges (#8): facts, never peer ratings. */
+export type ListingBadge = Listing['badges'][number];

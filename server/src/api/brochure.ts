@@ -45,6 +45,9 @@ const SHELL_STYLE = `<style>
   .brochure-main { max-width: 46rem; margin: 0 auto; padding: 1.5rem 1.25rem; }
   .brochure-main article { border-bottom: 1px solid #eee; padding: 0.75rem 0; }
   .brochure-main .category { color: #555; font-size: 0.9rem; margin: 0.25rem 0; }
+  .brochure-main .badge { font-size: 0.7rem; font-weight: 500; color: #205a3b;
+    border: 1px solid #9cc0ab; border-radius: 0.6rem; padding: 0.05rem 0.5rem;
+    vertical-align: middle; text-transform: capitalize; }
   .brochure-main .photos img { max-height: 6rem; max-width: 100%; border-radius: 0.25rem; }
   .brochure-footer { max-width: 46rem; margin: 0 auto; padding: 1rem 1.25rem;
     color: #777; font-size: 0.85rem; }
@@ -162,6 +165,10 @@ function renderListing(
   const categoryLine = category === undefined
     ? ''
     : `\n<p class="category">${escapeHtml(category)}</p>`;
+  // Admin-verified badges (#8): small markers beside the title.
+  const badgeMarks = listing.badges
+    .map((badge) => ` <span class="badge">${escapeHtml(badge)}</span>`)
+    .join('');
   // Listing photos (#14 phase 3): thumbnails by opaque id. alt is empty —
   // the title just above already names what the photos show.
   const photoLine = photoIds.length === 0
@@ -170,7 +177,7 @@ function renderListing(
         .map((id) => `<img src="/i/${id}" alt="" loading="lazy">`)
         .join(' ')}</p>`;
   return `<article>
-<h3>${escapeHtml(listing.title)}</h3>${categoryLine}
+<h3>${escapeHtml(listing.title)}${badgeMarks}</h3>${categoryLine}
 <p>${escapeHtml(listing.description)}</p>${photoLine}
 </article>`;
 }

@@ -249,6 +249,8 @@ export interface AccountFlag {
 // Marketplace.
 export type ListingType = 'offer' | 'want';
 export type ListingStatus = 'active' | 'hidden' | 'expired';
+// #8's one blessed reputation surface: admin-verified facts, never peer ratings.
+export type ListingBadge = 'professional' | 'qualified';
 
 export interface Category {
   id: Id;
@@ -269,6 +271,7 @@ export interface Listing {
   priceCurrencyId?: Id;
   rateText?: string; // …or free text ("negotiable", "10/hr")
   status: ListingStatus;
+  badges: ListingBadge[]; // admin-set (#8), default []
   expiresAt?: string;
   createdAt: string;
   updatedAt: string;

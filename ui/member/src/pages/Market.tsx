@@ -185,6 +185,16 @@ export function Market() {
                 <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                   {listing.title}
                 </Typography>
+                {/* Admin-verified badges (#8) */}
+                {listing.badges.map((badge) => (
+                  <Chip
+                    key={badge}
+                    size="small"
+                    variant="outlined"
+                    color="success"
+                    label={badge === 'professional' ? 'Professional' : 'Qualified'}
+                  />
+                ))}
               </Stack>
               {listing.priceAmount !== undefined ? (
                 <Typography variant="body2" sx={{ mb: 0.5 }}>

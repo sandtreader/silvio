@@ -208,6 +208,7 @@ CREATE TABLE listings (
   price_currency_id TEXT,
   rate_text         TEXT,
   status            TEXT NOT NULL,
+  badges            TEXT NOT NULL DEFAULT '[]',
   expires_at        TEXT,
   created_at        TEXT NOT NULL,
   updated_at        TEXT NOT NULL

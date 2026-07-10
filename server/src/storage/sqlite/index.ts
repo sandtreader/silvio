@@ -47,6 +47,7 @@ import type {
   Image,
   ImageOwnerKind,
   Listing,
+  ListingBadge,
   ListingStatus,
   ListingType,
   Member,
@@ -286,6 +287,7 @@ interface ListingRow {
   price_currency_id: string | null;
   rate_text: string | null;
   status: string;
+  badges: string;
   expires_at: string | null;
   created_at: string;
   updated_at: string;
@@ -2227,6 +2229,20 @@ export class SqliteStorage implements Storage {
     }
   }
 
+  // Badges are admin-set (#8), not owner-editable, so they live outside the
+  // updateListing patch.
+  setListingBadges(id: Id, badges: ListingBadge[]): Promise<Listing> {
+    try {
+      this.loadListing(id);
+      this.db
+        .prepare('UPDATE listings SET badges = ?, updated_at = ? WHERE id = ?')
+        .run(JSON.stringify(badges), now(), id);
+      return Promise.resolve(this.loadListing(id));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
   listListings(
     groupId: Id,
     filter?: {
@@ -2857,6 +2873,7 @@ export class SqliteStorage implements Storage {
       description: row.description,
       categoryId: row.category_id,
       status: row.status as ListingStatus,
+      badges: JSON.parse(row.badges) as ListingBadge[],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
