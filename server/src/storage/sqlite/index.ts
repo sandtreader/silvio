@@ -2231,6 +2231,11 @@ export class SqliteStorage implements Storage {
     return Promise.resolve(row.total);
   }
 
+  // SQLite's online backup API: safe against a live database.
+  async backup(destPath: string): Promise<void> {
+    await this.db.backup(destPath);
+  }
+
   close(): void {
     this.db.close();
   }

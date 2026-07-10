@@ -6,6 +6,7 @@
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "build": "tsc",
+    "backup": "node dist/src/backup-now.js",
     "openapi": "node scripts/dump-openapi.mjs ../ui/shared/openapi.json",
     "start": "node dist/src/index.js",
     "test": "vitest run",

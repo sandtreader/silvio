@@ -453,5 +453,8 @@ export interface Storage extends Ledger {
   /** Sum of the group's image sizes in bytes; 0 when none (quota check, #14). */
   imagesTotalSize(groupId: Id): Promise<number>;
 
+  /** Copy the whole database to destPath, safely against live writers. */
+  backup(destPath: string): Promise<void>;
+
   close(): void;
 }

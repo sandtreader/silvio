@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { SqliteStorage } from './storage/sqlite/index.js';
 import { buildApp, type BuildAppOptions } from './api/app.js';
 import { bootstrapOperator } from './services/bootstrap.js';
+import { startBackups } from './services/backup.js';
 import { startScheduler } from './services/scheduler.js';
 import { createSmtpMailer, startEmailDelivery } from './services/email.js';
 import { promptOperatorCredentials } from './prompt.js';
@@ -64,10 +65,22 @@ if (smtpUrl !== undefined && emailFrom !== undefined) {
   console.log('SILVIO_SMTP_URL/SILVIO_EMAIL_FROM not set — emails queue but are not sent');
 }
 
+// Backups: with a directory configured, one integrity-checked daily copy,
+// checked hourly and rotated; without it nothing is backed up.
+const backupDir = process.env['SILVIO_BACKUP_DIR'];
+let stopBackups = (): void => {};
+if (backupDir !== undefined) {
+  stopBackups = startBackups(storage, backupDir);
+  console.log(`daily backups on, to ${backupDir}`);
+} else {
+  console.log('SILVIO_BACKUP_DIR not set — backups are off');
+}
+
 async function shutdown(signal: string): Promise<void> {
   console.log(`${signal} received, shutting down`);
   stopScheduler();
   stopEmailDelivery();
+  stopBackups();
   await app.close();
   storage.close();
   process.exit(0);
