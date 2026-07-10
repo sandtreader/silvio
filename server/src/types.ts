@@ -31,6 +31,7 @@ export interface GroupSettings {
   autoAcceptDays?: number; // held-payment auto-accept horizon (#5)
   invoiceExpiryDays?: number; // invoice expiry horizon (#5)
   digestDefault?: DigestFrequency; // applied to new members at join (#17)
+  listingMaxAgeDays?: number; // listing shelf life at post/renew time (#18)
 }
 
 export interface Group {

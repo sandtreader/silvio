@@ -45,6 +45,9 @@
                   "weekly",
                   "monthly"
                 ]
+              },
+              "listingMaxAgeDays": {
+                "type": "integer"
               }
             }
           },
@@ -2470,6 +2473,51 @@
         }
       }
     },
+    "/api/v1/listings/{id}/renew": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "listing"
+                  ],
+                  "properties": {
+                    "listing": {
+                      "$ref": "#/components/schemas/Listing"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/categories": {
       "get": {
         "responses": {
@@ -4663,6 +4711,11 @@
                           "weekly",
                           "monthly"
                         ]
+                      },
+                      "listingMaxAgeDays": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 730
                       }
                     }
                   }
@@ -4746,7 +4799,8 @@
                               "restriction_lifted",
                               "password_reset",
                               "email_verify",
-                              "digest"
+                              "digest",
+                              "listing_expiry_warning"
                             ]
                           },
                           "subject": {
@@ -4829,7 +4883,8 @@
                 "restriction_lifted",
                 "password_reset",
                 "email_verify",
-                "digest"
+                "digest",
+                "listing_expiry_warning"
               ]
             },
             "in": "path",
@@ -4875,7 +4930,8 @@
                             "restriction_lifted",
                             "password_reset",
                             "email_verify",
-                            "digest"
+                            "digest",
+                            "listing_expiry_warning"
                           ]
                         },
                         "subject": {
@@ -4933,7 +4989,8 @@
                 "restriction_lifted",
                 "password_reset",
                 "email_verify",
-                "digest"
+                "digest",
+                "listing_expiry_warning"
               ]
             },
             "in": "path",
@@ -6568,6 +6625,51 @@
                   "properties": {
                     "ok": {
                       "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/g/{slug}/listings/{id}/renew": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "listing"
+                  ],
+                  "properties": {
+                    "listing": {
+                      "$ref": "#/components/schemas/Listing"
                     }
                   }
                 }
@@ -8980,6 +9082,11 @@
                           "weekly",
                           "monthly"
                         ]
+                      },
+                      "listingMaxAgeDays": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 730
                       }
                     }
                   }
@@ -9083,7 +9190,8 @@
                               "restriction_lifted",
                               "password_reset",
                               "email_verify",
-                              "digest"
+                              "digest",
+                              "listing_expiry_warning"
                             ]
                           },
                           "subject": {
@@ -9166,7 +9274,8 @@
                 "restriction_lifted",
                 "password_reset",
                 "email_verify",
-                "digest"
+                "digest",
+                "listing_expiry_warning"
               ]
             },
             "in": "path",
@@ -9212,7 +9321,8 @@
                             "restriction_lifted",
                             "password_reset",
                             "email_verify",
-                            "digest"
+                            "digest",
+                            "listing_expiry_warning"
                           ]
                         },
                         "subject": {
@@ -9270,7 +9380,8 @@
                 "restriction_lifted",
                 "password_reset",
                 "email_verify",
-                "digest"
+                "digest",
+                "listing_expiry_warning"
               ]
             },
             "in": "path",

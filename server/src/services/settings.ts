@@ -4,16 +4,18 @@
 
 import type { DigestFrequency, Group } from '../types.js';
 
-// Platform defaults (decisions #5, #17).
+// Platform defaults (decisions #5, #17, #18).
 const DEFAULT_AUTO_ACCEPT_DAYS = 14;
 const DEFAULT_INVOICE_EXPIRY_DAYS = 30;
 const DEFAULT_DIGEST: DigestFrequency = 'weekly';
+const DEFAULT_LISTING_MAX_AGE_DAYS = 180;
 
 /** GroupSettings with every key resolved. */
 export interface EffectiveGroupSettings {
   autoAcceptDays: number;
   invoiceExpiryDays: number;
   digestDefault: DigestFrequency;
+  listingMaxAgeDays: number;
 }
 
 export function effectiveSettings(group: Group): EffectiveGroupSettings {
@@ -21,5 +23,6 @@ export function effectiveSettings(group: Group): EffectiveGroupSettings {
     autoAcceptDays: group.settings?.autoAcceptDays ?? DEFAULT_AUTO_ACCEPT_DAYS,
     invoiceExpiryDays: group.settings?.invoiceExpiryDays ?? DEFAULT_INVOICE_EXPIRY_DAYS,
     digestDefault: group.settings?.digestDefault ?? DEFAULT_DIGEST,
+    listingMaxAgeDays: group.settings?.listingMaxAgeDays ?? DEFAULT_LISTING_MAX_AGE_DAYS,
   };
 }

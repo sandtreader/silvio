@@ -82,6 +82,7 @@ const GROUP = {
         autoAcceptDays: { type: 'integer' },
         invoiceExpiryDays: { type: 'integer' },
         digestDefault: { type: 'string', enum: DIGEST_FREQUENCY },
+        listingMaxAgeDays: { type: 'integer' },
       },
     },
     createdAt: { type: 'string' },

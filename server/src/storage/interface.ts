@@ -425,9 +425,11 @@ export interface Storage extends Ledger {
       type?: ListingType;
       categoryId?: Id;
       memberId?: Id;
-      status?: ListingStatus; // default 'active'
+      status?: ListingStatus; // omitted = every status (#18 sweep sees expired)
     },
   ): Promise<Listing[]>;
+  /** Hard-delete (#18 purge); the caller deletes the photos first. */
+  deleteListing(id: Id): Promise<void>;
 
   // CMS pages (decision #13, data-model §6). A duplicate (groupId, slug) is
   // a CONFLICT; slugs are only unique within their group.

@@ -87,7 +87,7 @@ import {
   EMAIL_TEMPLATE_KINDS,
   type EmailTemplateKind,
 } from '../services/emailtemplates.js';
-import { browse, postListing } from '../services/marketplace.js';
+import { browse, postListing, renewListing } from '../services/marketplace.js';
 import {
   addListingPhoto,
   brandingFor,
@@ -1332,6 +1332,29 @@ export async function buildApp(
         },
       );
 
+      // Renew (#18): the owner resets the shelf life with one POST — a human
+      // act like accept, so cookie sessions only (no token scope).
+      scope.post(
+        '/listings/:id/renew',
+        {
+          preHandler: requireMember,
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            response: respond(200, body({ listing: ref('Listing') })),
+          },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          await targetListing(request, id);
+          const listing = await renewListing(storage, id, request.auth!.member.id);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'listing.renew', entityType: 'listing', entityId: id,
+          });
+          return { listing };
+        },
+      );
+
       scope.get(
         '/categories',
         { schema: { response: respond(200, body({ categories: arrayOf('Category') })) } },
@@ -2558,6 +2581,7 @@ export async function buildApp(
                     autoAcceptDays: { type: 'integer', minimum: 1, maximum: 365 },
                     invoiceExpiryDays: { type: 'integer', minimum: 1, maximum: 365 },
                     digestDefault: { type: 'string', enum: ['none', 'weekly', 'monthly'] },
+                    listingMaxAgeDays: { type: 'integer', minimum: 1, maximum: 730 },
                   },
                 },
               },

@@ -117,8 +117,10 @@ Remaining server-side work, grouped by area. References are to
 - [ ] Demurrage projection ("if unspent, ~X on the 1st") for member dashboard (#1)
 - [ ] Group transparency settings + `GET /balances` view (#3; CamLETS publishes
       balances/turnover)
-- [ ] Listing auto-expiry for inactive members (warning email → expire → purge;
-      reference-standard)
+- [x] Listing auto-expiry for inactive members (warning email → expire → purge;
+      reference-standard) — shipped as listing shelf life (#18): default expiry
+      at post time (`listingMaxAgeDays`, 180), warning email 14 days out,
+      `POST /listings/{id}/renew` resets/revives, purge 90 days after expiry
 - [x] Group settings surface: auto-accept days, invoice expiry days, digest
       default for new members — `group.settings` JSON via PATCH /admin/group,
       effective defaults in services/settings.ts (transparency toggles from #3

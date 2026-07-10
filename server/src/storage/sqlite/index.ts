@@ -1973,8 +1973,12 @@ export class SqliteStorage implements Storage {
       status?: ListingStatus;
     },
   ): Promise<Listing[]> {
-    const clauses = ['group_id = ?', 'status = ?'];
-    const values: string[] = [groupId, filter?.status ?? 'active'];
+    const clauses = ['group_id = ?'];
+    const values: string[] = [groupId];
+    if (filter?.status !== undefined) {
+      clauses.push('status = ?');
+      values.push(filter.status);
+    }
     if (filter?.type !== undefined) {
       clauses.push('type = ?');
       values.push(filter.type);
@@ -1991,6 +1995,12 @@ export class SqliteStorage implements Storage {
       .prepare(`SELECT * FROM listings WHERE ${clauses.join(' AND ')} ORDER BY created_at, id`)
       .all(...values) as ListingRow[];
     return Promise.resolve(rows.map((row) => this.listingFromRow(row)));
+  }
+
+  // Purge (#18): the FTS delete trigger keeps the search index in sync.
+  deleteListing(id: Id): Promise<void> {
+    this.db.prepare('DELETE FROM listings WHERE id = ?').run(id);
+    return Promise.resolve();
   }
 
   // --- CMS pages (decision #13, data-model §6) -------------------------------
