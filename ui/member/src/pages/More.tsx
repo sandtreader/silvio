@@ -1,6 +1,8 @@
 // More: profile (with photo, decision #14 phase 2), settings
 // (confirm-incoming toggle, decision #5; offers & wants digest cadence,
-// decision #17), member directory, logout.
+// decision #17; API tokens for MCP agents, decision #9), member directory,
+// logout.
+import KeyIcon from '@mui/icons-material/Key';
 import LogoutIcon from '@mui/icons-material/Logout';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -154,6 +156,20 @@ export function More() {
         <ToggleButton value="weekly">Weekly</ToggleButton>
         <ToggleButton value="monthly">Monthly</ToggleButton>
       </ToggleButtonGroup>
+
+      {/* Personal API tokens for AI agents/apps over MCP (decision #9) */}
+      <Typography variant="h6" sx={{ mb: 1 }}>
+        Connected apps
+      </Typography>
+      <Button
+        variant="outlined"
+        startIcon={<KeyIcon />}
+        onClick={() => void navigate('/tokens')}
+        fullWidth
+        sx={{ mb: 2 }}
+      >
+        API tokens
+      </Button>
 
       <Typography variant="h6" sx={{ mb: 1 }}>
         Directory

@@ -7,6 +7,8 @@
 
 import type {
   AdminStats,
+  ApiScope,
+  ApiToken,
   AuditEvent,
   BrandSlot,
   Category,
@@ -94,6 +96,18 @@ export interface ApplicationInput {
   personName: string;
   email: string;
   password: string;
+}
+
+/** POST /me/tokens body (decision #9). Amount caps are integer minor units;
+ * maxPeriodAmount and periodDays must be given together; trade:autonomous
+ * requires maxTxAmount (the server enforces both). */
+export interface CreateTokenInput {
+  label: string;
+  scopes: ApiScope[];
+  maxTxAmount?: number;
+  maxPeriodAmount?: number;
+  periodDays?: number;
+  expiresAt?: string;
 }
 
 export interface PolicyInput {
@@ -272,6 +286,22 @@ export class ApiClient {
 
   deleteMyPhoto(): Promise<{ ok: boolean }> {
     return this.tenant('DELETE', '/me/photo');
+  }
+
+  // API tokens (decision #9): personal access tokens for MCP agents/apps.
+  // Cookie-session-only routes by design — a token can never manage tokens.
+  // The raw value appears exactly once, in the creation response.
+
+  myTokens(): Promise<{ tokens: ApiToken[] }> {
+    return this.tenant('GET', '/me/tokens');
+  }
+
+  createToken(input: CreateTokenInput): Promise<{ token: string; apiToken: ApiToken }> {
+    return this.tenant('POST', '/me/tokens', input);
+  }
+
+  revokeToken(id: string): Promise<{ ok: boolean }> {
+    return this.tenant('DELETE', `/me/tokens/${encodeURIComponent(id)}`);
   }
 
   // --- Shell chrome (decision #15) ---------------------------------------------

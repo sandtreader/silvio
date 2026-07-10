@@ -425,6 +425,48 @@ describe('path construction', () => {
   });
 });
 
+describe('API token routes (decision #9)', () => {
+  it('lists my tokens', async () => {
+    const mock = stubFetch(200, { tokens: [{ id: 'tok-1', label: 'agent' }] });
+    const { tokens } = await new ApiClient({ group: 'g1' }).myTokens();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/me/tokens');
+    expect(lastCall(mock).init.method).toBe('GET');
+    expect(tokens[0]?.id).toBe('tok-1');
+  });
+
+  it('creates a token, passing caps and expiry through', async () => {
+    const mock = stubFetch(201, { token: 'slv_raw', apiToken: { id: 'tok-1' } });
+    const { token, apiToken } = await new ApiClient({ group: 'g1' }).createToken({
+      label: 'My agent',
+      scopes: ['account:read', 'trade:autonomous'],
+      maxTxAmount: 500,
+      maxPeriodAmount: 2000,
+      periodDays: 30,
+      expiresAt: '2027-01-01T00:00:00.000Z',
+    });
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/me/tokens');
+    expect(lastCall(mock).init.method).toBe('POST');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      label: 'My agent',
+      scopes: ['account:read', 'trade:autonomous'],
+      maxTxAmount: 500,
+      maxPeriodAmount: 2000,
+      periodDays: 30,
+      expiresAt: '2027-01-01T00:00:00.000Z',
+    });
+    expect(token).toBe('slv_raw');
+    expect(apiToken.id).toBe('tok-1');
+  });
+
+  it('revokes a token by id, encoding it', async () => {
+    const mock = stubFetch(200, { ok: true });
+    const { ok } = await new ApiClient({ group: 'g1' }).revokeToken('tok/1');
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/me/tokens/tok%2F1');
+    expect(lastCall(mock).init.method).toBe('DELETE');
+    expect(ok).toBe(true);
+  });
+});
+
 describe('error handling', () => {
   it('parses the {error: {code, message}} shape into ApiError', async () => {
     stubFetch(403, { error: { code: 'NOT_AUTHORISED', message: 'admin role required' } });

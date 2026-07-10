@@ -20,6 +20,7 @@ import { Market } from './pages/Market';
 import { More } from './pages/More';
 import { Pay } from './pages/Pay';
 import { Reset } from './pages/Reset';
+import { Tokens } from './pages/Tokens';
 import { Verify } from './pages/Verify';
 
 const theme = createTheme({
@@ -70,6 +71,16 @@ const routes = [
         element: (
           <RequireAuth>
             <More />
+          </RequireAuth>
+        ),
+      },
+      // API token management (decision #9): reached from More, not a tab —
+      // the Layout outlet renders it with the bottom nav showing no selection.
+      {
+        path: '/tokens',
+        element: (
+          <RequireAuth>
+            <Tokens />
           </RequireAuth>
         ),
       },

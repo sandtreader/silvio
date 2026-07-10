@@ -42,6 +42,8 @@ export type Category = Schemas['Category'];
 export type Listing = Schemas['Listing'];
 
 export type ApiToken = Schemas['ApiToken'];
+/** Member-grantable MCP/API token scope (decision #9). */
+export type ApiScope = ApiToken['scopes'][number];
 
 // --- CMS content (decision #13) -----------------------------------------------
 

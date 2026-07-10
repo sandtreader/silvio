@@ -19,7 +19,8 @@ Remaining server-side work, grouped by area. References are to
       tools filtered by scope, thin client of the REST API via inject
 - [ ] Per-token request rate limiting (decision #9 mentions it; LoginThrottle
       is reusable)
-- [ ] Token management UI in the member PWA (routes exist, no screen yet)
+- [x] Token management UI in the member PWA: /tokens page (More → API tokens)
+      lists/creates/revokes; raw value shown once, caps at the account scale
 - [ ] Agents cannot accept/decline/cancel pending transactions (cookie-only
       by design — accepting stays a human act); revisit whether an agent may
       cancel its own unconfirmed proposals
