@@ -181,7 +181,9 @@ Remaining server-side work, grouped by area. References are to
       daily integrity-checked copy, hourly check, 7-daily/4-Monday rotation;
       restore + off-site procedure in [deploy.md](../deploy.md)
 - [x] Config file alternative to env vars; structured logging
-- [x] Demo script: scripts/demo.sh — full lifecycle end-to-end (listings/history seeding still open)
+- [x] Demo script: scripts/demo.sh — full lifecycle end-to-end, plus lived-in
+      seeding: categories, listings, a month of trading history, public
+      balances, about page and news item
 - [x] Deployment guide for the minimal-VPS target (#7) — Docker image
       (root Dockerfile, GHCR publishing via .github/workflows/docker.yml) +
       [deploy.md](../deploy.md); no systemd unit — the container restart
