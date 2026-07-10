@@ -237,6 +237,13 @@ export interface Storage extends Ledger {
   createCurrency(input: CreateCurrencyInput): Promise<Currency>;
   createAccount(input: CreateAccountInput): Promise<Account>;
 
+  /**
+   * The group's payment-request signing key (#22), minted at group creation.
+   * Deliberately NOT a field on Group: the domain object flows into API
+   * responses and logs, and the secret must never leave the server.
+   */
+  groupQrSecret(groupId: Id): Promise<string>;
+
   /** Open (unclosed) accounts of a currency; optionally filtered by type. */
   listAccounts(groupId: Id, currencyId: Id): Promise<Account[]>;
 

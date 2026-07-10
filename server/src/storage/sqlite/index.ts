@@ -3,6 +3,7 @@
 // better-sqlite3 is synchronous; results are wrapped in resolved Promises.
 
 import Database from 'better-sqlite3';
+import { randomBytes } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import type {
   Actor,
@@ -251,6 +252,7 @@ interface GroupRow {
   notes: string | null; // operator-private free text (#20)
   email_from: string | null;
   settings: string | null; // GroupSettings JSON; NULL = all defaults
+  qr_secret: string; // payment-request signing key (#22); never mapped to Group
   created_at: string;
 }
 
@@ -386,9 +388,18 @@ export class SqliteStorage implements Storage {
       createdAt: now(),
     };
     this.db
-      .prepare('INSERT INTO groups (id, slug, name, created_at) VALUES (?, ?, ?, ?)')
-      .run(group.id, group.slug, group.name, group.createdAt);
+      .prepare('INSERT INTO groups (id, slug, name, qr_secret, created_at) VALUES (?, ?, ?, ?, ?)')
+      // Payment-request signing key minted with the group (#22).
+      .run(group.id, group.slug, group.name, randomBytes(32).toString('hex'), group.createdAt);
     return Promise.resolve(group);
+  }
+
+  groupQrSecret(groupId: Id): Promise<string> {
+    const row = this.db
+      .prepare('SELECT qr_secret FROM groups WHERE id = ?')
+      .get(groupId) as { qr_secret: string } | undefined;
+    if (!row) throw new StorageError('NOT_FOUND', `group ${groupId} not found`);
+    return Promise.resolve(row.qr_secret);
   }
 
   listGroups(): Promise<Group[]> {

@@ -27,8 +27,10 @@ Remaining server-side work, grouped by area. References are to
 
 ## Payments & ledger
 
-- [ ] QR/EPOS payload: signed {payee, amount, reference} + `POST /payments` from
-      scanned payload with idempotency key (plan.md; #5: it's an invoice)
+- [x] QR/EPOS payload: signed {payee, amount, reference} + `POST /payments` from
+      scanned payload with idempotency key (plan.md; #5: it's an invoice) —
+      #22: server-minted HMAC payloads (per-group secret), mint/decode/scan
+      endpoints; scans commit without a confirm-incoming hold
 - [ ] Merkle checkpoints + inclusion proofs (#10, parked) and Witness plugins
       (newsletter/digest/git/peer-group); `verify` extension
 - [x] Scheduled `verify()` job with loud alerting (#6 — every tick verifies
@@ -120,7 +122,9 @@ Remaining server-side work, grouped by area. References are to
       over time, velocity, dormancy — `GET /admin/stats?currencyId=` composing
       the `memberBalances`/`monthlyTradeFlow`/`lastTradeAt`/`tradeVolumeSince`
       storage aggregates via `services/stats.ts`
-- [ ] Demurrage projection ("if unspent, ~X on the 1st") for member dashboard (#1)
+- [x] Demurrage projection ("if unspent, ~X on the 1st") for member dashboard
+      (#1): /me accounts carry {amount, postingDate} computed with the real
+      band engine; member Home shows the spend-it-forward caption
 - [x] Group transparency settings + `GET /balances` view (#3; CamLETS publishes
       balances/turnover) — shipped as #19: `settings.transparency`
       ('none'/'balances', default 'none'), member-only `GET /balances`

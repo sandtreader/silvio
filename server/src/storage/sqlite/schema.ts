@@ -14,6 +14,7 @@ CREATE TABLE groups (
   notes      TEXT, -- operator-private free text (#20)
   email_from TEXT,
   settings   TEXT, -- GroupSettings JSON; NULL = all platform defaults
+  qr_secret  TEXT NOT NULL, -- payment-request signing key (#22); never leaves the server
   created_at TEXT NOT NULL
 );
 

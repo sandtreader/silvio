@@ -72,6 +72,11 @@ import {
   sendPayment,
 } from '../services/trading.js';
 import { authenticateApiToken, checkTokenCaps, issueApiToken } from '../services/tokens.js';
+import {
+  decodePaymentRequest,
+  mintPaymentRequest,
+  scanPayment,
+} from '../services/paymentrequest.js';
 import { recordAudit } from '../services/audit.js';
 import { dashboardStats } from '../services/stats.js';
 import {
@@ -1374,6 +1379,103 @@ export async function buildApp(
           if (token !== undefined) input.apiTokenId = token.id;
           if (body.description !== undefined) input.description = body.description;
           const transaction = await requestPayment(storage, input);
+          reply.status(201);
+          return { transaction };
+        },
+      );
+
+      // Signed QR payment requests (#22): mint (payee), decode (payer's
+      // confirm screen), scan (pay). Cookie-only — no scopes config, so
+      // API tokens are rejected by requireTokenMember.
+      scope.post(
+        '/me/payment-requests',
+        {
+          preHandler: requireMember,
+          schema: {
+            body: {
+              type: 'object',
+              required: ['currencyId'],
+              properties: {
+                currencyId: { type: 'string' },
+                amount: { type: 'integer' },
+                reference: { type: 'string' },
+                expiresAt: { type: 'string' },
+              },
+            },
+            response: respond(201, body({ payload: { type: 'string' } })),
+          },
+        },
+        async (request, reply) => {
+          const input = request.body as {
+            currencyId: string;
+            amount?: number;
+            reference?: string;
+            expiresAt?: string;
+          };
+          const minted = await mintPaymentRequest(storage, request.auth!.member.id, input);
+          reply.status(201);
+          return minted;
+        },
+      );
+
+      scope.get(
+        '/payment-requests/decode',
+        {
+          preHandler: requireMember,
+          schema: {
+            querystring: {
+              type: 'object',
+              required: ['payload'],
+              properties: { payload: { type: 'string' } },
+            },
+            // The serializer strips the nonce: it is the idempotency handle,
+            // not confirm-screen data (#22).
+            response: respond(
+              200,
+              body(
+                {
+                  payeeMemberId: { type: 'string' },
+                  payeeName: { type: 'string' },
+                  currencyId: { type: 'string' },
+                  amount: { type: 'integer' },
+                  reference: { type: 'string' },
+                  expiresAt: { type: 'string' },
+                },
+                ['payeeMemberId', 'payeeName', 'currencyId'],
+              ),
+            ),
+          },
+        },
+        async (request) => {
+          const { payload } = request.query as { payload: string };
+          return decodePaymentRequest(storage, request.group!.id, payload);
+        },
+      );
+
+      scope.post(
+        '/payments/scan',
+        {
+          preHandler: requireMember,
+          schema: {
+            body: {
+              type: 'object',
+              required: ['payload'],
+              properties: {
+                payload: { type: 'string' },
+                amount: { type: 'integer' },
+              },
+            },
+            response: respond(201, body({ transaction: ref('Transaction') })),
+          },
+        },
+        async (request, reply) => {
+          const { payload, amount } = request.body as { payload: string; amount?: number };
+          const transaction = await scanPayment(
+            storage,
+            request.auth!.member.id,
+            payload,
+            amount,
+          );
           reply.status(201);
           return { transaction };
         },

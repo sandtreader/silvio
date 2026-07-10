@@ -18,6 +18,12 @@ export interface SendPaymentInput {
   channel: Channel;
   apiTokenId?: Id; // set when an API token initiated this (decision #9)
   expiresAt?: string;
+  // Scanned payment request (#22): the payee minted the request, so their
+  // confirm-incoming preference must not hold the payment — the initiator
+  // consented by initiating (#5's invoice semantics).
+  bypassHold?: boolean;
+  // Passed through to storage.post (#22): a replay returns the original.
+  idempotencyKey?: string;
 }
 
 export interface RequestPaymentInput {
@@ -184,7 +190,7 @@ export async function sendPayment(storage: Storage, input: SendPaymentInput): Pr
   const payerAccount = await storage.ensureMemberAccount(input.payerMemberId, input.currencyId);
   const payeeAccount = await storage.ensureMemberAccount(input.payeeMemberId, input.currencyId);
 
-  const hold = payee.confirmIncoming;
+  const hold = payee.confirmIncoming && input.bypassHold !== true;
   if (!hold) {
     await checkHardLimits(
       storage,
@@ -216,7 +222,7 @@ export async function sendPayment(storage: Storage, input: SendPaymentInput): Pr
       input.expiresAt ??
       daysFromNow((await groupSettings(storage, input.groupId)).autoAcceptDays);
   }
-  const posted = await storage.post(tx);
+  const posted = await storage.post(tx, input.idempotencyKey);
   // Tell the payee (#5): a hold awaits their confirmation, a commit landed.
   await notifyTrade(storage, posted, hold ? 'payment_held' : 'payment_received');
   return posted;
