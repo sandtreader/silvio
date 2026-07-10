@@ -3,9 +3,10 @@
 // settling any residual balance to the community account before closing.
 
 import type { Storage } from '../storage/interface.js';
-import type { Id, Member, MemberStatus, MemberType, Person } from '../types.js';
+import type { DigestFrequency, Id, Member, MemberStatus, MemberType, Person } from '../types.js';
 import { DomainError } from './errors.js';
 import { notifyWelcome } from './notifications.js';
+import { effectiveSettings } from './settings.js';
 
 export interface ApplyInput {
   groupId: Id;
@@ -37,11 +38,20 @@ export async function apply(
   storage: Storage,
   input: ApplyInput,
 ): Promise<{ member: Member; person: Person }> {
-  const memberInput: { groupId: Id; displayName: string; type?: MemberType } = {
+  const memberInput: {
+    groupId: Id;
+    displayName: string;
+    type?: MemberType;
+    digestFrequency?: DigestFrequency;
+  } = {
     groupId: input.groupId,
     displayName: input.displayName,
   };
   if (input.type !== undefined) memberInput.type = input.type;
+  // New members start on the group's digest default (no getGroup; cf.
+  // notifications.ts). Existing members are untouched.
+  const group = (await storage.listGroups()).find((candidate) => candidate.id === input.groupId);
+  if (group) memberInput.digestFrequency = effectiveSettings(group).digestDefault;
   const member = await storage.createMember(memberInput);
   const personInput: {
     memberId: Id;

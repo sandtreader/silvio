@@ -2929,6 +2929,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
+                    slug: string;
                     slot: "logo" | "header";
                 };
                 cookie?: never;
@@ -2963,6 +2964,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
+                    slug: string;
                     slot: "logo" | "header";
                 };
                 cookie?: never;
@@ -3051,6 +3053,12 @@ export interface paths {
                     "application/json": {
                         name?: string;
                         emailFrom?: string | null;
+                        settings?: {
+                            autoAcceptDays?: number;
+                            invoiceExpiryDays?: number;
+                            /** @enum {string} */
+                            digestDefault?: "none" | "weekly" | "monthly";
+                        };
                     };
                 };
             };
@@ -3144,6 +3152,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
+                    slug: string;
                     kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
                 };
                 cookie?: never;
@@ -3191,6 +3200,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
+                    slug: string;
                     kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
                 };
                 cookie?: never;
@@ -6225,6 +6235,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
+                    slug: string;
                     slot: "logo" | "header";
                 };
                 cookie?: never;
@@ -6259,6 +6270,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
+                    slug: string;
                     slot: "logo" | "header";
                 };
                 cookie?: never;
@@ -6351,6 +6363,12 @@ export interface paths {
                     "application/json": {
                         name?: string;
                         emailFrom?: string | null;
+                        settings?: {
+                            autoAcceptDays?: number;
+                            invoiceExpiryDays?: number;
+                            /** @enum {string} */
+                            digestDefault?: "none" | "weekly" | "monthly";
+                        };
                     };
                 };
             };
@@ -6446,6 +6464,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
+                    slug: string;
                     kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
                 };
                 cookie?: never;
@@ -6493,6 +6512,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
+                    slug: string;
                     kind: "welcome" | "invoice_received" | "payment_held" | "payment_received" | "payment_accepted" | "payment_declined" | "payment_auto_accepted_payer" | "payment_auto_accepted_payee" | "invoice_expired" | "restriction_imposed" | "restriction_lifted" | "password_reset" | "email_verify" | "digest";
                 };
                 cookie?: never;
@@ -6723,6 +6743,12 @@ export interface components {
             slug: string;
             name: string;
             emailFrom?: string;
+            settings?: {
+                autoAcceptDays?: number;
+                invoiceExpiryDays?: number;
+                /** @enum {string} */
+                digestDefault?: "none" | "weekly" | "monthly";
+            };
             createdAt: string;
         };
         Currency: {

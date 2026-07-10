@@ -17,6 +17,7 @@ import type {
   EmailTemplateKind,
   Flag,
   Group,
+  GroupSettings,
   Image,
   Listing,
   ListingType,
@@ -533,6 +534,7 @@ export class ApiClient {
   patchAdminGroup(patch: {
     name?: string;
     emailFrom?: string | null;
+    settings?: GroupSettings; // replaces the whole object; absent keys → platform defaults
   }): Promise<{ group: Group }> {
     return this.tenant('PATCH', '/admin/group', patch);
   }

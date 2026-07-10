@@ -119,8 +119,10 @@ Remaining server-side work, grouped by area. References are to
       balances/turnover)
 - [ ] Listing auto-expiry for inactive members (warning email → expire → purge;
       reference-standard)
-- [ ] Group settings surface: auto-accept days, invoice expiry days, digest
-      defaults (currently hard-coded constants in trading service)
+- [x] Group settings surface: auto-accept days, invoice expiry days, digest
+      default for new members — `group.settings` JSON via PATCH /admin/group,
+      effective defaults in services/settings.ts (transparency toggles from #3
+      remain future)
 - [ ] Demurrage run history route (`GET /admin/runs`)
 
 ## Marketplace
