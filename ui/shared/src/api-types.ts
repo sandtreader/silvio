@@ -488,6 +488,7 @@ export interface paths {
                         displayName?: string;
                         /** @enum {string} */
                         digestFrequency?: "none" | "weekly" | "monthly";
+                        neighbourhood?: string | null;
                     };
                 };
             };
@@ -745,7 +746,9 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    neighbourhood?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -768,6 +771,7 @@ export interface paths {
                                 /** @enum {string} */
                                 status: "applied" | "active" | "away" | "suspended" | "closed";
                                 photoId?: string;
+                                neighbourhood?: string;
                             }[];
                         };
                     };
@@ -825,6 +829,7 @@ export interface paths {
                                 /** @enum {string} */
                                 status: "applied" | "active" | "away" | "suspended" | "closed";
                                 photoId?: string;
+                                neighbourhood?: string;
                             };
                             stats: components["schemas"]["TradeStats"];
                         };
@@ -4531,6 +4536,7 @@ export interface paths {
                         displayName?: string;
                         /** @enum {string} */
                         digestFrequency?: "none" | "weekly" | "monthly";
+                        neighbourhood?: string | null;
                     };
                 };
             };
@@ -4798,7 +4804,9 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    neighbourhood?: string;
+                };
                 header?: never;
                 path: {
                     slug: string;
@@ -4823,6 +4831,7 @@ export interface paths {
                                 /** @enum {string} */
                                 status: "applied" | "active" | "away" | "suspended" | "closed";
                                 photoId?: string;
+                                neighbourhood?: string;
                             }[];
                         };
                     };
@@ -4880,6 +4889,7 @@ export interface paths {
                                 /** @enum {string} */
                                 status: "applied" | "active" | "away" | "suspended" | "closed";
                                 photoId?: string;
+                                neighbourhood?: string;
                             };
                             stats: components["schemas"]["TradeStats"];
                         };
@@ -8629,6 +8639,7 @@ export interface components {
             confirmIncoming: boolean;
             /** @enum {string} */
             digestFrequency: "none" | "weekly" | "monthly";
+            neighbourhood?: string;
             appliedAt: string;
             approvedAt?: string;
             closedAt?: string;

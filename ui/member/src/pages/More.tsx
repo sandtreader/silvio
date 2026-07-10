@@ -16,8 +16,10 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemAvatar from '@mui/material/ListItemAvatar';
 import ListItemText from '@mui/material/ListItemText';
+import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
+import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
@@ -40,12 +42,18 @@ export function More() {
   const feedback = useFeedback();
   const navigate = useNavigate();
   const [members, setMembers] = useState<DirectoryMember[] | null>(null);
+  const [areaFilter, setAreaFilter] = useState(''); // '' = all neighbourhoods
+  const [neighbourhood, setNeighbourhood] = useState('');
 
   useEffect(() => {
     void run(() => client.members()).then((result) => {
       if (result !== undefined) setMembers(result.members);
     });
   }, [client, run]);
+
+  useEffect(() => {
+    setNeighbourhood(me?.member.neighbourhood ?? '');
+  }, [me]);
 
   if (me === null) return null;
 
@@ -56,6 +64,16 @@ export function More() {
 
   const setDigestFrequency = async (digestFrequency: DigestFrequency) => {
     const result = await run(() => client.updateMe({ digestFrequency }));
+    if (result !== undefined) await refresh();
+  };
+
+  // Free-text locality shown in the directory; saved on blur, blank clears.
+  const saveNeighbourhood = async () => {
+    const value = neighbourhood.trim();
+    if (value === (me.member.neighbourhood ?? '')) return;
+    const result = await run(() =>
+      client.updateMe({ neighbourhood: value === '' ? null : value }),
+    );
     if (result !== undefined) await refresh();
   };
 
@@ -80,6 +98,19 @@ export function More() {
     const result = await run(() => client.deleteMyPhoto());
     if (result !== undefined) await refresh();
   };
+
+  // Distinct neighbourhoods in the loaded directory (client-side derive).
+  const areas = [
+    ...new Set(
+      (members ?? [])
+        .map((member) => member.neighbourhood)
+        .filter((area): area is string => area !== undefined),
+    ),
+  ].sort();
+  const shownMembers =
+    areaFilter === ''
+      ? members
+      : (members ?? []).filter((member) => member.neighbourhood === areaFilter);
 
   const logout = async () => {
     await run(() => client.logout());
@@ -125,6 +156,18 @@ export function More() {
           </Box>
         </CardContent>
       </Card>
+
+      <TextField
+        label="Neighbourhood"
+        value={neighbourhood}
+        disabled={busy}
+        onChange={(event) => setNeighbourhood(event.target.value)}
+        onBlur={() => void saveNeighbourhood()}
+        helperText="Shown in the member directory; leave blank to hide"
+        slotProps={{ htmlInput: { maxLength: 80 } }}
+        fullWidth
+        sx={{ mb: 2 }}
+      />
 
       <Typography variant="h6" sx={{ mb: 1 }}>
         Settings
@@ -205,11 +248,28 @@ export function More() {
       <Typography variant="h6" sx={{ mb: 1 }}>
         Directory
       </Typography>
-      {members === null ? (
+      {areas.length > 0 && (
+        <TextField
+          select
+          label="Neighbourhood filter"
+          value={areaFilter}
+          onChange={(event) => setAreaFilter(event.target.value)}
+          fullWidth
+          sx={{ mb: 1 }}
+        >
+          <MenuItem value="">All neighbourhoods</MenuItem>
+          {areas.map((area) => (
+            <MenuItem key={area} value={area}>
+              {area}
+            </MenuItem>
+          ))}
+        </TextField>
+      )}
+      {shownMembers === null ? (
         <CircularProgress size={24} />
       ) : (
         <List dense disablePadding sx={{ mb: 2 }}>
-          {members.map((member) => (
+          {shownMembers.map((member) => (
             <ListItem key={member.id} disableGutters divider>
               <ListItemAvatar>
                 <MemberAvatar
@@ -220,7 +280,11 @@ export function More() {
               </ListItemAvatar>
               <ListItemText
                 primary={member.displayName}
-                secondary={`#${member.memberNo}`}
+                secondary={
+                  member.neighbourhood === undefined
+                    ? `#${member.memberNo}`
+                    : `#${member.memberNo} · ${member.neighbourhood}`
+                }
               />
             </ListItem>
           ))}

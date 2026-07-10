@@ -237,6 +237,7 @@ export interface PublicMember {
   status: MemberStatus;
   // Derived from the images table, populated at the API layer (#14 phase 2).
   photoId?: string;
+  neighbourhood?: string;
 }
 
 function publicMember(member: Member, photoId?: string): PublicMember {
@@ -248,6 +249,7 @@ function publicMember(member: Member, photoId?: string): PublicMember {
     status: member.status,
   };
   if (photoId !== undefined) view.photoId = photoId;
+  if (member.neighbourhood !== undefined) view.neighbourhood = member.neighbourhood;
   return view;
 }
 
@@ -1005,6 +1007,8 @@ export async function buildApp(
                 confirmIncoming: { type: 'boolean' },
                 displayName: { type: 'string' },
                 digestFrequency: { type: 'string', enum: ['none', 'weekly', 'monthly'] },
+                // Free-text locality (CamLETS pattern); null clears.
+                neighbourhood: { type: ['string', 'null'], maxLength: 80 },
               },
             },
             response: respond(200, body({ member: ref('Member') })),
@@ -1015,11 +1019,13 @@ export async function buildApp(
             confirmIncoming?: boolean;
             displayName?: string;
             digestFrequency?: DigestFrequency;
+            neighbourhood?: string | null;
           };
           const patch: Parameters<typeof storage.updateMember>[1] = {};
           if (body.confirmIncoming !== undefined) patch.confirmIncoming = body.confirmIncoming;
           if (body.displayName !== undefined) patch.displayName = body.displayName;
           if (body.digestFrequency !== undefined) patch.digestFrequency = body.digestFrequency;
+          if (body.neighbourhood !== undefined) patch.neighbourhood = body.neighbourhood;
           const member = await storage.updateMember(request.auth!.member.id, patch);
           return { member };
         },
@@ -1207,6 +1213,12 @@ export async function buildApp(
           preHandler: requireMember,
           config: { scopes: directoryRead },
           schema: {
+            querystring: {
+              type: 'object',
+              properties: {
+                neighbourhood: { type: 'string' }, // exact match
+              },
+            },
             response: respond(
               200,
               body({ members: { type: 'array', items: PUBLIC_MEMBER_WITH_PHOTO } }),
@@ -1214,7 +1226,11 @@ export async function buildApp(
           },
         },
         async (request) => {
-          const members = await storage.listMembers(request.group!.id, 'active');
+          const { neighbourhood } = request.query as { neighbourhood?: string };
+          let members = await storage.listMembers(request.group!.id, 'active');
+          if (neighbourhood !== undefined) {
+            members = members.filter((member) => member.neighbourhood === neighbourhood);
+          }
           // One query for the whole directory (#14 phase 2): every
           // member-owned image in the group, keyed by its owner.
           const photos = await storage.listImages(request.group!.id, { ownerKind: 'member' });

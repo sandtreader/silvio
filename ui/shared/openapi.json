@@ -326,6 +326,9 @@
               "monthly"
             ]
           },
+          "neighbourhood": {
+            "type": "string"
+          },
           "appliedAt": {
             "type": "string"
           },
@@ -1719,6 +1722,13 @@
                       "weekly",
                       "monthly"
                     ]
+                  },
+                  "neighbourhood": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80
                   }
                 }
               }
@@ -1979,6 +1989,16 @@
     },
     "/api/v1/members": {
       "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "neighbourhood",
+            "required": false
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -2032,6 +2052,9 @@
                             ]
                           },
                           "photoId": {
+                            "type": "string"
+                          },
+                          "neighbourhood": {
                             "type": "string"
                           }
                         }
@@ -2119,6 +2142,9 @@
                           ]
                         },
                         "photoId": {
+                          "type": "string"
+                        },
+                        "neighbourhood": {
                           "type": "string"
                         }
                       }
@@ -6614,6 +6640,13 @@
                       "weekly",
                       "monthly"
                     ]
+                  },
+                  "neighbourhood": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80
                   }
                 }
               }
@@ -6935,6 +6968,14 @@
             "schema": {
               "type": "string"
             },
+            "in": "query",
+            "name": "neighbourhood",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
             "in": "path",
             "name": "slug",
             "required": true
@@ -6993,6 +7034,9 @@
                             ]
                           },
                           "photoId": {
+                            "type": "string"
+                          },
+                          "neighbourhood": {
                             "type": "string"
                           }
                         }
@@ -7080,6 +7124,9 @@
                           ]
                         },
                         "photoId": {
+                          "type": "string"
+                        },
+                        "neighbourhood": {
                           "type": "string"
                         }
                       }

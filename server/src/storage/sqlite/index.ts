@@ -138,6 +138,7 @@ interface MemberRow {
   status: string;
   confirm_incoming: number;
   digest_frequency: string;
+  neighbourhood: string | null;
   applied_at: string;
   approved_at: string | null;
   closed_at: string | null;
@@ -1234,6 +1235,7 @@ export class SqliteStorage implements Storage {
       role?: MemberRole;
       digestFrequency?: DigestFrequency;
       type?: MemberType;
+      neighbourhood?: string | null;
     },
   ): Promise<Member> {
     try {
@@ -1256,6 +1258,11 @@ export class SqliteStorage implements Storage {
       }
       if (patch.type !== undefined) {
         this.db.prepare('UPDATE members SET type = ? WHERE id = ?').run(patch.type, id);
+      }
+      if (patch.neighbourhood !== undefined) {
+        this.db
+          .prepare('UPDATE members SET neighbourhood = ? WHERE id = ?')
+          .run(patch.neighbourhood, id);
       }
       return Promise.resolve(this.loadMember(id));
     } catch (err) {
@@ -2745,6 +2752,7 @@ export class SqliteStorage implements Storage {
       digestFrequency: row.digest_frequency as DigestFrequency,
       appliedAt: row.applied_at,
     };
+    if (row.neighbourhood !== null) member.neighbourhood = row.neighbourhood;
     if (row.approved_at !== null) member.approvedAt = row.approved_at;
     if (row.closed_at !== null) member.closedAt = row.closed_at;
     return member;

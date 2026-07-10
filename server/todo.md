@@ -150,7 +150,8 @@ Remaining server-side work, grouped by area. References are to
       interface, visibility-tiered
 - [x] Listing photos — done via Image store phase 3 (#14) under Content
 - [x] Category admin routes (create/edit/delete, recategorise)
-- [ ] Location/neighbourhood field + directory filtering (CamLETS grid pattern)
+- [x] Location/neighbourhood field + directory filtering (one free-text field,
+      deliberately simpler than CamLETS's grid)
 - [ ] Qualified/professional flags on listings (#8 — admin-verified badges)
 
 ## API polish

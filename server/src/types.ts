@@ -187,6 +187,7 @@ export interface Member {
   status: MemberStatus;
   confirmIncoming: boolean; // opt-in payment confirmation (decision #5)
   digestFrequency: DigestFrequency; // offers & wants digest cadence (#17)
+  neighbourhood?: string; // free-text locality shown in the directory
   appliedAt: string;
   approvedAt?: string;
   closedAt?: string;

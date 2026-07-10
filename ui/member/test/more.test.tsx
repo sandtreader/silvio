@@ -94,6 +94,84 @@ describe('More: offers & wants digest preference (decision #17)', () => {
   });
 });
 
+describe('More: neighbourhood (CamLETS location pattern)', () => {
+  it('saves the neighbourhood on blur via updateMe, blank clears with null', async () => {
+    const withArea: Me = {
+      ...testMe,
+      member: { ...testMe.member, neighbourhood: 'Mill Road' },
+    };
+    const client = {
+      me: vi.fn().mockResolvedValueOnce(testMe).mockResolvedValue(withArea),
+      members: vi.fn().mockResolvedValue(noMembers),
+      updateMe: vi.fn().mockResolvedValue({ member: withArea.member }),
+    };
+    renderWithClient(<More />, client);
+
+    const field = (await screen.findByLabelText('Neighbourhood')) as HTMLInputElement;
+    expect(field.value).toBe('');
+    fireEvent.change(field, { target: { value: 'Mill Road' } });
+    fireEvent.blur(field);
+    await waitFor(() =>
+      expect(client.updateMe).toHaveBeenCalledWith({ neighbourhood: 'Mill Road' }),
+    );
+    await waitFor(() => expect(field.value).toBe('Mill Road'));
+
+    fireEvent.change(field, { target: { value: '' } });
+    fireEvent.blur(field);
+    await waitFor(() =>
+      expect(client.updateMe).toHaveBeenCalledWith({ neighbourhood: null }),
+    );
+  });
+
+  it('does not call updateMe when the value is unchanged', async () => {
+    const client = {
+      me: vi.fn().mockResolvedValue(testMe),
+      members: vi.fn().mockResolvedValue(noMembers),
+      updateMe: vi.fn(),
+    };
+    renderWithClient(<More />, client);
+    const field = await screen.findByLabelText('Neighbourhood');
+    fireEvent.blur(field);
+    expect(client.updateMe).not.toHaveBeenCalled();
+  });
+
+  it('shows neighbourhoods in the directory and filters by the dropdown', async () => {
+    const client = {
+      me: vi.fn().mockResolvedValue(testMe),
+      members: vi.fn().mockResolvedValue({
+        members: [
+          {
+            id: 'm2',
+            memberNo: 8,
+            displayName: 'Bob Smith',
+            type: 'individual',
+            status: 'active',
+            neighbourhood: 'Mill Road',
+          },
+          {
+            id: 'm3',
+            memberNo: 9,
+            displayName: 'Carol',
+            type: 'individual',
+            status: 'active',
+          },
+        ],
+      }),
+    };
+    renderWithClient(<More />, client);
+
+    // Secondary text carries the neighbourhood when set.
+    expect(await screen.findByText('#8 · Mill Road')).toBeTruthy();
+    expect(screen.getByText('#9')).toBeTruthy();
+
+    // Dropdown derives its options from the loaded list; picking one filters.
+    fireEvent.mouseDown(screen.getByLabelText('Neighbourhood filter'));
+    fireEvent.click(await screen.findByRole('option', { name: 'Mill Road' }));
+    await waitFor(() => expect(screen.queryByText('Carol')).toBeNull());
+    expect(screen.getByText('Bob Smith')).toBeTruthy();
+  });
+});
+
 describe('More: directory avatars', () => {
   it('renders an avatar image for members with a photo, initials without', async () => {
     const client = {

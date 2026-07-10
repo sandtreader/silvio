@@ -458,6 +458,28 @@ describe('path construction', () => {
     });
   });
 
+  it('patches and clears the neighbourhood on /me', async () => {
+    const mock = stubFetch(200, { member: {} });
+    const client = new ApiClient({ group: 'g1' });
+    await client.updateMe({ neighbourhood: 'Mill Road' });
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/me');
+    expect(lastCall(mock).init.method).toBe('PATCH');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      neighbourhood: 'Mill Road',
+    });
+    await client.updateMe({ neighbourhood: null }); // blank → clear
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({ neighbourhood: null });
+  });
+
+  it('filters the directory by neighbourhood', async () => {
+    const mock = stubFetch(200, { members: [] });
+    const client = new ApiClient({ group: 'g1' });
+    await client.members();
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/members');
+    await client.members({ neighbourhood: 'Mill Road' });
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/members?neighbourhood=Mill+Road');
+  });
+
   it('posts the admin broadcast and returns the queued count (#17)', async () => {
     const mock = stubFetch(200, { ok: true, queued: 12 });
     const { queued } = await new ApiClient({ group: 'g1' }).adminBroadcast(

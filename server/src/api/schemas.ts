@@ -203,6 +203,7 @@ const MEMBER = {
     status: { type: 'string', enum: MEMBER_STATUS },
     confirmIncoming: { type: 'boolean' },
     digestFrequency: { type: 'string', enum: DIGEST_FREQUENCY },
+    neighbourhood: { type: 'string' },
     appliedAt: { type: 'string' },
     approvedAt: { type: 'string' },
     closedAt: { type: 'string' },
@@ -242,15 +243,17 @@ const PUBLIC_MEMBER = {
   },
 } as const;
 
-// Directory entries also carry a derived photoId (#14 phase 2). A separate
-// schema, used inline by the /members routes, so the pinned PublicMember
-// component above stays exactly the five public profile fields while the
-// serializer still keeps photoId (it drops anything undeclared).
+// Directory entries also carry a derived photoId (#14 phase 2) and the
+// member's neighbourhood. A separate schema, used inline by the /members
+// routes, so the pinned PublicMember component above stays exactly the five
+// public profile fields while the serializer still keeps the extras (it
+// drops anything undeclared).
 export const PUBLIC_MEMBER_WITH_PHOTO = {
   ...PUBLIC_MEMBER,
   properties: {
     ...PUBLIC_MEMBER.properties,
     photoId: { type: 'string' },
+    neighbourhood: { type: 'string' },
   },
 } as const;
 

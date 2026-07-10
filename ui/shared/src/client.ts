@@ -283,6 +283,7 @@ export class ApiClient {
     confirmIncoming?: boolean;
     displayName?: string;
     digestFrequency?: DigestFrequency; // offers & wants digest cadence (#17)
+    neighbourhood?: string | null; // free-text locality; null clears
   }): Promise<{ member: Member }> {
     return this.tenant('PATCH', '/me', patch);
   }
@@ -364,8 +365,10 @@ export class ApiClient {
 
   // --- Directory and trading --------------------------------------------------
 
-  members(): Promise<{ members: DirectoryMember[] }> {
-    return this.tenant('GET', '/members');
+  members(filter?: { neighbourhood?: string }): Promise<{ members: DirectoryMember[] }> {
+    if (filter?.neighbourhood === undefined) return this.tenant('GET', '/members');
+    const params = new URLSearchParams({ neighbourhood: filter.neighbourhood });
+    return this.tenant('GET', `/members?${params}`);
   }
 
   member(id: string): Promise<{ member: DirectoryMember; stats: TradeStats }> {

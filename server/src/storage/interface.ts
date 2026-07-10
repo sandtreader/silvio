@@ -321,6 +321,7 @@ export interface Storage extends Ledger {
       role?: MemberRole;
       digestFrequency?: DigestFrequency;
       type?: MemberType; // individual -> joint auto-typing (#23)
+      neighbourhood?: string | null; // null clears
     },
   ): Promise<Member>;
   setMemberStatus(id: Id, status: MemberStatus): Promise<Member>;
