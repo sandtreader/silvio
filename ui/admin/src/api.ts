@@ -6,6 +6,7 @@
 import {
   ApiClient,
   ApiError,
+  type AdminStats,
   type AuditEvent,
   type AuditFilter,
   type BrandSlot,
@@ -91,6 +92,7 @@ export interface AdminApi {
     bands: DemurrageBand[],
   ): Promise<DemurrageBand[] | undefined>;
   adminFlags(currencyId: string): Promise<Flag[] | undefined>;
+  adminStats(currencyId: string): Promise<AdminStats | undefined>;
   adminTransactions(
     filter?: TransactionFilter,
   ): Promise<{ transactions: Transaction[]; total: number } | undefined>;
@@ -164,6 +166,7 @@ export const api: AdminApi = {
   adminSetBands: async (currencyId, bands) =>
     (await call(client.adminSetBands(currencyId, bands)))?.bands,
   adminFlags: async (currencyId) => (await call(client.adminFlags(currencyId)))?.flags,
+  adminStats: async (currencyId) => call(client.adminStats(currencyId)),
   adminTransactions: async (filter) => call(client.adminTransactions(filter)),
   adminReverse: async (id) => (await call(client.adminReverse(id)))?.transaction,
   adminAudit: async (filter) => call(client.adminAudit(filter)),

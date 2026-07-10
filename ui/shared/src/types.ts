@@ -91,6 +91,15 @@ export type Flag = Schemas['AccountFlag'];
 export type SearchResult = Schemas['SearchResult'];
 export type SearchDomain = SearchResult['domain'];
 
+// --- Dashboard stats ------------------------------------------------------------
+
+/** GET /admin/stats response: per-member balance distribution (sorted by
+ * balance, descending), monthly trade flow (ascending, gap months absent),
+ * 30-day velocity and dormant members — all for one currency. Amounts are
+ * integer minor units at that currency's scale. */
+export type AdminStats =
+  paths['/api/v1/admin/stats']['get']['responses']['200']['content']['application/json'];
+
 // --- Audit log ----------------------------------------------------------------
 
 /** One audit-log event (GET /admin/audit): dotted action (e.g.

@@ -3,6 +3,7 @@
 
 import { vi } from 'vitest';
 import type {
+  AdminStats,
   Currency,
   EmailTemplate,
   Group,
@@ -59,6 +60,16 @@ export function makeCurrency(overrides: Partial<Currency> = {}): Currency {
     name: 'Cams',
     scale: 2,
     createdAt: '2026-07-01T12:00:00Z',
+    ...overrides,
+  };
+}
+
+export function makeStats(overrides: Partial<AdminStats> = {}): AdminStats {
+  return {
+    balances: [],
+    flow: [],
+    velocity: 0,
+    dormant: [],
     ...overrides,
   };
 }
@@ -143,6 +154,7 @@ export function makeMockApi(): MockAdminApi {
     adminGetBands: vi.fn().mockResolvedValue([]),
     adminSetBands: vi.fn().mockResolvedValue([]),
     adminFlags: vi.fn().mockResolvedValue([]),
+    adminStats: vi.fn().mockResolvedValue(makeStats()),
     adminTransactions: vi.fn().mockResolvedValue({ transactions: [], total: 0 }),
     adminReverse: vi.fn().mockResolvedValue(undefined),
     adminAudit: vi.fn().mockResolvedValue({ events: [], total: 0 }),

@@ -6,6 +6,7 @@
 // anything else.
 
 import type {
+  AdminStats,
   AuditEvent,
   BrandSlot,
   Category,
@@ -428,6 +429,12 @@ export class ApiClient {
 
   adminFlags(currencyId: string): Promise<{ flags: Flag[] }> {
     return this.tenant('GET', `/admin/flags?${new URLSearchParams({ currencyId })}`);
+  }
+
+  /** Dashboard stats for one currency: balance distribution, monthly trade
+   *  flow, 30-day velocity and dormant members. */
+  adminStats(currencyId: string): Promise<AdminStats> {
+    return this.tenant('GET', `/admin/stats?${new URLSearchParams({ currencyId })}`);
   }
 
   adminTransactions(filter: TransactionFilter = {}): Promise<{

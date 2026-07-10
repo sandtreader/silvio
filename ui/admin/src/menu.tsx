@@ -9,6 +9,7 @@ import { AuditPage } from './pages/AuditPage';
 import { BrandingPage } from './pages/BrandingPage';
 import { BroadcastPage } from './pages/BroadcastPage';
 import { CategoriesPage } from './pages/CategoriesPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { EmailTemplatesPage } from './pages/EmailTemplatesPage';
 import { ImagesPage } from './pages/ImagesPage';
 import { MembersPage } from './pages/MembersPage';
@@ -29,6 +30,14 @@ interface PageDefinition {
 }
 
 const pages: PageDefinition[] = [
+  // Group health at a glance (plan.md): balances, flow, velocity, dormancy
+  {
+    id: 'dashboard',
+    name: 'Dashboard',
+    icon: 'insights',
+    content: <DashboardPage />,
+    requirements: ['admin.stats'],
+  },
   {
     id: 'approvals',
     name: 'Approval queue',
