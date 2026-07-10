@@ -6,6 +6,7 @@
 import { MenuStructure, StaticMenuProvider } from '@sandtreader/rafiki';
 import { ApprovalQueuePage } from './pages/ApprovalQueuePage';
 import { BrandingPage } from './pages/BrandingPage';
+import { BroadcastPage } from './pages/BroadcastPage';
 import { CategoriesPage } from './pages/CategoriesPage';
 import { EmailTemplatesPage } from './pages/EmailTemplatesPage';
 import { ImagesPage } from './pages/ImagesPage';
@@ -112,6 +113,14 @@ const pages: PageDefinition[] = [
     name: 'Email templates',
     icon: 'mail',
     content: <EmailTemplatesPage />,
+    requirements: ['admin.content'],
+  },
+  // Ad-hoc broadcast to every active member (decision #17)
+  {
+    id: 'broadcast',
+    name: 'Broadcast',
+    icon: 'send',
+    content: <BroadcastPage />,
     requirements: ['admin.content'],
   },
 ];

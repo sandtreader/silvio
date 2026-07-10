@@ -106,6 +106,9 @@ export type MemberStatus = Member['status'];
 export type MemberType = Member['type'];
 export type MemberRole = Member['role'];
 
+/** Offers & wants digest cadence (decision #17). */
+export type DigestFrequency = Member['digestFrequency'];
+
 export type CreditPolicyType = Policy['type'];
 
 export type ListingType = Listing['type'];

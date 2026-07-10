@@ -45,12 +45,16 @@ const KIND_LABELS: Record<EmailTemplateKind, string> = {
   invoice_expired: 'Invoice expired',
   restriction_imposed: 'Restriction imposed',
   restriction_lifted: 'Restriction lifted',
+  password_reset: 'Password reset',
+  email_verify: 'Email verification',
+  digest: 'Offers & wants digest', // decision #17
 };
 
 /** Every substitutable variable (#16); which apply depends on the kind. */
 const ALL_PLACEHOLDERS =
   '{{memberName}}, {{groupName}}, {{amount}}, {{payerName}}, {{payeeName}}, ' +
-  '{{flowName}}, {{reason}}, {{descriptionLine}}';
+  '{{flowName}}, {{reason}}, {{descriptionLine}}, {{resetUrl}}, {{verifyUrl}}, ' +
+  '{{listings}}';
 
 /** The distinct {{placeholder}} tokens used across the given texts. */
 function scanPlaceholders(...texts: string[]): string[] {

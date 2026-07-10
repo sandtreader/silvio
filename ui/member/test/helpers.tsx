@@ -42,6 +42,7 @@ export const testMe: Me = {
     displayName: 'Alice',
     status: 'active',
     confirmIncoming: false,
+    digestFrequency: 'weekly',
     appliedAt: '2026-01-01T00:00:00Z',
     approvedAt: '2026-01-02T00:00:00Z',
   },

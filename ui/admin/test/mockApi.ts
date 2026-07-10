@@ -25,6 +25,7 @@ export function makeMember(overrides: Partial<Member> = {}): Member {
     displayName: 'Alice Smith',
     status: 'active',
     confirmIncoming: false,
+    digestFrequency: 'weekly',
     appliedAt: '2026-07-01T12:00:00Z',
     ...overrides,
   };
@@ -167,5 +168,6 @@ export function makeMockApi(): MockAdminApi {
     deleteEmailTemplate: vi.fn().mockResolvedValue(true),
     adminGroup: vi.fn().mockResolvedValue(makeGroup()),
     patchAdminGroup: vi.fn().mockResolvedValue(undefined),
+    adminBroadcast: vi.fn().mockResolvedValue(undefined),
   };
 }

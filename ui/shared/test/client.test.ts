@@ -310,6 +310,31 @@ describe('path construction', () => {
     expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({ emailFrom: null });
   });
 
+  it('patches the digest frequency on /me (#17)', async () => {
+    const mock = stubFetch(200, { member: {} });
+    await new ApiClient({ group: 'g1' }).updateMe({ digestFrequency: 'monthly' });
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/me');
+    expect(lastCall(mock).init.method).toBe('PATCH');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      digestFrequency: 'monthly',
+    });
+  });
+
+  it('posts the admin broadcast and returns the queued count (#17)', async () => {
+    const mock = stubFetch(200, { ok: true, queued: 12 });
+    const { queued } = await new ApiClient({ group: 'g1' }).adminBroadcast(
+      'Summer fair',
+      'See you *there*.',
+    );
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/broadcast');
+    expect(lastCall(mock).init.method).toBe('POST');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      subject: 'Summer fair',
+      body: 'See you *there*.',
+    });
+    expect(queued).toBe(12);
+  });
+
   it('lists active restrictions on the admin route', async () => {
     const mock = stubFetch(200, { restrictions: [] });
     const client = new ApiClient({ group: 'g1' });

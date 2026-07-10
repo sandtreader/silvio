@@ -10,6 +10,7 @@ import type {
   Category,
   Currency,
   DemurrageBand,
+  DigestFrequency,
   DirectoryMember,
   EmailTemplate,
   EmailTemplateKind,
@@ -236,6 +237,7 @@ export class ApiClient {
   updateMe(patch: {
     confirmIncoming?: boolean;
     displayName?: string;
+    digestFrequency?: DigestFrequency; // offers & wants digest cadence (#17)
   }): Promise<{ member: Member }> {
     return this.tenant('PATCH', '/me', patch);
   }
@@ -512,6 +514,14 @@ export class ApiClient {
     emailFrom?: string | null;
   }): Promise<{ group: Group }> {
     return this.tenant('PATCH', '/admin/group', patch);
+  }
+
+  // Ad-hoc broadcast (decision #17): markdown body, one email per person on
+  // an active membership, queued through the standard outbox. No storage of
+  // its own — the email_events log records what was sent to whom.
+
+  adminBroadcast(subject: string, body: string): Promise<{ ok: boolean; queued: number }> {
+    return this.tenant('POST', '/admin/broadcast', { subject, body });
   }
 
   adminNews(): Promise<{ news: NewsItem[] }> {

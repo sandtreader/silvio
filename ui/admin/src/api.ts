@@ -127,6 +127,8 @@ export interface AdminApi {
   deleteEmailTemplate(kind: EmailTemplateKind): Promise<boolean>;
   adminGroup(): Promise<Group | undefined>;
   patchAdminGroup(patch: { emailFrom?: string | null }): Promise<Group | undefined>;
+  /** Broadcast to every active member (#17); resolves the queued count. */
+  adminBroadcast(subject: string, body: string): Promise<number | undefined>;
 }
 
 /** The real implementation over the shared ApiClient. */
@@ -188,4 +190,6 @@ export const api: AdminApi = {
     (await call(client.deleteEmailTemplate(kind)))?.ok ?? false,
   adminGroup: async () => (await call(client.adminGroup()))?.group,
   patchAdminGroup: async (patch) => (await call(client.patchAdminGroup(patch)))?.group,
+  adminBroadcast: async (subject, body) =>
+    (await call(client.adminBroadcast(subject, body)))?.queued,
 };

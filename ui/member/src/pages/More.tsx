@@ -1,5 +1,6 @@
 // More: profile (with photo, decision #14 phase 2), settings
-// (confirm-incoming toggle, decision #5), member directory, logout.
+// (confirm-incoming toggle, decision #5; offers & wants digest cadence,
+// decision #17), member directory, logout.
 import LogoutIcon from '@mui/icons-material/Logout';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -13,8 +14,10 @@ import ListItemAvatar from '@mui/material/ListItemAvatar';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
-import type { DirectoryMember } from '@silvio/ui-shared';
+import type { DigestFrequency, DirectoryMember } from '@silvio/ui-shared';
 import { useEffect, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router';
@@ -44,6 +47,11 @@ export function More() {
 
   const toggleConfirmIncoming = async (confirmIncoming: boolean) => {
     const result = await run(() => client.updateMe({ confirmIncoming }));
+    if (result !== undefined) await refresh();
+  };
+
+  const setDigestFrequency = async (digestFrequency: DigestFrequency) => {
+    const result = await run(() => client.updateMe({ digestFrequency }));
     if (result !== undefined) await refresh();
   };
 
@@ -128,6 +136,24 @@ export function More() {
         label="Confirm incoming payments"
         sx={{ mb: 2 }}
       />
+
+      {/* Offers & wants digest cadence (decision #17); default weekly */}
+      <Typography sx={{ mb: 1 }}>Offers &amp; wants digest</Typography>
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={me.member.digestFrequency}
+        disabled={busy}
+        onChange={(_event, value: DigestFrequency | null) => {
+          if (value !== null) void setDigestFrequency(value);
+        }}
+        aria-label="Offers & wants digest"
+        sx={{ mb: 2 }}
+      >
+        <ToggleButton value="none">None</ToggleButton>
+        <ToggleButton value="weekly">Weekly</ToggleButton>
+        <ToggleButton value="monthly">Monthly</ToggleButton>
+      </ToggleButtonGroup>
 
       <Typography variant="h6" sx={{ mb: 1 }}>
         Directory
