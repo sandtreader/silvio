@@ -82,6 +82,12 @@ export type Restriction = Schemas['Restriction'];
 /** GET /admin/flags item (computed, never blocking by itself). */
 export type Flag = Schemas['AccountFlag'];
 
+// --- Audit log ----------------------------------------------------------------
+
+/** One audit-log event (GET /admin/audit): dotted action (e.g.
+ * member.approve), the entity it touched, and a small free-form detail. */
+export type AuditEvent = Schemas['AuditEvent'];
+
 // --- Demurrage (decision #1) -------------------------------------------------
 
 export type DemurrageBand = Schemas['DemurrageBand'];
