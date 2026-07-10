@@ -11,6 +11,7 @@ CREATE TABLE groups (
   name       TEXT NOT NULL,
   status     TEXT NOT NULL DEFAULT 'active', -- active | suspended (#20)
   plan       TEXT, -- operator's plan label (#20)
+  notes      TEXT, -- operator-private free text (#20)
   email_from TEXT,
   settings   TEXT, -- GroupSettings JSON; NULL = all platform defaults
   created_at TEXT NOT NULL

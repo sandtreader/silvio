@@ -95,6 +95,18 @@ const GROUP = {
   },
 } as const;
 
+// Operator-private notes (#20). A separate schema, used inline by the
+// operator routes, so the pinned Group component above never carries notes:
+// every group-scoped route keeps serializing without them (the serializer
+// drops anything undeclared). Same pattern as PUBLIC_MEMBER_WITH_PHOTO.
+export const GROUP_WITH_NOTES = {
+  ...GROUP,
+  properties: {
+    ...GROUP.properties,
+    notes: { type: 'string' },
+  },
+} as const;
+
 const CURRENCY = {
   type: 'object',
   additionalProperties: false,
@@ -586,7 +598,10 @@ type Expect<T extends true> = T;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 type _DriftGuards = [
-  Expect<Equal<FromSchema<typeof GROUP>, Group>>,
+  // notes is operator-private, deliberately outside the shared schema; the
+  // WITH_NOTES variant carries it (PublicMember/photoId is the precedent).
+  Expect<Equal<FromSchema<typeof GROUP>, Omit<Group, 'notes'>>>,
+  Expect<Equal<FromSchema<typeof GROUP_WITH_NOTES>, Group>>,
   Expect<Equal<FromSchema<typeof CURRENCY>, Currency>>,
   Expect<Equal<FromSchema<typeof ENTRY>, Entry>>,
   Expect<Equal<FromSchema<typeof TRANSACTION>, Transaction>>,

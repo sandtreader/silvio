@@ -10045,7 +10045,75 @@
                     "groups": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/Group"
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "slug",
+                          "name",
+                          "status",
+                          "createdAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "suspended"
+                            ]
+                          },
+                          "plan": {
+                            "type": "string"
+                          },
+                          "emailFrom": {
+                            "type": "string"
+                          },
+                          "settings": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "autoAcceptDays": {
+                                "type": "integer"
+                              },
+                              "invoiceExpiryDays": {
+                                "type": "integer"
+                              },
+                              "digestDefault": {
+                                "type": "string",
+                                "enum": [
+                                  "none",
+                                  "weekly",
+                                  "monthly"
+                                ]
+                              },
+                              "listingMaxAgeDays": {
+                                "type": "integer"
+                              },
+                              "transparency": {
+                                "type": "string",
+                                "enum": [
+                                  "none",
+                                  "balances"
+                                ]
+                              }
+                            }
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "notes": {
+                            "type": "string"
+                          }
+                        }
                       }
                     }
                   }
@@ -10092,6 +10160,12 @@
                       "string",
                       "null"
                     ]
+                  },
+                  "notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 }
               }
@@ -10121,7 +10195,75 @@
                   ],
                   "properties": {
                     "group": {
-                      "$ref": "#/components/schemas/Group"
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "slug",
+                        "name",
+                        "status",
+                        "createdAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "suspended"
+                          ]
+                        },
+                        "plan": {
+                          "type": "string"
+                        },
+                        "emailFrom": {
+                          "type": "string"
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "autoAcceptDays": {
+                              "type": "integer"
+                            },
+                            "invoiceExpiryDays": {
+                              "type": "integer"
+                            },
+                            "digestDefault": {
+                              "type": "string",
+                              "enum": [
+                                "none",
+                                "weekly",
+                                "monthly"
+                              ]
+                            },
+                            "listingMaxAgeDays": {
+                              "type": "integer"
+                            },
+                            "transparency": {
+                              "type": "string",
+                              "enum": [
+                                "none",
+                                "balances"
+                              ]
+                            }
+                          }
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "notes": {
+                          "type": "string"
+                        }
+                      }
                     }
                   }
                 }

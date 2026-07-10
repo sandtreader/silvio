@@ -774,5 +774,7 @@ hostage-taking, and an orderly wind-down.
 - **`group.plan`**: nullable free-text operator label (the #2 reserved
   SaaS field) — a record, no billing logic.
 - **Operator management routes**: `PATCH /operator/groups/{id}` (name,
-  status, plan), `POST/DELETE /operator/groups/{id}/domains` — all
-  audited (audit_events already allows platform-level actors).
+  status, plan, notes), `POST/DELETE /operator/groups/{id}/domains` — all
+  audited (audit_events already allows platform-level actors). `group.notes`
+  is an operator-private free-text field (contact details, history) kept out
+  of the shared Group schema so it can never serialize past operator routes.

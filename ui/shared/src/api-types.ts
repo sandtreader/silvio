@@ -7068,7 +7068,26 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            groups: components["schemas"]["Group"][];
+                            groups: {
+                                id: string;
+                                slug: string;
+                                name: string;
+                                /** @enum {string} */
+                                status: "active" | "suspended";
+                                plan?: string;
+                                emailFrom?: string;
+                                settings?: {
+                                    autoAcceptDays?: number;
+                                    invoiceExpiryDays?: number;
+                                    /** @enum {string} */
+                                    digestDefault?: "none" | "weekly" | "monthly";
+                                    listingMaxAgeDays?: number;
+                                    /** @enum {string} */
+                                    transparency?: "none" | "balances";
+                                };
+                                createdAt: string;
+                                notes?: string;
+                            }[];
                         };
                     };
                 };
@@ -7172,6 +7191,7 @@ export interface paths {
                         /** @enum {string} */
                         status?: "active" | "suspended";
                         plan?: string | null;
+                        notes?: string | null;
                     };
                 };
             };
@@ -7183,7 +7203,26 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            group: components["schemas"]["Group"];
+                            group: {
+                                id: string;
+                                slug: string;
+                                name: string;
+                                /** @enum {string} */
+                                status: "active" | "suspended";
+                                plan?: string;
+                                emailFrom?: string;
+                                settings?: {
+                                    autoAcceptDays?: number;
+                                    invoiceExpiryDays?: number;
+                                    /** @enum {string} */
+                                    digestDefault?: "none" | "weekly" | "monthly";
+                                    listingMaxAgeDays?: number;
+                                    /** @enum {string} */
+                                    transparency?: "none" | "balances";
+                                };
+                                createdAt: string;
+                                notes?: string;
+                            };
                         };
                     };
                 };

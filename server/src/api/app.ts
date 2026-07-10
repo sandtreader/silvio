@@ -76,6 +76,7 @@ import { recordAudit } from '../services/audit.js';
 import { dashboardStats } from '../services/stats.js';
 import {
   GROUP_STATUS,
+  GROUP_WITH_NOTES,
   OK_RESPONSE,
   PUBLIC_MEMBER_WITH_PHOTO,
   SEARCH_DOMAIN,
@@ -3028,7 +3029,11 @@ export async function buildApp(
     '/api/v1/operator/groups',
     {
       preHandler: requireOperator,
-      schema: { response: respond(200, body({ groups: arrayOf('Group') })) },
+      schema: {
+        // Inline variant, not ref('Group'): operator routes carry the
+        // operator-private notes (#20).
+        response: respond(200, body({ groups: { type: 'array', items: GROUP_WITH_NOTES } })),
+      },
     },
     async () => {
       return { groups: await storage.listGroups() };
@@ -3036,7 +3041,8 @@ export async function buildApp(
   );
 
   // --- Operator group management (#20): lifecycle status, plan label, ---
-  // name, and domains — every change audited with the operator as actor.
+  // name, private notes, and domains — every change audited with the
+  // operator as actor.
 
   /** Target group by id; groups are few, so a scan beats a new query. */
   async function operatorGroup(id: string): Promise<Group | undefined> {
@@ -3056,9 +3062,10 @@ export async function buildApp(
             name: { type: 'string', minLength: 1 },
             status: { type: 'string', enum: GROUP_STATUS },
             plan: { type: ['string', 'null'] }, // null clears the label
+            notes: { type: ['string', 'null'] }, // operator-private; null clears
           },
         },
-        response: respond(200, body({ group: ref('Group') })),
+        response: respond(200, body({ group: GROUP_WITH_NOTES })),
       },
     },
     async (request, reply) => {
@@ -3067,6 +3074,7 @@ export async function buildApp(
         name?: string;
         status?: GroupStatus;
         plan?: string | null;
+        notes?: string | null;
       };
       const before = await operatorGroup(id);
       if (before === undefined) {
@@ -3074,14 +3082,14 @@ export async function buildApp(
       }
       const group = await storage.updateGroup(id, patch);
       // One audit event per actual change, actor = the operator (#20).
-      const audit = (action: string, detail: Record<string, unknown>): Promise<void> =>
+      const audit = (action: string, detail?: Record<string, unknown>): Promise<void> =>
         recordAudit(storage, {
           groupId: id,
           actorUserId: request.operator!.id,
           action,
           entityType: 'group',
           entityId: id,
-          detail,
+          ...(detail === undefined ? {} : { detail }),
         });
       if (patch.status !== undefined && patch.status !== before.status) {
         await audit('group.status', { status: patch.status });
@@ -3091,6 +3099,10 @@ export async function buildApp(
       }
       if (patch.name !== undefined && patch.name !== before.name) {
         await audit('group.rename', { name: patch.name });
+      }
+      if (patch.notes !== undefined && (patch.notes ?? undefined) !== before.notes) {
+        // No detail: the content is private, the fact of the edit is the record.
+        await audit('group.notes');
       }
       return { group };
     },

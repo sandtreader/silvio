@@ -49,6 +49,9 @@ export interface Group {
   status: GroupStatus;
   // Operator's free-text plan label (#20) — a record, no billing logic.
   plan?: string;
+  // Operator-private free text (#20): contacts, history. Kept out of the
+  // shared GROUP schema so it never leaves operator routes.
+  notes?: string;
   // Per-group sender address (#16); delivery falls back to the instance-wide
   // default when unset.
   emailFrom?: string;

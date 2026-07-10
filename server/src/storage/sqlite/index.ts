@@ -248,6 +248,7 @@ interface GroupRow {
   name: string;
   status: string; // active | suspended (#20)
   plan: string | null; // operator's plan label (#20)
+  notes: string | null; // operator-private free text (#20)
   email_from: string | null;
   settings: string | null; // GroupSettings JSON; NULL = all defaults
   created_at: string;
@@ -403,6 +404,7 @@ export class SqliteStorage implements Storage {
       name?: string;
       status?: GroupStatus;
       plan?: string | null;
+      notes?: string | null;
       emailFrom?: string | null;
       settings?: GroupSettings;
     },
@@ -418,6 +420,10 @@ export class SqliteStorage implements Storage {
       if (patch.plan !== undefined) {
         // null clears the plan label (#20); absent leaves it untouched.
         this.db.prepare('UPDATE groups SET plan = ? WHERE id = ?').run(patch.plan, id);
+      }
+      if (patch.notes !== undefined) {
+        // null clears the notes (#20); absent leaves them untouched.
+        this.db.prepare('UPDATE groups SET notes = ? WHERE id = ?').run(patch.notes, id);
       }
       if (patch.emailFrom !== undefined) {
         // null clears the sender (#16); absent leaves it untouched.
@@ -2680,6 +2686,7 @@ export class SqliteStorage implements Storage {
       createdAt: row.created_at,
     };
     if (row.plan !== null) group.plan = row.plan;
+    if (row.notes !== null) group.notes = row.notes;
     if (row.email_from !== null) group.emailFrom = row.email_from;
     if (row.settings !== null) group.settings = JSON.parse(row.settings) as GroupSettings;
     return group;

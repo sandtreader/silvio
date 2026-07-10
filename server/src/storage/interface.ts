@@ -215,13 +215,14 @@ export interface Ledger {
 export interface Storage extends Ledger {
   createGroup(input: CreateGroupInput): Promise<Group>;
   listGroups(): Promise<Group[]>;
-  /** emailFrom/plan: null clears, absent leaves it (#16, #20). settings replaces the whole object. */
+  /** emailFrom/plan/notes: null clears, absent leaves it (#16, #20). settings replaces the whole object. */
   updateGroup(
     id: Id,
     patch: {
       name?: string;
       status?: GroupStatus; // #20
       plan?: string | null; // #20
+      notes?: string | null; // #20, operator-private
       emailFrom?: string | null;
       settings?: GroupSettings;
     },

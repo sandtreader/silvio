@@ -205,6 +205,26 @@ describe('group suspension & operator management (#20)', () => {
     expect(report.verifyFailures).toBe(0); // verified, and clean
   });
 
+  it('operator notes are free text, and never leak past operator routes', async () => {
+    const res = await operatorPatch({ notes: 'Treasurer: Jo, 01223 000000. Migrated from MCM.' });
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { group: Group }).group.notes)
+      .toBe('Treasurer: Jo, 01223 000000. Migrated from MCM.');
+
+    // The operator list carries them...
+    const list = await app.inject({
+      method: 'GET', url: '/api/v1/operator/groups', headers: { cookie: operatorCookie },
+    });
+    expect((list.json() as { groups: Group[] }).groups[0]!.notes).toContain('Treasurer');
+
+    // ...but the group-admin view never does (operator-private).
+    const adminView = await app.inject({
+      method: 'GET', url: '/api/v1/g/cam/admin/group', headers: { cookie: adminCookie },
+    });
+    expect(adminView.statusCode).toBe(200);
+    expect(adminView.body).not.toContain('Treasurer');
+  });
+
   it('the operator adds and removes domains', async () => {
     const add = await app.inject({
       method: 'POST',
