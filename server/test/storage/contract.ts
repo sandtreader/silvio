@@ -1135,6 +1135,123 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
     });
   });
 
+  describe('search (FTS5, data-model Search interface)', () => {
+    let categoryId: string;
+    let memberId: string;
+
+    beforeEach(async () => {
+      const member = await f.storage.createMember({
+        groupId: f.group.id, displayName: 'Alice Applegrower',
+      });
+      await f.storage.setMemberStatus(member.id, 'active');
+      memberId = member.id;
+      const category = await f.storage.createCategory({ groupId: f.group.id, name: 'Food' });
+      categoryId = category.id;
+    });
+
+    function makeListing(title: string, description = 'Fresh from the plot') {
+      return f.storage.createListing({
+        groupId: f.group.id, memberId, type: 'offer', title, description, categoryId,
+      });
+    }
+
+    it('finds active listings by title and description text at any tier', async () => {
+      await makeListing('Veg box delivery');
+      await makeListing('Bike repair', 'Brakes and gears');
+      const byTitle = await f.storage.search(f.group.id, 'listings', {
+        text: 'veg', visibility: 'public',
+      });
+      expect(byTitle.total).toBe(1);
+      expect(byTitle.items[0]!.title).toBe('Veg box delivery');
+      const byBody = await f.storage.search(f.group.id, 'listings', {
+        text: 'gears', visibility: 'public',
+      });
+      expect(byBody.items[0]!.title).toBe('Bike repair');
+    });
+
+    it('reflects edits and drops non-active listings', async () => {
+      const listing = await makeListing('Veg box delivery');
+      await f.storage.updateListing(listing.id, { title: 'Fruit crate delivery' });
+      expect((await f.storage.search(f.group.id, 'listings', {
+        text: 'veg', visibility: 'public',
+      })).total).toBe(0);
+      expect((await f.storage.search(f.group.id, 'listings', {
+        text: 'fruit', visibility: 'public',
+      })).total).toBe(1);
+
+      await f.storage.updateListing(listing.id, { status: 'expired' });
+      expect((await f.storage.search(f.group.id, 'listings', {
+        text: 'fruit', visibility: 'public',
+      })).total).toBe(0);
+    });
+
+    it('directory needs the member tier', async () => {
+      const publicTier = await f.storage.search(f.group.id, 'directory', {
+        text: 'applegrower', visibility: 'public',
+      });
+      expect(publicTier.total).toBe(0);
+      const memberTier = await f.storage.search(f.group.id, 'directory', {
+        text: 'applegrower', visibility: 'member',
+      });
+      expect(memberTier.total).toBe(1);
+      expect(memberTier.items[0]!.id).toBe(memberId);
+    });
+
+    it('pages respect their visibility tiers', async () => {
+      await f.storage.createPage({
+        groupId: f.group.id, slug: 'about', title: 'About the apples',
+        body: 'orchard history', visibility: 'public',
+      });
+      await f.storage.createPage({
+        groupId: f.group.id, slug: 'committee', title: 'Committee apples',
+        body: 'private orchard notes', visibility: 'admin',
+      });
+      const publicTier = await f.storage.search(f.group.id, 'pages', {
+        text: 'orchard', visibility: 'public',
+      });
+      expect(publicTier.total).toBe(1);
+      const adminTier = await f.storage.search(f.group.id, 'pages', {
+        text: 'orchard', visibility: 'admin',
+      });
+      expect(adminTier.total).toBe(2);
+    });
+
+    it('news finds only currently-published items', async () => {
+      await f.storage.createNewsItem({
+        groupId: f.group.id, title: 'Apple day', body: 'Bring apples',
+        publishedAt: '2000-01-01T00:00:00.000Z',
+      });
+      await f.storage.createNewsItem({
+        groupId: f.group.id, title: 'Apple future', body: 'Not yet',
+        publishedAt: '2999-01-01T00:00:00.000Z',
+      });
+      const found = await f.storage.search(f.group.id, 'news', {
+        text: 'apple', visibility: 'public',
+      });
+      expect(found.total).toBe(1);
+      expect(found.items[0]!.title).toBe('Apple day');
+    });
+
+    it('is group-scoped and paged', async () => {
+      for (let i = 0; i < 5; i += 1) await makeListing(`Veg box ${i}`);
+      const otherMember = await f.storage.createMember({
+        groupId: f.otherGroup.id, displayName: 'Other Veg',
+      });
+      const otherCategory = await f.storage.createCategory({
+        groupId: f.otherGroup.id, name: 'Food',
+      });
+      await f.storage.createListing({
+        groupId: f.otherGroup.id, memberId: otherMember.id, type: 'offer',
+        title: 'Veg elsewhere', description: 'x', categoryId: otherCategory.id,
+      });
+      const page = await f.storage.search(f.group.id, 'listings', {
+        text: 'veg', visibility: 'public', limit: 2, offset: 2,
+      });
+      expect(page.total).toBe(5);
+      expect(page.items).toHaveLength(2);
+    });
+  });
+
   describe('audit events (data-model §8): append-only admin trail', () => {
     function draft(overrides: Record<string, unknown> = {}) {
       return {

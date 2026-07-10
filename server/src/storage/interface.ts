@@ -41,6 +41,9 @@ import type {
   PageVisibility,
   Person,
   Restriction,
+  SearchDomain,
+  SearchResult,
+  SearchVisibility,
   StatementLine,
   TradeStats,
   Transaction,
@@ -163,6 +166,14 @@ export interface TransactionFilter {
   /** Case-insensitive substring over description or reference. */
   text?: string;
   limit?: number; // default 50, capped at 200
+  offset?: number; // default 0
+}
+
+/** Generic search request (data-model Search interface). */
+export interface SearchQuery {
+  text: string;
+  visibility: SearchVisibility;
+  limit?: number; // default 20, capped at 100
   offset?: number; // default 0
 }
 
@@ -481,6 +492,20 @@ export interface Storage extends Ledger {
     groupId: Id,
     filter: AuditEventFilter,
   ): Promise<{ events: AuditEvent[]; total: number }>;
+
+  /**
+   * Generic full-text search over a domain (data-model Search interface),
+   * best match first. Results respect the caller's tier: listings are
+   * active-only at any tier, the directory needs member or admin (public
+   * gets an empty page, never an error), pages follow their visibility
+   * field, news is currently-published only. `total` counts all matches
+   * ignoring limit/offset; unusable query text returns an empty page.
+   */
+  search(
+    groupId: Id,
+    domain: SearchDomain,
+    query: SearchQuery,
+  ): Promise<{ items: SearchResult[]; total: number }>;
 
   /** Copy the whole database to destPath, safely against live writers. */
   backup(destPath: string): Promise<void>;

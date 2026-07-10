@@ -18,7 +18,12 @@ import { join } from 'node:path';
 import cookie from '@fastify/cookie';
 import swagger from '@fastify/swagger';
 import fastifyStatic from '@fastify/static';
-import type { AuditEventFilter, Storage, TransactionFilter } from '../storage/interface.js';
+import type {
+  AuditEventFilter,
+  SearchQuery,
+  Storage,
+  TransactionFilter,
+} from '../storage/interface.js';
 import type {
   ApiScope,
   ApiToken,
@@ -39,6 +44,7 @@ import type {
   NewsItem,
   Page,
   PageVisibility,
+  SearchDomain,
   Session,
   TxFlow,
   TxType,
@@ -65,7 +71,12 @@ import {
 } from '../services/trading.js';
 import { authenticateApiToken, checkTokenCaps, issueApiToken } from '../services/tokens.js';
 import { recordAudit } from '../services/audit.js';
-import { OK_RESPONSE, PUBLIC_MEMBER_WITH_PHOTO, sharedSchemas } from './schemas.js';
+import {
+  OK_RESPONSE,
+  PUBLIC_MEMBER_WITH_PHOTO,
+  SEARCH_DOMAIN,
+  sharedSchemas,
+} from './schemas.js';
 import { evaluateFlags } from '../services/creditcontrol.js';
 import {
   notifyRestrictionImposed,
@@ -698,6 +709,49 @@ export async function buildApp(
           };
           if (member !== undefined) info.member = { displayName: member.displayName };
           return info;
+        },
+      );
+
+      // Generic search (data-model Search interface): one public endpoint,
+      // domain-scoped. The optional session sets the caller's tier — no
+      // session searches the public face, a member adds the directory and
+      // member pages, an admin sees admin pages too.
+      scope.get(
+        '/search',
+        {
+          schema: {
+            querystring: {
+              type: 'object',
+              required: ['domain', 'q'],
+              properties: {
+                domain: { type: 'string', enum: SEARCH_DOMAIN },
+                q: { type: 'string', minLength: 1 },
+                limit: { type: 'integer', minimum: 1, maximum: 100 },
+                offset: { type: 'integer', minimum: 0 },
+              },
+            },
+            response: respond(
+              200,
+              body({ items: arrayOf('SearchResult'), total: { type: 'integer' } }),
+            ),
+          },
+        },
+        async (request) => {
+          const { domain, q, limit, offset } = request.query as {
+            domain: SearchDomain;
+            q: string;
+            limit?: number;
+            offset?: number;
+          };
+          const member = await sessionMember(storage, request, request.group!.id);
+          const query: SearchQuery = {
+            text: q,
+            visibility:
+              member === undefined ? 'public' : member.role === 'admin' ? 'admin' : 'member',
+          };
+          if (limit !== undefined) query.limit = limit;
+          if (offset !== undefined) query.offset = offset;
+          return storage.search(request.group!.id, domain, query);
         },
       );
 

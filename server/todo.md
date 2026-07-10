@@ -127,7 +127,7 @@ Remaining server-side work, grouped by area. References are to
 
 ## Marketplace
 
-- [ ] Generic search (FTS5) over listings/directory per data-model Search
+- [x] Generic search (FTS5) over listings/directory per data-model Search
       interface, visibility-tiered
 - [x] Listing photos — done via Image store phase 3 (#14) under Content
 - [ ] Category admin routes (create/edit/delete, recategorise)

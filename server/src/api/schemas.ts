@@ -27,6 +27,7 @@ import type {
   NewsItem,
   Page,
   Restriction,
+  SearchResult,
   StatementLine,
   TradeStats,
   Transaction,
@@ -47,6 +48,7 @@ const LISTING_TYPE = ['offer', 'want'] as const;
 const PAGE_VISIBILITY = ['public', 'members', 'admin'] as const;
 const LISTING_STATUS = ['active', 'hidden', 'expired'] as const;
 const CREDIT_POLICY_TYPE = ['soft_threshold', 'hard_limit'] as const;
+export const SEARCH_DOMAIN = ['listings', 'directory', 'pages', 'news'] as const;
 const IMAGE_OWNER_KIND = ['cms', 'member', 'listing', 'brand'] as const;
 const API_SCOPE = [
   'marketplace:read',
@@ -474,6 +476,20 @@ const AUDIT_EVENT = {
   },
 } as const;
 
+// One generic search hit (data-model Search interface): enough to render a
+// result line and link to the entity; snippet is a short match highlight.
+const SEARCH_RESULT = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['domain', 'id', 'title'],
+  properties: {
+    domain: { type: 'string', enum: SEARCH_DOMAIN },
+    id: { type: 'string' },
+    title: { type: 'string' },
+    snippet: { type: 'string' },
+  },
+} as const;
+
 const ACCOUNT_FLAG = {
   type: 'object',
   additionalProperties: false,
@@ -535,6 +551,7 @@ export const sharedSchemas = [
   { $id: 'Image', ...IMAGE },
   { $id: 'Restriction', ...RESTRICTION },
   { $id: 'AuditEvent', ...AUDIT_EVENT },
+  { $id: 'SearchResult', ...SEARCH_RESULT },
   { $id: 'AccountFlag', ...ACCOUNT_FLAG },
   { $id: 'ErrorResponse', ...ERROR_RESPONSE },
 ] as const;
@@ -573,5 +590,6 @@ type _DriftGuards = [
   Expect<Equal<FromSchema<typeof IMAGE>, Image>>,
   Expect<Equal<FromSchema<typeof RESTRICTION>, Restriction>>,
   Expect<Equal<FromSchema<typeof AUDIT_EVENT>, AuditEvent>>,
+  Expect<Equal<FromSchema<typeof SEARCH_RESULT>, SearchResult>>,
   Expect<Equal<FromSchema<typeof ACCOUNT_FLAG>, AccountFlag>>,
 ];
