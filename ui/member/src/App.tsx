@@ -13,6 +13,7 @@ import { RequireAuth } from './components/RequireAuth';
 import { SiteChrome } from './components/SiteChrome';
 import { Activity } from './pages/Activity';
 import { Apply } from './pages/Apply';
+import { Balances } from './pages/Balances';
 import { Forgot } from './pages/Forgot';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
@@ -81,6 +82,16 @@ const routes = [
         element: (
           <RequireAuth>
             <Tokens />
+          </RequireAuth>
+        ),
+      },
+      // Group balances transparency view (#19): reached from More; the page
+      // itself explains when the group doesn't publish balances.
+      {
+        path: '/balances',
+        element: (
+          <RequireAuth>
+            <Balances />
           </RequireAuth>
         ),
       },

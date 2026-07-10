@@ -742,6 +742,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    currencyId: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            balances: {
+                                memberId: string;
+                                displayName: string;
+                                balance: number;
+                                turnover: number;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/applications": {
         parameters: {
             query?: never;
@@ -3222,6 +3275,8 @@ export interface paths {
                             /** @enum {string} */
                             digestDefault?: "none" | "weekly" | "monthly";
                             listingMaxAgeDays?: number;
+                            /** @enum {string} */
+                            transparency?: "none" | "balances";
                         };
                     };
                 };
@@ -4142,6 +4197,61 @@ export interface paths {
                                 photoId?: string;
                             };
                             stats: components["schemas"]["TradeStats"];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/g/{slug}/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    currencyId: string;
+                };
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            balances: {
+                                memberId: string;
+                                displayName: string;
+                                balance: number;
+                                turnover: number;
+                            }[];
                         };
                     };
                 };
@@ -6700,6 +6810,8 @@ export interface paths {
                             /** @enum {string} */
                             digestDefault?: "none" | "weekly" | "monthly";
                             listingMaxAgeDays?: number;
+                            /** @enum {string} */
+                            transparency?: "none" | "balances";
                         };
                     };
                 };
@@ -7081,6 +7193,8 @@ export interface components {
                 /** @enum {string} */
                 digestDefault?: "none" | "weekly" | "monthly";
                 listingMaxAgeDays?: number;
+                /** @enum {string} */
+                transparency?: "none" | "balances";
             };
             createdAt: string;
         };

@@ -2,6 +2,7 @@
 // (confirm-incoming toggle, decision #5; offers & wants digest cadence,
 // decision #17; API tokens for MCP agents, decision #9), member directory,
 // logout.
+import BalanceIcon from '@mui/icons-material/Balance';
 import KeyIcon from '@mui/icons-material/Key';
 import LogoutIcon from '@mui/icons-material/Logout';
 import Box from '@mui/material/Box';
@@ -169,6 +170,21 @@ export function More() {
         sx={{ mb: 2 }}
       >
         API tokens
+      </Button>
+
+      <Typography variant="h6" sx={{ mb: 1 }}>
+        Group
+      </Typography>
+      {/* Group balances transparency view (#19): always listed; the page
+          itself explains when the group doesn't publish balances. */}
+      <Button
+        variant="outlined"
+        startIcon={<BalanceIcon />}
+        onClick={() => void navigate('/balances')}
+        fullWidth
+        sx={{ mb: 2 }}
+      >
+        Group balances
       </Button>
 
       <Typography variant="h6" sx={{ mb: 1 }}>

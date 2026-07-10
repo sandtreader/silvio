@@ -118,8 +118,11 @@ Remaining server-side work, grouped by area. References are to
       the `memberBalances`/`monthlyTradeFlow`/`lastTradeAt`/`tradeVolumeSince`
       storage aggregates via `services/stats.ts`
 - [ ] Demurrage projection ("if unspent, ~X on the 1st") for member dashboard (#1)
-- [ ] Group transparency settings + `GET /balances` view (#3; CamLETS publishes
-      balances/turnover)
+- [x] Group transparency settings + `GET /balances` view (#3; CamLETS publishes
+      balances/turnover) — shipped as #19: `settings.transparency`
+      ('none'/'balances', default 'none'), member-only `GET /balances`
+      (balance + 12-month turnover, 404 when off); flag visibility stays
+      future work with the credit-control flags
 - [x] Listing auto-expiry for inactive members (warning email → expire → purge;
       reference-standard) — shipped as listing shelf life (#18): default expiry
       at post time (`listingMaxAgeDays`, 180), warning email 14 days out,

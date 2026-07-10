@@ -83,6 +83,10 @@ describe('SettingsPage', () => {
       screen.getByLabelText('Digest default for new members'),
     );
     await userEvent.click(await screen.findByRole('option', { name: 'Monthly' }));
+    // Transparency (#19): switching on sends transparency: 'balances'
+    await userEvent.click(
+      screen.getByLabelText('Publish member balances to members'),
+    );
     await userEvent.click(screen.getByRole('button', { name: /save settings/i }));
     await waitFor(() =>
       expect(api.patchAdminGroup).toHaveBeenCalledWith({
@@ -90,6 +94,7 @@ describe('SettingsPage', () => {
           autoAcceptDays: 21,
           listingMaxAgeDays: 365,
           digestDefault: 'monthly',
+          transparency: 'balances',
         },
       }),
     );

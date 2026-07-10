@@ -20,6 +20,7 @@ import type {
   EmailTemplateKind,
   Flag,
   Group,
+  GroupBalance,
   GroupSettings,
   Image,
   Listing,
@@ -271,6 +272,11 @@ export class ApiClient {
 
   statement(currencyId: string): Promise<{ lines: StatementLine[] }> {
     return this.tenant('GET', `/me/statement?${new URLSearchParams({ currencyId })}`);
+  }
+
+  // Group balances transparency view (#19): 404 unless the group opts in.
+  groupBalances(currencyId: string): Promise<{ balances: GroupBalance[] }> {
+    return this.tenant('GET', `/balances?${new URLSearchParams({ currencyId })}`);
   }
 
   pending(): Promise<{ pending: PendingItem[] }> {

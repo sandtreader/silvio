@@ -404,6 +404,14 @@ export interface Storage extends Ledger {
   /** Per member, the committedAt of their most recent committed trade;
    *  members who never traded are absent. */
   lastTradeAt(groupId: Id): Promise<{ memberId: Id; lastTradeAt: string }[]>;
+  /** Per member, committed 'trade' income (sum of positive legs in the
+   *  currency) committed on/after sinceIso; members with no income in the
+   *  window are simply absent (#19). */
+  memberTurnover(
+    groupId: Id,
+    currencyId: Id,
+    sinceIso: string,
+  ): Promise<{ memberId: Id; turnover: number }[]>;
   /** Committed 'trade' volume (positive legs in the currency) since sinceIso. */
   tradeVolumeSince(groupId: Id, currencyId: Id, sinceIso: string): Promise<number>;
 

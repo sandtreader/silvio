@@ -44,6 +44,7 @@ const MEMBER_STATUS = ['applied', 'active', 'away', 'suspended', 'closed'] as co
 const MEMBER_TYPE = ['individual', 'joint', 'organisation'] as const;
 const MEMBER_ROLE = ['member', 'committee', 'admin'] as const;
 const DIGEST_FREQUENCY = ['none', 'weekly', 'monthly'] as const; // #17
+export const TRANSPARENCY = ['none', 'balances'] as const; // #19
 const LISTING_TYPE = ['offer', 'want'] as const;
 const PAGE_VISIBILITY = ['public', 'members', 'admin'] as const;
 const LISTING_STATUS = ['active', 'hidden', 'expired'] as const;
@@ -83,6 +84,7 @@ const GROUP = {
         invoiceExpiryDays: { type: 'integer' },
         digestDefault: { type: 'string', enum: DIGEST_FREQUENCY },
         listingMaxAgeDays: { type: 'integer' },
+        transparency: { type: 'string', enum: TRANSPARENCY }, // #19
       },
     },
     createdAt: { type: 'string' },

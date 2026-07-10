@@ -48,6 +48,13 @@
               },
               "listingMaxAgeDays": {
                 "type": "integer"
+              },
+              "transparency": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "balances"
+                ]
               }
             }
           },
@@ -1905,6 +1912,75 @@
                     },
                     "stats": {
                       "$ref": "#/components/schemas/TradeStats"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/balances": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "currencyId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "balances"
+                  ],
+                  "properties": {
+                    "balances": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "memberId",
+                          "displayName",
+                          "balance",
+                          "turnover"
+                        ],
+                        "properties": {
+                          "memberId": {
+                            "type": "string"
+                          },
+                          "displayName": {
+                            "type": "string"
+                          },
+                          "balance": {
+                            "type": "integer"
+                          },
+                          "turnover": {
+                            "type": "integer"
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -4848,6 +4924,13 @@
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 730
+                      },
+                      "transparency": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "balances"
+                        ]
                       }
                     }
                   }
@@ -6144,6 +6227,83 @@
                     },
                     "stats": {
                       "$ref": "#/components/schemas/TradeStats"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/g/{slug}/balances": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "currencyId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "balances"
+                  ],
+                  "properties": {
+                    "balances": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "memberId",
+                          "displayName",
+                          "balance",
+                          "turnover"
+                        ],
+                        "properties": {
+                          "memberId": {
+                            "type": "string"
+                          },
+                          "displayName": {
+                            "type": "string"
+                          },
+                          "balance": {
+                            "type": "integer"
+                          },
+                          "turnover": {
+                            "type": "integer"
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -9343,6 +9503,13 @@
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 730
+                      },
+                      "transparency": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "balances"
+                        ]
                       }
                     }
                   }

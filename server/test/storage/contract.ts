@@ -1174,6 +1174,20 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
       expect(current!.trades).toBe(2);
     });
 
+    it('memberTurnover sums committed trade income per member since a date', async () => {
+      const turnover = await f.storage.memberTurnover(
+        f.group.id, f.cams.id, '2000-01-01T00:00:00.000Z',
+      );
+      const byMember = new Map(turnover.map((t) => [t.memberId, t.turnover]));
+      expect(byMember.get('member-alice')).toBe(100); // received 100
+      expect(byMember.get('member-bob')).toBe(300); // received 300
+      // A cutoff after the trades excludes them.
+      const none = await f.storage.memberTurnover(
+        f.group.id, f.cams.id, '2999-01-01T00:00:00.000Z',
+      );
+      expect(none).toEqual([]);
+    });
+
     it('lastTradeAt reports each member’s most recent committed trade', async () => {
       const last = await f.storage.lastTradeAt(f.group.id);
       const byMember = new Map(last.map((row) => [row.memberId, row.lastTradeAt]));

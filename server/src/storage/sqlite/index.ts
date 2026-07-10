@@ -1873,6 +1873,29 @@ export class SqliteStorage implements Storage {
     );
   }
 
+  memberTurnover(
+    groupId: Id,
+    currencyId: Id,
+    sinceIso: string,
+  ): Promise<{ memberId: Id; turnover: number }[]> {
+    // Income only (#19): positive legs on committed trades in the window.
+    const rows = this.db
+      .prepare(
+        `SELECT a.member_id AS member_id, SUM(e.amount) AS turnover
+         FROM transactions t
+         JOIN entries e ON e.transaction_id = t.id
+         JOIN accounts a ON a.id = e.account_id
+         WHERE t.group_id = ? AND t.type = 'trade' AND t.state = 'committed'
+           AND t.committed_at >= ? AND a.currency_id = ?
+           AND a.member_id IS NOT NULL AND e.amount > 0
+         GROUP BY a.member_id`,
+      )
+      .all(groupId, sinceIso, currencyId) as { member_id: string; turnover: number }[];
+    return Promise.resolve(
+      rows.map((row) => ({ memberId: row.member_id, turnover: row.turnover })),
+    );
+  }
+
   tradeVolumeSince(groupId: Id, currencyId: Id, sinceIso: string): Promise<number> {
     const row = this.db
       .prepare(

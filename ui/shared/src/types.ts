@@ -121,6 +121,10 @@ export type Me =
 /** One account in the GET /me response, balance included. */
 export type AccountSummary = Schemas['AccountBalance'];
 
+/** One row of the group balances transparency view (GET /balances, #19). */
+export type GroupBalance =
+  paths['/api/v1/balances']['get']['responses']['200']['content']['application/json']['balances'][number];
+
 // --- Domain enums, derived from the entity shapes ----------------------------
 
 export type TxType = Transaction['type'];

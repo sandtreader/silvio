@@ -11,10 +11,12 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
+  FormControlLabel,
   MenuItem,
   Paper,
   Snackbar,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material';
@@ -39,6 +41,7 @@ function buildSettings(
   invoiceExpiryDays: string,
   listingMaxAgeDays: string,
   digestDefault: string,
+  publishBalances: boolean,
 ): GroupSettings {
   const settings: GroupSettings = {};
   const auto = Number.parseInt(autoAcceptDays, 10);
@@ -51,6 +54,8 @@ function buildSettings(
     settings.digestDefault = digestDefault as NonNullable<
       GroupSettings['digestDefault']
     >;
+  // Off is the platform default ('none', #19), so the key is only sent on.
+  if (publishBalances) settings.transparency = 'balances';
   return settings;
 }
 
@@ -63,6 +68,8 @@ export function SettingsPage({ api = realApi }: { api?: AdminApi }) {
   const [invoiceExpiryDays, setInvoiceExpiryDays] = useState('');
   const [listingMaxAgeDays, setListingMaxAgeDays] = useState('');
   const [digestDefault, setDigestDefault] = useState('');
+  // Group balances transparency (#19); false = 'none', the platform default.
+  const [publishBalances, setPublishBalances] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   const [savedNotice, setSavedNotice] = useState<string>();
@@ -76,6 +83,7 @@ export function SettingsPage({ api = realApi }: { api?: AdminApi }) {
       setInvoiceExpiryDays(group.settings?.invoiceExpiryDays?.toString() ?? '');
       setListingMaxAgeDays(group.settings?.listingMaxAgeDays?.toString() ?? '');
       setDigestDefault(group.settings?.digestDefault ?? '');
+      setPublishBalances(group.settings?.transparency === 'balances');
       setLoaded(true);
     })();
   }, [api]);
@@ -95,6 +103,7 @@ export function SettingsPage({ api = realApi }: { api?: AdminApi }) {
         invoiceExpiryDays,
         listingMaxAgeDays,
         digestDefault,
+        publishBalances,
       ),
     });
     if (group !== undefined) {
@@ -102,6 +111,7 @@ export function SettingsPage({ api = realApi }: { api?: AdminApi }) {
       setInvoiceExpiryDays(group.settings?.invoiceExpiryDays?.toString() ?? '');
       setListingMaxAgeDays(group.settings?.listingMaxAgeDays?.toString() ?? '');
       setDigestDefault(group.settings?.digestDefault ?? '');
+      setPublishBalances(group.settings?.transparency === 'balances');
       setSavedNotice('Settings saved');
     }
   };
@@ -183,6 +193,17 @@ export function SettingsPage({ api = realApi }: { api?: AdminApi }) {
               </MenuItem>
             ))}
           </TextField>
+          {/* Group balances transparency view (#19) */}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={publishBalances}
+                onChange={(e) => setPublishBalances(e.target.checked)}
+                disabled={!loaded}
+              />
+            }
+            label="Publish member balances to members"
+          />
           <Stack direction="row" justifyContent="flex-end">
             <Button
               variant="contained"

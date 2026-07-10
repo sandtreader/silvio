@@ -77,8 +77,10 @@ import {
   OK_RESPONSE,
   PUBLIC_MEMBER_WITH_PHOTO,
   SEARCH_DOMAIN,
+  TRANSPARENCY,
   sharedSchemas,
 } from './schemas.js';
+import { effectiveSettings } from '../services/settings.js';
 import { evaluateFlags } from '../services/creditcontrol.js';
 import {
   notifyRestrictionImposed,
@@ -1016,6 +1018,63 @@ export async function buildApp(
             ownerId: id,
           });
           return { member: publicMember(member, photo?.id), stats: await storage.tradeStats(id) };
+        },
+      );
+
+      // Group balances view (#19): every active member's balance and
+      // 12-month trade income, published only when the group opts in via
+      // settings.transparency — off means 404, a feature that doesn't exist.
+      scope.get(
+        '/balances',
+        {
+          preHandler: requireMember,
+          config: { scopes: accountRead },
+          schema: {
+            querystring: {
+              type: 'object',
+              required: ['currencyId'],
+              properties: { currencyId: { type: 'string' } },
+            },
+            response: respond(
+              200,
+              body({
+                balances: {
+                  type: 'array',
+                  items: body({
+                    memberId: { type: 'string' },
+                    displayName: { type: 'string' },
+                    balance: { type: 'integer' },
+                    turnover: { type: 'integer' },
+                  }),
+                },
+              }),
+            ),
+          },
+        },
+        async (request) => {
+          if (effectiveSettings(request.group!).transparency !== 'balances') {
+            throw new DomainError('NOT_FOUND', 'this group does not publish balances');
+          }
+          const { currencyId } = request.query as { currencyId: string };
+          const since = new Date();
+          since.setMonth(since.getMonth() - 12);
+          const [members, balances, turnover] = await Promise.all([
+            storage.listMembers(request.group!.id, 'active'),
+            storage.memberBalances(request.group!.id, currencyId),
+            storage.memberTurnover(request.group!.id, currencyId, since.toISOString()),
+          ]);
+          const balanceByMember = new Map(balances.map((row) => [row.memberId, row.balance]));
+          const turnoverByMember = new Map(turnover.map((row) => [row.memberId, row.turnover]));
+          return {
+            balances: members
+              .map((member) => ({
+                memberId: member.id,
+                displayName: member.displayName,
+                balance: balanceByMember.get(member.id) ?? 0,
+                turnover: turnoverByMember.get(member.id) ?? 0,
+              }))
+              .sort((a, b) => b.balance - a.balance),
+          };
         },
       );
 
@@ -2659,6 +2718,7 @@ export async function buildApp(
                     invoiceExpiryDays: { type: 'integer', minimum: 1, maximum: 365 },
                     digestDefault: { type: 'string', enum: ['none', 'weekly', 'monthly'] },
                     listingMaxAgeDays: { type: 'integer', minimum: 1, maximum: 730 },
+                    transparency: { type: 'string', enum: TRANSPARENCY }, // #19
                   },
                 },
               },

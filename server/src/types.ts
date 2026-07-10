@@ -25,6 +25,9 @@ export type TxFlow = 'payment' | 'invoice';
 
 export type Channel = 'web' | 'mcp' | 'admin' | 'system';
 
+// Publishing member balances is the group's explicit cultural choice (#19).
+export type Transparency = 'none' | 'balances';
+
 // Per-group knobs; absent keys mean the platform defaults (see
 // services/settings.ts), so a group row never needs migrating.
 export interface GroupSettings {
@@ -32,6 +35,7 @@ export interface GroupSettings {
   invoiceExpiryDays?: number; // invoice expiry horizon (#5)
   digestDefault?: DigestFrequency; // applied to new members at join (#17)
   listingMaxAgeDays?: number; // listing shelf life at post/renew time (#18)
+  transparency?: Transparency; // group balances view visibility (#19)
 }
 
 export interface Group {

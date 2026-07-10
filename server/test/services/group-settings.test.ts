@@ -48,6 +48,7 @@ describe('group settings', () => {
       invoiceExpiryDays: 30,
       digestDefault: 'weekly',
       listingMaxAgeDays: 180,
+      transparency: 'none',
     });
     const updated = await storage.updateGroup(group.id, {
       settings: { autoAcceptDays: 3 },
@@ -57,6 +58,7 @@ describe('group settings', () => {
       invoiceExpiryDays: 30,
       digestDefault: 'weekly',
       listingMaxAgeDays: 180,
+      transparency: 'none',
     });
   });
 
