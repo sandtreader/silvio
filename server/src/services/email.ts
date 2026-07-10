@@ -86,10 +86,12 @@ export function startEmailDelivery(
   storage: Storage,
   mailer: Mailer,
   intervalMs = 30_000,
+  opts?: DeliverOptions,
 ): () => void {
+  const alert = opts?.alert ?? console.error;
   const timer = setInterval(() => {
-    deliverEmails(storage, mailer, new Date().toISOString()).catch((err: unknown) => {
-      console.error('email delivery failed', err);
+    deliverEmails(storage, mailer, new Date().toISOString(), opts).catch((err: unknown) => {
+      alert(`email delivery failed: ${String(err)}`);
     });
   }, intervalMs);
   return () => clearInterval(timer);

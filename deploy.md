@@ -52,6 +52,14 @@ writable by uid 1000 (`chown 1000:1000 /srv/silvio`).
 | `SILVIO_EMAIL_FROM` | — | From address for outbound email (required together with `SILVIO_SMTP_URL`) |
 | `SILVIO_BACKUP_DIR` | `/data/backups` | Backup directory; unset it to disable backups (don't) |
 | `SILVIO_MEMBER_UI` / `SILVIO_ADMIN_UI` / `SILVIO_OPERATOR_UI` | `/app/ui/member/dist`, `/app/ui/admin/dist`, `/app/ui/operator/dist` | Built UI directories baked into the image; override only to serve different builds |
+| `SILVIO_CONFIG` | `./silvio.json` | Optional JSON config file; the default path may be absent, an explicit one must exist |
+| `SILVIO_LOG_LEVEL` | `info` | Level for the structured (pino JSON) logging |
+
+Every knob can instead be set in the config file — a flat JSON object with
+camelCase keys (`db`, `port`, `host`, `logLevel`, `operatorEmail`,
+`operatorPassword`, `smtpUrl`, `emailFrom`, `backupDir`, `memberUi`,
+`adminUi`, `operatorUi`); env vars override the file, the file overrides
+defaults.
 
 ## Reverse proxy
 

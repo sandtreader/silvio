@@ -8,6 +8,7 @@ import Fastify from 'fastify';
 import type {
   FastifyError,
   FastifyInstance,
+  FastifyServerOptions,
   FastifyPluginAsync,
   FastifyReply,
   FastifyRequest,
@@ -277,6 +278,8 @@ export interface BuildAppOptions {
   // minute) is deliberately generous: this is an anti-runaway guard against
   // a looping agent, not a usage quota.
   tokenRateLimit?: { maxRequests?: number; windowMs?: number };
+  // Fastify's built-in pino logger; false by default so tests stay quiet.
+  logger?: FastifyServerOptions['logger'];
 }
 
 export async function buildApp(
@@ -285,7 +288,10 @@ export async function buildApp(
 ): Promise<FastifyInstance> {
   // removeAdditional off: additionalProperties:false must 400 on unknown
   // keys (e.g. group settings), not silently strip them.
-  const app = Fastify({ ajv: { customOptions: { removeAdditional: false } } });
+  const app = Fastify({
+    logger: opts.logger ?? false,
+    ajv: { customOptions: { removeAdditional: false } },
+  });
 
   // Raw image upload bodies (decision #14): the whole image/* range parses
   // as a Buffer so every claimed image type reaches the upload service,

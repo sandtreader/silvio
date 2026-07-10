@@ -96,10 +96,16 @@ export async function runBackup(
 }
 
 /** Wall-clock wiring: real deployments call this once at boot. */
-export function startBackups(storage: Storage, dir: string, intervalMs = 3_600_000): () => void {
+export function startBackups(
+  storage: Storage,
+  dir: string,
+  intervalMs = 3_600_000,
+  opts?: BackupOptions,
+): () => void {
+  const alert = opts?.alert ?? console.error;
   const run = (): void => {
-    runBackup(storage, dir, new Date().toISOString()).catch((err: unknown) => {
-      console.error('BACKUP FAILED:', err);
+    runBackup(storage, dir, new Date().toISOString(), opts).catch((err: unknown) => {
+      alert(`BACKUP FAILED: ${String(err)}`);
     });
   };
   run(); // pick up a missed day immediately after a restart

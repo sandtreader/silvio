@@ -81,10 +81,15 @@ export async function tick(
 }
 
 /** Wall-clock wiring: real deployments call this once at boot. */
-export function startScheduler(storage: Storage, intervalMs = 3_600_000): () => void {
+export function startScheduler(
+  storage: Storage,
+  intervalMs = 3_600_000,
+  opts?: TickOptions,
+): () => void {
+  const alert = opts?.alert ?? console.error;
   const timer = setInterval(() => {
-    tick(storage, new Date().toISOString()).catch((err: unknown) => {
-      console.error('scheduler tick failed', err);
+    tick(storage, new Date().toISOString(), opts).catch((err: unknown) => {
+      alert(`scheduler tick failed: ${String(err)}`);
     });
   }, intervalMs);
   return () => clearInterval(timer);

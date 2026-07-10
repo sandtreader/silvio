@@ -46,6 +46,14 @@ running server). The live document is also served at `/api/v1/openapi.json`.
 | `SILVIO_MEMBER_UI` / `SILVIO_ADMIN_UI` | sibling `ui/*/dist` | Built UI directories served at `/app/` (the app renders its own chrome from `GET /shell`, #15) and `/admin/`; the group root `/` is the server-rendered brochure |
 | `SILVIO_OPERATOR_UI` | sibling `ui/operator/dist` | Built operator console served at `/operator/` (#21) |
 | `SILVIO_SMTP_URL` / `SILVIO_EMAIL_FROM` | — | Outbound email: nodemailer connection URL (e.g. `smtp://user:pass@mail.example.com:587`; query params pass transport options, e.g. `?tls.rejectUnauthorized=false` for a self-signed relay) and the From address. Unset, emails queue in `email_events` but are not sent |
+| `SILVIO_CONFIG` | `./silvio.json` | Optional JSON config file (see below); the default path may be absent, an explicit one must exist |
+| `SILVIO_LOG_LEVEL` | `info` | Level for the structured (pino JSON) logging |
+
+Every knob can instead be set in the config file — a flat JSON object with
+camelCase keys (`db`, `port`, `host`, `logLevel`, `operatorEmail`,
+`operatorPassword`, `smtpUrl`, `emailFrom`, `backupDir`, `memberUi`,
+`adminUi`, `operatorUi`); env vars override the file, the file overrides
+defaults, and unknown keys are rejected loudly.
 
 On first boot with no operator account, the server bootstraps one from the
 env vars, prompts interactively on a TTY, or warns loudly and continues.

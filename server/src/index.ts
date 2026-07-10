@@ -1,10 +1,11 @@
-// Server entrypoint: configuration from environment, wiring storage, the
-// REST API and the scheduler. All logic lives in the layers below; keep
-// this file to wiring only.
+// Server entrypoint: configuration from environment and optional config
+// file, wiring storage, the REST API and the scheduler. All logic lives in
+// the layers below; keep this file to wiring only.
 
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadConfig } from './config.js';
 import { SqliteStorage } from './storage/sqlite/index.js';
 import { buildApp, type BuildAppOptions } from './api/app.js';
 import { bootstrapOperator } from './services/bootstrap.js';
@@ -13,18 +14,15 @@ import { startScheduler } from './services/scheduler.js';
 import { createSmtpMailer, startEmailDelivery } from './services/email.js';
 import { promptOperatorCredentials } from './prompt.js';
 
-const dbPath = process.env['SILVIO_DB'] ?? 'silvio.sqlite';
-// Default port 1862: Silvio Gesell's year of birth.
-const port = Number(process.env['SILVIO_PORT'] ?? 1862);
-const host = process.env['SILVIO_HOST'] ?? '0.0.0.0';
-
-const storage = new SqliteStorage(dbPath);
+const config = loadConfig(process.env);
+const storage = new SqliteStorage(config.db);
 
 // First-boot operator bootstrap (idempotent): env vars if set, an
 // interactive prompt on a TTY, otherwise a loud hint — never a hang.
+// Console rather than the app logger: the app doesn't exist yet and the
+// prompt is interactive.
 if (!(await storage.operatorExists())) {
-  const email = process.env['SILVIO_OPERATOR_EMAIL'];
-  const password = process.env['SILVIO_OPERATOR_PASSWORD'];
+  const { operatorEmail: email, operatorPassword: password } = config;
   if (email !== undefined && password !== undefined) {
     await bootstrapOperator(storage, { email, password });
     console.log(`operator ${email} bootstrapped from environment`);
@@ -38,48 +36,53 @@ if (!(await storage.operatorExists())) {
     );
   }
 }
-// Serve built UIs when present (decision #11): env override, else the
-// sibling ui/ packages' dist directories in the repo layout.
+// Serve built UIs when present (decision #11): configured override, else
+// the sibling ui/ packages' dist directories in the repo layout.
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-function uiDist(envVar: string, fallback: string): string | undefined {
-  const path = process.env[envVar] ?? join(repoRoot, fallback);
+function uiDist(configured: string | undefined, fallback: string): string | undefined {
+  const path = configured ?? join(repoRoot, fallback);
   return existsSync(join(path, 'index.html')) ? path : undefined;
 }
 const ui: NonNullable<BuildAppOptions['ui']> = {};
-const memberDist = uiDist('SILVIO_MEMBER_UI', 'ui/member/dist');
-const adminDist = uiDist('SILVIO_ADMIN_UI', 'ui/admin/dist');
-const operatorDist = uiDist('SILVIO_OPERATOR_UI', 'ui/operator/dist');
+const memberDist = uiDist(config.memberUi, 'ui/member/dist');
+const adminDist = uiDist(config.adminUi, 'ui/admin/dist');
+const operatorDist = uiDist(config.operatorUi, 'ui/operator/dist');
 if (memberDist !== undefined) ui.memberDist = memberDist;
 if (adminDist !== undefined) ui.adminDist = adminDist;
 if (operatorDist !== undefined) ui.operatorDist = operatorDist;
 
-const app = await buildApp(storage, { ui });
-const stopScheduler = startScheduler(storage);
+const app = await buildApp(storage, { ui, logger: { level: config.logLevel } });
+const alert = (message: string): void => {
+  app.log.error(message);
+};
+const stopScheduler = startScheduler(storage, undefined, { alert });
 
 // Outbound email: with SMTP configured emails are delivered in the
 // background; without it they queue in email_events until it is.
-const smtpUrl = process.env['SILVIO_SMTP_URL'];
-const emailFrom = process.env['SILVIO_EMAIL_FROM'];
 let stopEmailDelivery = (): void => {};
-if (smtpUrl !== undefined && emailFrom !== undefined) {
-  stopEmailDelivery = startEmailDelivery(storage, createSmtpMailer(smtpUrl, emailFrom));
+if (config.smtpUrl !== undefined && config.emailFrom !== undefined) {
+  stopEmailDelivery = startEmailDelivery(
+    storage,
+    createSmtpMailer(config.smtpUrl, config.emailFrom),
+    undefined,
+    { alert },
+  );
 } else {
-  console.log('SILVIO_SMTP_URL/SILVIO_EMAIL_FROM not set — emails queue but are not sent');
+  app.log.info('SILVIO_SMTP_URL/SILVIO_EMAIL_FROM not set — emails queue but are not sent');
 }
 
 // Backups: with a directory configured, one integrity-checked daily copy,
 // checked hourly and rotated; without it nothing is backed up.
-const backupDir = process.env['SILVIO_BACKUP_DIR'];
 let stopBackups = (): void => {};
-if (backupDir !== undefined) {
-  stopBackups = startBackups(storage, backupDir);
-  console.log(`daily backups on, to ${backupDir}`);
+if (config.backupDir !== undefined) {
+  stopBackups = startBackups(storage, config.backupDir, undefined, { alert });
+  app.log.info(`daily backups on, to ${config.backupDir}`);
 } else {
-  console.log('SILVIO_BACKUP_DIR not set — backups are off');
+  app.log.info('SILVIO_BACKUP_DIR not set — backups are off');
 }
 
 async function shutdown(signal: string): Promise<void> {
-  console.log(`${signal} received, shutting down`);
+  app.log.info(`${signal} received, shutting down`);
   stopScheduler();
   stopEmailDelivery();
   stopBackups();
@@ -90,5 +93,5 @@ async function shutdown(signal: string): Promise<void> {
 process.on('SIGINT', () => void shutdown('SIGINT'));
 process.on('SIGTERM', () => void shutdown('SIGTERM'));
 
-await app.listen({ port, host });
-console.log(`Silvio server listening on ${host}:${port} (db: ${dbPath})`);
+await app.listen({ port: config.port, host: config.host });
+app.log.info(`Silvio server listening on ${config.host}:${config.port} (db: ${config.db})`);
