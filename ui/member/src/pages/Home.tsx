@@ -48,8 +48,9 @@ export function Home() {
       setLines([]);
       return;
     }
-    void run(() => client.statement(firstCurrencyId)).then((result) => {
-      if (result !== undefined) setLines(result.lines.slice(-5).reverse());
+    // Newest first from the server; the top five are the recent activity.
+    void run(() => client.statement(firstCurrencyId, { limit: 5 })).then((result) => {
+      if (result !== undefined) setLines(result.lines);
     });
   }, [client, run, firstCurrencyId]);
 

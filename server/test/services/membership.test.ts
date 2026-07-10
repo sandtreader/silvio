@@ -134,8 +134,8 @@ describe('membership service (#7)', () => {
     expect(await storage.accountsForMember(alice.id)).toHaveLength(0); // accounts closed
     expect((await storage.verify(group.id)).ok).toBe(true);
     // settlement is an ordinary typed transaction on the statement
-    const lines = await storage.statement(aliceAcc.id);
-    expect(lines.at(-1)!.type).toBe('settlement');
+    const { lines } = await storage.statement(aliceAcc.id);
+    expect(lines[0]!.type).toBe('settlement'); // newest first
   });
 
   it('leave absorbs a negative residual into the community account', async () => {
@@ -170,7 +170,7 @@ describe('membership service (#7)', () => {
     await approve(storage, member.id);
     const acc = (await storage.accountsForMember(member.id))[0]!;
     await leave(storage, member.id);
-    expect(await storage.statement(acc.id)).toHaveLength(0);
+    expect((await storage.statement(acc.id)).lines).toHaveLength(0);
   });
 
   it('leave works from suspended (removal flow shares settlement, #7)', async () => {

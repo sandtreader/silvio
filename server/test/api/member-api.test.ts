@@ -91,10 +91,12 @@ describe('member API', () => {
       headers: { host: HOST, cookie: aliceCookie },
     });
     expect(res.statusCode).toBe(200);
+    expect(res.json().total).toBe(2);
     const lines = res.json().lines;
     expect(lines).toHaveLength(2);
-    expect(lines.map((l: { amount: number }) => l.amount)).toEqual([-500, 200]);
-    expect(lines.at(-1).runningBalance).toBe(-300);
+    // Newest first: the 200 receipt tops the list with the final balance.
+    expect(lines.map((l: { amount: number }) => l.amount)).toEqual([200, -500]);
+    expect(lines[0].runningBalance).toBe(-300);
   });
 
   it('GET /me/pending lists invoices to pay and payments to confirm', async () => {

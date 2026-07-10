@@ -753,25 +753,42 @@ export class SqliteStorage implements Storage {
     return Promise.resolve(row.balance);
   }
 
-  statement(accountId: Id): Promise<StatementLine[]> {
+  statement(
+    accountId: Id,
+    page?: { limit?: number; offset?: number },
+  ): Promise<{ lines: StatementLine[]; total: number }> {
     const account = this.db
       .prepare('SELECT id FROM accounts WHERE id = ?')
       .get(accountId) as { id: string } | undefined;
     if (!account) {
       return Promise.reject(new StorageError('NOT_FOUND', `account ${accountId} not found`));
     }
-    const rows = this.db
+    const { total } = this.db
       .prepare(
-        `SELECT t.seq AS seq, t.id AS transaction_id, t.type AS type,
-                t.description AS description, t.reference AS reference,
-                t.committed_at AS committed_at, SUM(e.amount) AS amount
+        `SELECT COUNT(DISTINCT t.id) AS total
          FROM entries e
          JOIN transactions t ON t.id = e.transaction_id
-         WHERE e.account_id = ? AND t.state = 'committed'
-         GROUP BY t.id
-         ORDER BY t.seq`,
+         WHERE e.account_id = ? AND t.state = 'committed'`,
       )
-      .all(accountId) as {
+      .get(accountId) as { total: number };
+    // Running balance is a window sum over the full seq-ASC history, so it is
+    // correct on any page; the outer query flips to newest first and pages.
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM (
+           SELECT t.seq AS seq, t.id AS transaction_id, t.type AS type,
+                  t.description AS description, t.reference AS reference,
+                  t.committed_at AS committed_at, SUM(e.amount) AS amount,
+                  SUM(SUM(e.amount)) OVER (ORDER BY t.seq) AS running_balance
+           FROM entries e
+           JOIN transactions t ON t.id = e.transaction_id
+           WHERE e.account_id = ? AND t.state = 'committed'
+           GROUP BY t.id
+         )
+         ORDER BY seq DESC
+         LIMIT ? OFFSET ?`,
+      )
+      .all(accountId, page?.limit ?? -1, page?.offset ?? 0) as {
       seq: number;
       transaction_id: string;
       type: string;
@@ -779,23 +796,22 @@ export class SqliteStorage implements Storage {
       reference: string | null;
       committed_at: string;
       amount: number;
+      running_balance: number;
     }[];
-    let running = 0;
     const lines = rows.map((row): StatementLine => {
-      running += row.amount;
       const line: StatementLine = {
         seq: row.seq,
         transactionId: row.transaction_id,
         type: row.type as TxType,
         amount: row.amount,
-        runningBalance: running,
+        runningBalance: row.running_balance,
         committedAt: row.committed_at,
       };
       if (row.description !== null) line.description = row.description;
       if (row.reference !== null) line.reference = row.reference;
       return line;
     });
-    return Promise.resolve(lines);
+    return Promise.resolve({ lines, total });
   }
 
   verify(groupId: Id): Promise<VerifyReport> {

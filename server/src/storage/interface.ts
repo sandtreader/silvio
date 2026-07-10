@@ -202,8 +202,15 @@ export interface Ledger {
   /** Sum of committed entries only. */
   balance(accountId: Id): Promise<number>;
 
-  /** Committed lines for an account, ordered by seq, with running balance. */
-  statement(accountId: Id): Promise<StatementLine[]>;
+  /**
+   * Committed lines for an account, newest first (seq DESC), with the running
+   * balance correct on every line regardless of paging. `offset` counts from
+   * the newest line; no `page` returns the whole history.
+   */
+  statement(
+    accountId: Id,
+    page?: { limit?: number; offset?: number },
+  ): Promise<{ lines: StatementLine[]; total: number }>;
 
   /**
    * Recompute balances, hash chain, and seq==chain-order from the journal

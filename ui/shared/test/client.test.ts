@@ -88,10 +88,17 @@ describe('path construction', () => {
   });
 
   it('builds query strings for statement and flags', async () => {
-    const mock = stubFetch(200, { lines: [] });
+    const mock = stubFetch(200, { lines: [], total: 0 });
     const client = new ApiClient({ group: 'g1' });
     await client.statement('cur-1');
     expect(lastCall(mock).url).toBe('/api/v1/g/g1/me/statement?currencyId=cur-1');
+    await client.statement('cur-1', { limit: 50, offset: 100 });
+    expect(lastCall(mock).url).toBe(
+      '/api/v1/g/g1/me/statement?currencyId=cur-1&limit=50&offset=100',
+    );
+    expect(client.statementCsvUrl('cur 1')).toBe(
+      '/api/v1/g/g1/me/statement.csv?currencyId=cur+1',
+    );
     await client.adminFlags('cur 2'); // encoding
     expect(lastCall(mock).url).toBe('/api/v1/g/g1/admin/flags?currencyId=cur+2');
   });

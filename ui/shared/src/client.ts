@@ -272,8 +272,19 @@ export class ApiClient {
     return this.tenant('PATCH', '/me', patch);
   }
 
-  statement(currencyId: string): Promise<{ lines: StatementLine[] }> {
-    return this.tenant('GET', `/me/statement?${new URLSearchParams({ currencyId })}`);
+  statement(
+    currencyId: string,
+    page?: { limit?: number; offset?: number },
+  ): Promise<{ lines: StatementLine[]; total: number }> {
+    const params = new URLSearchParams({ currencyId });
+    if (page?.limit !== undefined) params.set('limit', String(page.limit));
+    if (page?.offset !== undefined) params.set('offset', String(page.offset));
+    return this.tenant('GET', `/me/statement?${params}`);
+  }
+
+  /** Same-origin href for the CSV statement download (cookie auth). */
+  statementCsvUrl(currencyId: string): string {
+    return `${this.groupPath()}/me/statement.csv?${new URLSearchParams({ currencyId })}`;
   }
 
   // Group balances transparency view (#19): 404 unless the group opts in.

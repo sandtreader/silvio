@@ -598,7 +598,7 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
   });
 
   describe('statement (#6)', () => {
-    it('returns committed lines in seq order with running balance', async () => {
+    it('returns committed lines newest first with running balance and total', async () => {
       await f.storage.post(trade(f)); // alice -100
       await f.storage.post(
         trade(f, {
@@ -609,10 +609,26 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
         }),
       );
       await f.storage.post(trade(f, { state: 'pending', flow: 'invoice' })); // excluded
-      const lines = await f.storage.statement(f.alice.id);
-      expect(lines.map((l) => l.amount)).toEqual([-100, 30]);
-      expect(lines.map((l) => l.runningBalance)).toEqual([-100, -70]);
-      expect(lines[0]!.seq).toBeLessThan(lines[1]!.seq);
+      const { lines, total } = await f.storage.statement(f.alice.id);
+      expect(total).toBe(2);
+      expect(lines.map((l) => l.amount)).toEqual([30, -100]);
+      expect(lines.map((l) => l.runningBalance)).toEqual([-70, -100]);
+      expect(lines[0]!.seq).toBeGreaterThan(lines[1]!.seq);
+    });
+
+    it('pages from the newest, running balances staying correct', async () => {
+      // Five trades of -10 each: balances -10 … -50, newest first -50 … -10.
+      for (let i = 0; i < 5; i += 1) {
+        await f.storage.post(trade(f, {
+          entries: [
+            { accountId: f.alice.id, amount: -10 },
+            { accountId: f.bob.id, amount: 10 },
+          ],
+        }));
+      }
+      const page = await f.storage.statement(f.alice.id, { limit: 2, offset: 1 });
+      expect(page.total).toBe(5);
+      expect(page.lines.map((l) => l.runningBalance)).toEqual([-40, -30]);
     });
   });
 

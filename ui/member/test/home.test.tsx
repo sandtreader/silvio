@@ -35,6 +35,7 @@ describe('Home', () => {
             committedAt: '2026-07-01T10:00:00Z',
           },
         ],
+        total: 1,
       }),
     };
     renderWithClient(<Home />, client);
@@ -45,7 +46,7 @@ describe('Home', () => {
     // Statement of the first account's currency
     expect(await screen.findByText('bike repair')).toBeTruthy();
     expect(screen.getByText('-15.00')).toBeTruthy();
-    expect(client.statement).toHaveBeenCalledWith('c1');
+    expect(client.statement).toHaveBeenCalledWith('c1', { limit: 5 });
     // Pending chip
     expect(await screen.findByText(/1 pending action/i)).toBeTruthy();
   });
@@ -64,7 +65,7 @@ describe('Home', () => {
     const client = {
       me: vi.fn().mockResolvedValue(me),
       pending: vi.fn().mockResolvedValue({ pending: [] }),
-      statement: vi.fn().mockResolvedValue({ lines: [] }),
+      statement: vi.fn().mockResolvedValue({ lines: [], total: 0 }),
     };
     renderWithClient(<Home />, client);
 

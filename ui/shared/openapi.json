@@ -1627,6 +1627,24 @@
             "in": "query",
             "name": "currencyId",
             "required": true
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "in": "query",
+            "name": "offset",
+            "required": false
           }
         ],
         "responses": {
@@ -1638,7 +1656,8 @@
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
-                    "lines"
+                    "lines",
+                    "total"
                   ],
                   "properties": {
                     "lines": {
@@ -1646,8 +1665,47 @@
                       "items": {
                         "$ref": "#/components/schemas/StatementLine"
                       }
+                    },
+                    "total": {
+                      "type": "integer"
                     }
                   }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/statement.csv": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "currencyId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -5900,6 +5958,24 @@
           },
           {
             "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "in": "query",
+            "name": "offset",
+            "required": false
+          },
+          {
+            "schema": {
               "type": "string"
             },
             "in": "path",
@@ -5916,7 +5992,8 @@
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
-                    "lines"
+                    "lines",
+                    "total"
                   ],
                   "properties": {
                     "lines": {
@@ -5924,8 +6001,55 @@
                       "items": {
                         "$ref": "#/components/schemas/StatementLine"
                       }
+                    },
+                    "total": {
+                      "type": "integer"
                     }
                   }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/g/{slug}/me/statement.csv": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "currencyId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }

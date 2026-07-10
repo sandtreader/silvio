@@ -117,8 +117,8 @@ describe('runDemurrage (engine on SqliteStorage, #1)', () => {
     expect(txs[0]!.state).toBe('committed');
     expect(txs[0]!.demurrageRunId).toBe(result.runId);
     expect(txs[0]!.channel).toBe('system');
-    const statement = await storage.statement(alice.id);
-    expect(statement.at(-1)!.amount).toBe(-600);
+    const { lines } = await storage.statement(alice.id);
+    expect(lines[0]!.amount).toBe(-600); // newest first
   });
 
   it('is idempotent: re-running a completed period is a no-op', async () => {

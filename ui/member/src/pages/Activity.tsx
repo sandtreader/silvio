@@ -1,5 +1,6 @@
 // Activity: pending transactions with their accept/decline/cancel actions
-// (decision #5), then the full statement with running balance.
+// (decision #5), then the statement newest-first, paged 50 at a time, with a
+// CSV download of the whole history.
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -26,6 +27,8 @@ const ACTION_LABELS: Record<TxAction, string> = {
   cancel: 'Cancel',
 };
 
+const PAGE_SIZE = 50;
+
 export function Activity() {
   const client = useClient();
   const { me } = useAuth();
@@ -33,21 +36,34 @@ export function Activity() {
   const feedback = useFeedback();
   const [pending, setPending] = useState<PendingItem[] | null>(null);
   const [lines, setLines] = useState<StatementLine[] | null>(null);
+  const [total, setTotal] = useState(0);
   const firstCurrencyId = me?.accounts[0]?.currencyId;
   const scale = scaleOf(me?.accounts[0]);
+
+  const loadPage = useCallback(
+    async (offset: number) => {
+      if (firstCurrencyId === undefined) {
+        setLines([]);
+        return;
+      }
+      const result = await run(() =>
+        client.statement(firstCurrencyId, { limit: PAGE_SIZE, offset }),
+      );
+      if (result !== undefined) {
+        setTotal(result.total);
+        setLines((previous) =>
+          offset === 0 ? result.lines : [...(previous ?? []), ...result.lines],
+        );
+      }
+    },
+    [client, run, firstCurrencyId],
+  );
 
   const load = useCallback(async () => {
     const pendingResult = await run(() => client.pending());
     if (pendingResult !== undefined) setPending(pendingResult.pending);
-    if (firstCurrencyId === undefined) {
-      setLines([]);
-      return;
-    }
-    const statementResult = await run(() => client.statement(firstCurrencyId));
-    if (statementResult !== undefined) {
-      setLines([...statementResult.lines].reverse());
-    }
-  }, [client, run, firstCurrencyId]);
+    await loadPage(0);
+  }, [client, run, loadPage]);
 
   useEffect(() => {
     void load();
@@ -110,9 +126,24 @@ export function Activity() {
         ))
       )}
 
-      <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>
-        Statement
-      </Typography>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{ mt: 3, mb: 1 }}
+      >
+        <Typography variant="h6">Statement</Typography>
+        {firstCurrencyId !== undefined && (
+          <Button
+            size="small"
+            component="a"
+            href={client.statementCsvUrl(firstCurrencyId)}
+            download
+          >
+            Download CSV
+          </Button>
+        )}
+      </Stack>
       {lines === null ? (
         <CircularProgress size={24} />
       ) : lines.length === 0 ? (
@@ -138,6 +169,15 @@ export function Activity() {
             </ListItem>
           ))}
         </List>
+      )}
+      {lines !== null && total > lines.length && (
+        <Button
+          sx={{ mt: 1 }}
+          disabled={busy}
+          onClick={() => void loadPage(lines.length)}
+        >
+          Load more ({lines.length} of {total})
+        </Button>
       )}
     </PageContainer>
   );

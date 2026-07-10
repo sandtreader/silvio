@@ -194,6 +194,24 @@ function respond(status: number, schema: object): Record<string, object> {
   return { [status]: schema, '4XX': ERROR_REF };
 }
 
+// --- statement CSV export --------------------------------------------------
+
+const CSV_HEADER = 'Date,Type,Description,Reference,Amount,Balance';
+
+/** Quote a CSV field when it contains a comma, quote, or newline. */
+function csvField(value: string): string {
+  return /[",\n\r]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+}
+
+/** Integer minor units -> plain decimal at the currency's scale (e.g. 1.00). */
+function scaledAmount(minor: number, scale: number): string {
+  if (scale === 0) return String(minor);
+  const sign = minor < 0 ? '-' : '';
+  const abs = Math.abs(minor);
+  const unit = 10 ** scale;
+  return `${sign}${Math.floor(abs / unit)}.${String(abs % unit).padStart(scale, '0')}`;
+}
+
 /** Directory projection: public profile fields only (no private settings). */
 export interface PublicMember {
   id: string;
@@ -909,17 +927,82 @@ export async function buildApp(
             querystring: {
               type: 'object',
               required: ['currencyId'],
-              properties: { currencyId: { type: 'string' } },
+              properties: {
+                currencyId: { type: 'string' },
+                limit: { type: 'integer', minimum: 1 },
+                offset: { type: 'integer', minimum: 0 },
+              },
             },
-            response: respond(200, body({ lines: arrayOf('StatementLine') })),
+            response: respond(
+              200,
+              body({ lines: arrayOf('StatementLine'), total: { type: 'integer' } }),
+            ),
           },
         },
         async (request) => {
-          const { currencyId } = request.query as { currencyId: string };
+          const { currencyId, limit, offset } = request.query as {
+            currencyId: string;
+            limit?: number;
+            offset?: number;
+          };
           const accounts = await storage.accountsForMember(request.auth!.member.id);
           const account = accounts.find((candidate) => candidate.currencyId === currencyId);
-          if (!account) return { lines: [] };
-          return { lines: await storage.statement(account.id) };
+          if (!account) return { lines: [], total: 0 };
+          const page: { limit?: number; offset?: number } = {};
+          if (limit !== undefined) page.limit = limit;
+          if (offset !== undefined) page.offset = offset;
+          return storage.statement(account.id, page);
+        },
+      );
+
+      scope.get(
+        '/me/statement.csv',
+        {
+          preHandler: requireMember,
+          config: { scopes: accountRead },
+          schema: {
+            querystring: {
+              type: 'object',
+              required: ['currencyId'],
+              properties: { currencyId: { type: 'string' } },
+            },
+            response: { 200: { type: 'string' }, '4XX': ERROR_REF },
+          },
+        },
+        async (request, reply) => {
+          const { currencyId } = request.query as { currencyId: string };
+          const currency = (await storage.listCurrencies(request.group!.id)).find(
+            (candidate) => candidate.id === currencyId,
+          );
+          if (!currency) {
+            throw new DomainError('NOT_FOUND', `currency ${currencyId} not found in this group`);
+          }
+          const accounts = await storage.accountsForMember(request.auth!.member.id);
+          const account = accounts.find((candidate) => candidate.currencyId === currencyId);
+          const lines = account ? (await storage.statement(account.id)).lines : [];
+          const rows = [CSV_HEADER];
+          // Statement is newest first; the download reads oldest first.
+          for (const line of [...lines].reverse()) {
+            rows.push(
+              [
+                line.committedAt,
+                line.type,
+                line.description ?? '',
+                line.reference ?? '',
+                scaledAmount(line.amount, currency.scale),
+                scaledAmount(line.runningBalance, currency.scale),
+              ]
+                .map(csvField)
+                .join(','),
+            );
+          }
+          return reply
+            .type('text/csv; charset=utf-8')
+            .header(
+              'content-disposition',
+              `attachment; filename="statement-${currency.code}.csv"`,
+            )
+            .send(rows.join('\n') + '\n');
         },
       );
 
