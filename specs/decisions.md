@@ -824,3 +824,27 @@ to server-minted, signed, idempotent payloads.
   (#5's invoice semantics: the initiator consents by initiating).
 - Restrictions and credit-control authorisation apply exactly as for any
   payment; scans are ordinary `trade` transactions, channel `web`.
+
+## 23. Joint members: the persons surface — DECIDED 2026-07-10
+
+Mechanises #7's account structure (multiple persons per membership, the
+reference-standard household pattern) — the data model was ready, this
+adds the management surface.
+
+- **Member self-service**: any person on a membership manages its people —
+  `GET/POST/DELETE /me/persons`. Adding takes a name and email: an email
+  that already has a Silvio account links immediately (and is notified);
+  otherwise an **invite email** goes out carrying a single-use token (the
+  `invite` purpose reserved in §1 since the reset work, 7-day expiry) and
+  `POST /auth/accept-invite {token, password}` creates the user, links the
+  person, and counts as email verification (the link proved it).
+- **Guard rails**: the last person on a membership cannot be removed;
+  removing a person revokes their sessions in this group's context and the
+  API tokens they issued for it (a departed partner keeps their Silvio
+  login, just not this membership). Adds and removes are audited
+  (`person.add`/`person.remove`) — they grant and revoke account access.
+- **Auto-typing**: adding a second person to an `individual` membership
+  flips it to `joint`; never flipped back automatically, and
+  `organisation` is left alone.
+- Offline persons (no email, buddy-managed) remain valid rows — the
+  proxy/buddy work (#2) builds on that later.
