@@ -13,6 +13,7 @@ import type {
   BrandSlot,
   Category,
   Currency,
+  DecodedPaymentRequest,
   DemurrageBand,
   DigestFrequency,
   DirectoryMember,
@@ -34,6 +35,7 @@ import type {
   OperatorGroupPatch,
   Page,
   PageVisibility,
+  PaymentRequestInput,
   PendingItem,
   Policy,
   Restriction,
@@ -346,6 +348,29 @@ export class ApiClient {
 
   invoice(input: InvoiceInput): Promise<{ transaction: Transaction }> {
     return this.tenant('POST', '/invoices', input);
+  }
+
+  // Signed QR payment requests (decision #22): the payee mints an opaque,
+  // server-signed payload; the payer decodes it for a verified confirm screen
+  // (trusted payee name/amount) and commits via /payments/scan, which is
+  // idempotent per payload — a double scan replays the same transaction.
+
+  mintPaymentRequest(input: PaymentRequestInput): Promise<{ payload: string }> {
+    return this.tenant('POST', '/me/payment-requests', input);
+  }
+
+  decodePaymentRequest(payload: string): Promise<DecodedPaymentRequest> {
+    return this.tenant(
+      'GET',
+      `/payment-requests/decode?${new URLSearchParams({ payload })}`,
+    );
+  }
+
+  /** amount only for open-amount requests; fixed ones carry their own. */
+  scanPayment(payload: string, amount?: number): Promise<{ transaction: Transaction }> {
+    const body: { payload: string; amount?: number } = { payload };
+    if (amount !== undefined) body.amount = amount;
+    return this.tenant('POST', '/payments/scan', body);
   }
 
   txAction(id: string, action: TxAction): Promise<{ transaction: Transaction }> {

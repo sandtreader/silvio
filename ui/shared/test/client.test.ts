@@ -150,6 +150,42 @@ describe('path construction', () => {
     expect(listing.id).toBe('l/1');
   });
 
+  it('routes signed payment requests: mint, decode, scan (#22)', async () => {
+    const mock = stubFetch(201, { payload: 'abc.sig' });
+    const client = new ApiClient({ group: 'g1' });
+    const { payload } = await client.mintPaymentRequest({
+      currencyId: 'cur-1',
+      amount: 1500,
+      reference: 'veg box',
+    });
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/me/payment-requests');
+    expect(lastCall(mock).init.method).toBe('POST');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      currencyId: 'cur-1',
+      amount: 1500,
+      reference: 'veg box',
+    });
+    expect(payload).toBe('abc.sig');
+
+    await client.decodePaymentRequest('abc.sig+/'); // encoding
+    expect(lastCall(mock).url).toBe(
+      '/api/v1/g/g1/payment-requests/decode?payload=abc.sig%2B%2F',
+    );
+    expect(lastCall(mock).init.method).toBe('GET');
+
+    await client.scanPayment('abc.sig'); // fixed amount rides in the payload
+    expect(lastCall(mock).url).toBe('/api/v1/g/g1/payments/scan');
+    expect(lastCall(mock).init.method).toBe('POST');
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      payload: 'abc.sig',
+    });
+    await client.scanPayment('abc.sig', 250); // open amount from the payer
+    expect(JSON.parse(lastCall(mock).init.body as string)).toEqual({
+      payload: 'abc.sig',
+      amount: 250,
+    });
+  });
+
   it('routes transaction and member actions', async () => {
     const mock = stubFetch(200, { transaction: {} });
     const client = new ApiClient({ group: 'g1' });

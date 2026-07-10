@@ -113,6 +113,17 @@ export type OperatorGroup =
 export type OperatorGroupPatch =
   paths['/api/v1/operator/groups/{id}']['patch']['requestBody']['content']['application/json'];
 
+// --- Signed payment requests (decision #22) -------------------------------------
+
+/** POST /me/payment-requests body: mint a signed, opaque QR payload. */
+export type PaymentRequestInput =
+  paths['/api/v1/me/payment-requests']['post']['requestBody']['content']['application/json'];
+
+/** GET /payment-requests/decode response: the *server-verified* contents of a
+ * scanned payload — payee name included, so the confirm screen can trust it. */
+export type DecodedPaymentRequest =
+  paths['/api/v1/payment-requests/decode']['get']['responses']['200']['content']['application/json'];
+
 // --- Audit log ----------------------------------------------------------------
 
 /** One audit-log event (GET /admin/audit): dotted action (e.g.

@@ -1,7 +1,9 @@
 // Pay: Scan (camera QR via native BarcodeDetector, with paste fallback),
-// Request (generate a payment-request QR), Manual (pick a member and pay).
-// Decision #5: the QR is an invoice — payee shows {payee, amount, reference},
-// payer scans and authorises; v1 commits via a direct POST /payments.
+// Request (mint a signed payment-request QR), Manual (pick a member and pay).
+// Decision #22: the QR payload is opaque and server-signed — the payee mints
+// it via POST /me/payment-requests, the payer decodes it server-side for a
+// *verified* payee name/amount, then commits via POST /payments/scan
+// (idempotent per payload).
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
@@ -11,8 +13,13 @@ import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { formatAmount, parseAmount } from '@silvio/ui-shared';
-import type { DirectoryMember, PayInput } from '@silvio/ui-shared';
+import { ApiError, formatAmount, parseAmount } from '@silvio/ui-shared';
+import type {
+  DecodedPaymentRequest,
+  DirectoryMember,
+  PayInput,
+  PaymentRequestInput,
+} from '@silvio/ui-shared';
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../api/auth';
@@ -20,8 +27,6 @@ import { useClient } from '../api/client';
 import { useFeedback } from '../api/feedback';
 import { useApi } from '../api/useApi';
 import { PageContainer } from '../components/PageContainer';
-import { decodeRequest, encodeRequest } from '../pay/request';
-import type { PaymentRequest } from '../pay/request';
 import { scaleForCurrency } from '../scale';
 
 export function Pay() {
@@ -53,8 +58,20 @@ const scannerSupported = () =>
   'BarcodeDetector' in window &&
   navigator.mediaDevices !== undefined;
 
+/** A decoded, server-verified request plus the raw payload /payments/scan needs. */
+interface ScannedRequest {
+  payload: string;
+  decoded: DecodedPaymentRequest;
+}
+
+// The server 400s on bad-signature / foreign-group / expired payloads (#22).
+const INVALID_CODE_MESSAGE =
+  "This code isn't valid here — it may be for another group or expired.";
+
 function ScanTab() {
-  const [request, setRequest] = useState<PaymentRequest | null>(null);
+  const client = useClient();
+  const feedback = useFeedback();
+  const [scanned, setScanned] = useState<ScannedRequest | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [pasted, setPasted] = useState('');
   const [pasteError, setPasteError] = useState<string | null>(null);
@@ -62,14 +79,17 @@ function ScanTab() {
   const supported = scannerSupported();
 
   // Camera + detection loop: getUserMedia -> draw frames to a canvas ->
-  // BarcodeDetector.detect every 500ms until a valid request is seen.
+  // BarcodeDetector.detect every 500ms; a detected payload goes to the server
+  // decode (#22) — one in flight at a time, rejected payloads not retried.
   useEffect(() => {
-    if (!supported || request !== null) return;
+    if (!supported || scanned !== null) return;
     const video = videoRef.current;
     if (video === null) return;
     let cancelled = false;
     let stream: MediaStream | undefined;
     let timer: number | undefined;
+    let decoding = false;
+    let rejected: string | undefined;
 
     const start = async () => {
       try {
@@ -99,9 +119,20 @@ function ScanTab() {
           .detect(canvas)
           .then((codes) => {
             const raw = codes[0]?.rawValue;
-            if (raw === undefined) return;
-            const decoded = decodeRequest(raw);
-            if (decoded !== null) setRequest(decoded);
+            if (raw === undefined || decoding || raw === rejected) return;
+            decoding = true;
+            client
+              .decodePaymentRequest(raw)
+              .then((decoded) => {
+                if (!cancelled) setScanned({ payload: raw, decoded });
+              })
+              .catch(() => {
+                rejected = raw; // the same QR stays in frame — don't re-ask
+                if (!cancelled) feedback.show(INVALID_CODE_MESSAGE, 'error');
+              })
+              .finally(() => {
+                decoding = false;
+              });
           })
           .catch(() => undefined); // transient detection errors are fine
       }, 500);
@@ -114,16 +145,21 @@ function ScanTab() {
       stream?.getTracks().forEach((track) => track.stop());
       video.srcObject = null;
     };
-  }, [supported, request]);
+  }, [supported, scanned, client, feedback]);
 
-  const usePasted = () => {
-    const decoded = decodeRequest(pasted.trim());
-    if (decoded === null) {
-      setPasteError('Not a valid Silvio payment code');
-      return;
+  const usePasted = async () => {
+    const payload = pasted.trim();
+    try {
+      const decoded = await client.decodePaymentRequest(payload);
+      setPasteError(null);
+      setScanned({ payload, decoded });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 400) {
+        setPasteError(INVALID_CODE_MESSAGE);
+      } else {
+        setPasteError(error instanceof Error ? error.message : String(error));
+      }
     }
-    setPasteError(null);
-    setRequest(decoded);
   };
 
   return (
@@ -153,49 +189,59 @@ function ScanTab() {
         />
         <Button
           variant="outlined"
-          onClick={usePasted}
+          onClick={() => void usePasted()}
           disabled={pasted.trim() === ''}
         >
           Use pasted code
         </Button>
       </Stack>
-      <ConfirmPaySheet request={request} onDone={() => setRequest(null)} />
+      <ConfirmPaySheet scanned={scanned} onDone={() => setScanned(null)} />
     </Box>
   );
 }
 
-/** Bottom sheet: resolve payee name, show amount, confirm -> POST /payments. */
+/** Bottom sheet: server-verified payee name, amount and reference (#22).
+ * Open-amount requests take the amount here; confirm -> POST /payments/scan. */
 function ConfirmPaySheet({
-  request,
+  scanned,
   onDone,
 }: {
-  request: PaymentRequest | null;
+  scanned: ScannedRequest | null;
   onDone: () => void;
 }) {
   const client = useClient();
   const { me } = useAuth();
   const { run, busy } = useApi();
   const feedback = useFeedback();
-  const [payeeName, setPayeeName] = useState<string | null>(null);
+  const [amountText, setAmountText] = useState('');
+  const [amountError, setAmountError] = useState<string | null>(null);
 
+  // Fresh open-amount entry for each new scan.
   useEffect(() => {
-    if (request === null) return;
-    setPayeeName(null);
-    void run(() => client.members()).then((result) => {
-      const found = result?.members.find((member) => member.id === request.payee);
-      if (found !== undefined) setPayeeName(`#${found.memberNo} ${found.displayName}`);
-    });
-  }, [request, client, run]);
+    setAmountText('');
+    setAmountError(null);
+  }, [scanned]);
+
+  const decoded = scanned?.decoded;
+  const scale = scaleForCurrency(me?.accounts, decoded?.currencyId);
 
   const confirm = async () => {
-    if (request === null) return;
-    const input: PayInput = {
-      payeeMemberId: request.payee,
-      currencyId: request.currencyId,
-      amount: request.amount,
-    };
-    if (request.reference !== undefined) input.description = request.reference;
-    const result = await run(() => client.pay(input));
+    if (scanned === null || decoded === undefined) return;
+    let amount: number | undefined; // fixed amounts ride in the payload
+    if (decoded.amount === undefined) {
+      try {
+        amount = parseAmount(amountText, scale);
+      } catch (error) {
+        setAmountError(error instanceof Error ? error.message : String(error));
+        return;
+      }
+      if (amount <= 0) {
+        setAmountError('Amount must be positive');
+        return;
+      }
+      setAmountError(null);
+    }
+    const result = await run(() => client.scanPayment(scanned.payload, amount));
     if (result !== undefined) {
       feedback.show('Payment sent', 'success');
       onDone();
@@ -203,18 +249,31 @@ function ConfirmPaySheet({
   };
 
   return (
-    <Drawer anchor="bottom" open={request !== null} onClose={onDone}>
-      {request !== null && (
+    <Drawer anchor="bottom" open={scanned !== null} onClose={onDone}>
+      {decoded !== undefined && (
         <Box sx={{ p: 3, pb: 4 }}>
           <Typography variant="h6">Confirm payment</Typography>
           <Typography sx={{ mt: 1 }}>
-            Pay <strong>{payeeName ?? request.payee}</strong>
+            Pay <strong>{decoded.payeeName}</strong>
           </Typography>
-          <Typography variant="h4" sx={{ my: 1 }}>
-            {formatAmount(request.amount, scaleForCurrency(me?.accounts, request.currencyId))}
-          </Typography>
-          {request.reference !== undefined && (
-            <Typography color="text.secondary">{request.reference}</Typography>
+          {decoded.amount !== undefined ? (
+            <Typography variant="h4" sx={{ my: 1 }}>
+              {formatAmount(decoded.amount, scale)}
+            </Typography>
+          ) : (
+            <TextField
+              label="Amount"
+              value={amountText}
+              onChange={(event) => setAmountText(event.target.value)}
+              error={amountError !== null}
+              helperText={amountError}
+              slotProps={{ htmlInput: { inputMode: 'decimal' } }}
+              fullWidth
+              sx={{ my: 1 }}
+            />
+          )}
+          {decoded.reference !== undefined && (
+            <Typography color="text.secondary">{decoded.reference}</Typography>
           )}
           <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
             <Button fullWidth onClick={onDone}>
@@ -224,7 +283,10 @@ function ConfirmPaySheet({
               fullWidth
               variant="contained"
               onClick={() => void confirm()}
-              disabled={busy}
+              disabled={
+                busy ||
+                (decoded.amount === undefined && amountText.trim() === '')
+              }
             >
               Pay
             </Button>
@@ -238,47 +300,49 @@ function ConfirmPaySheet({
 // --- Request -----------------------------------------------------------------
 
 function RequestTab() {
+  const client = useClient();
   const { me } = useAuth();
+  const { run, busy } = useApi();
   const feedback = useFeedback();
   const [amountText, setAmountText] = useState('');
   const [description, setDescription] = useState('');
   const [amountError, setAmountError] = useState<string | null>(null);
-  const [encoded, setEncoded] = useState<string | null>(null);
+  const [payload, setPayload] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const account = me?.accounts[0];
 
-  const generate = () => {
-    if (me === null || account === undefined) return;
-    let amount: number;
-    try {
-      amount = parseAmount(amountText, account.scale);
-    } catch (error) {
-      setAmountError(error instanceof Error ? error.message : String(error));
-      return;
-    }
-    if (amount <= 0) {
-      setAmountError('Amount must be positive');
-      return;
+  // Mint the signed payload server-side (#22). Amount is optional: blank
+  // means an open-amount code where the payer enters it.
+  const generate = async () => {
+    if (account === undefined) return;
+    const input: PaymentRequestInput = { currencyId: account.currencyId };
+    if (amountText.trim() !== '') {
+      let amount: number;
+      try {
+        amount = parseAmount(amountText, account.scale);
+      } catch (error) {
+        setAmountError(error instanceof Error ? error.message : String(error));
+        return;
+      }
+      if (amount <= 0) {
+        setAmountError('Amount must be positive');
+        return;
+      }
+      input.amount = amount;
     }
     setAmountError(null);
-    const request: PaymentRequest = {
-      v: 1,
-      kind: 'silvio-request',
-      payee: me.member.id,
-      amount,
-      currencyId: account.currencyId,
-    };
-    if (description.trim() !== '') request.reference = description.trim();
-    setEncoded(encodeRequest(request));
+    if (description.trim() !== '') input.reference = description.trim();
+    const result = await run(() => client.mintPaymentRequest(input));
+    if (result !== undefined) setPayload(result.payload);
   };
 
   // Render the QR whenever the payload changes; the canvas is in the DOM
-  // only while `encoded` is set.
+  // only while `payload` is set.
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (encoded === null || canvas === null) return;
-    QRCode.toCanvas(canvas, encoded, { width: 280, margin: 2 }).catch(
+    if (payload === null || canvas === null) return;
+    QRCode.toCanvas(canvas, payload, { width: 280, margin: 2 }).catch(
       (error: unknown) => {
         feedback.show(
           error instanceof Error ? error.message : String(error),
@@ -286,7 +350,7 @@ function RequestTab() {
         );
       },
     );
-  }, [encoded, feedback]);
+  }, [payload, feedback]);
 
   if (account === undefined) {
     return <Typography color="text.secondary">No account to receive into.</Typography>;
@@ -299,7 +363,7 @@ function RequestTab() {
         value={amountText}
         onChange={(event) => setAmountText(event.target.value)}
         error={amountError !== null}
-        helperText={amountError}
+        helperText={amountError ?? 'Leave blank to let the payer enter the amount'}
         slotProps={{ htmlInput: { inputMode: 'decimal' } }}
       />
       <TextField
@@ -307,18 +371,20 @@ function RequestTab() {
         value={description}
         onChange={(event) => setDescription(event.target.value)}
       />
-      <Button
-        variant="contained"
-        onClick={generate}
-        disabled={amountText.trim() === ''}
-      >
+      <Button variant="contained" onClick={() => void generate()} disabled={busy}>
         Show QR code
       </Button>
-      {encoded !== null && (
+      {payload !== null && (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <canvas ref={canvasRef} aria-label="payment request QR code" />
           <Typography variant="caption" color="text.secondary">
-            Ask the payer to scan this code
+            Ask the payer to scan this code, or copy the text below
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{ mt: 1, wordBreak: 'break-all', fontFamily: 'monospace' }}
+          >
+            {payload}
           </Typography>
         </Box>
       )}
