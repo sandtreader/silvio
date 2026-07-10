@@ -388,6 +388,25 @@ export interface Storage extends Ledger {
   /** Trade-count stats from committed 'trade' transactions (decision #8). */
   tradeStats(memberId: Id): Promise<TradeStats>;
 
+  // Dashboard aggregates (plan.md: Management operations). Pure queries over
+  // committed entries; the stats service composes them per currency.
+  /** Committed balance of every open member account in the currency
+   *  (a member with an account but no entries appears with balance 0). */
+  memberBalances(groupId: Id, currencyId: Id): Promise<{ memberId: Id; balance: number }[]>;
+  /** Committed 'trade' volume (sum of positive legs in the currency) and
+   *  trade count per 'YYYY-MM' month: the most recent `months` buckets,
+   *  ascending; months with no trades are simply absent. */
+  monthlyTradeFlow(
+    groupId: Id,
+    currencyId: Id,
+    months: number,
+  ): Promise<{ month: string; volume: number; trades: number }[]>;
+  /** Per member, the committedAt of their most recent committed trade;
+   *  members who never traded are absent. */
+  lastTradeAt(groupId: Id): Promise<{ memberId: Id; lastTradeAt: string }[]>;
+  /** Committed 'trade' volume (positive legs in the currency) since sinceIso. */
+  tradeVolumeSince(groupId: Id, currencyId: Id, sinceIso: string): Promise<number>;
+
   // Marketplace.
   createCategory(input: { groupId: Id; name: string; parentId?: Id }): Promise<Category>;
   getCategory(id: Id): Promise<Category>;

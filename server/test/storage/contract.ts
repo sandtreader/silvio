@@ -1135,6 +1135,54 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
     });
   });
 
+  describe('dashboard aggregates (plan.md: Management operations)', () => {
+    beforeEach(async () => {
+      // Two committed trades: alice pays bob 300, bob pays alice 100.
+      await f.storage.post({
+        groupId: f.group.id, type: 'trade', state: 'committed',
+        createdBy: 'person-alice', channel: 'web',
+        entries: [
+          { accountId: f.alice.id, amount: -300 },
+          { accountId: f.bob.id, amount: 300 },
+        ],
+      });
+      await f.storage.post({
+        groupId: f.group.id, type: 'trade', state: 'committed',
+        createdBy: 'person-bob', channel: 'web',
+        entries: [
+          { accountId: f.bob.id, amount: -100 },
+          { accountId: f.alice.id, amount: 100 },
+        ],
+      });
+    });
+
+    it('memberBalances returns every member account balance in one call', async () => {
+      const balances = await f.storage.memberBalances(f.group.id, f.cams.id);
+      const byMember = new Map(balances.map((b) => [b.memberId, b.balance]));
+      expect(byMember.get('member-alice')).toBe(-200);
+      expect(byMember.get('member-bob')).toBe(200);
+      // Community/system accounts and other currencies stay out.
+      expect(balances).toHaveLength(2);
+    });
+
+    it('monthlyTradeFlow buckets committed trade volume by month', async () => {
+      const flow = await f.storage.monthlyTradeFlow(f.group.id, f.cams.id, 12);
+      const thisMonth = new Date().toISOString().slice(0, 7);
+      const current = flow.find((bucket) => bucket.month === thisMonth);
+      expect(current).toBeDefined();
+      expect(current!.volume).toBe(400); // sum of positive legs
+      expect(current!.trades).toBe(2);
+    });
+
+    it('lastTradeAt reports each member’s most recent committed trade', async () => {
+      const last = await f.storage.lastTradeAt(f.group.id);
+      const byMember = new Map(last.map((row) => [row.memberId, row.lastTradeAt]));
+      expect(byMember.get('member-alice')).toBeTruthy();
+      expect(byMember.get('member-bob')).toBeTruthy();
+      expect(byMember.has('member-carol')).toBe(false); // other group
+    });
+  });
+
   describe('search (FTS5, data-model Search interface)', () => {
     let categoryId: string;
     let memberId: string;

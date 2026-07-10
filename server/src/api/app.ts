@@ -71,6 +71,7 @@ import {
 } from '../services/trading.js';
 import { authenticateApiToken, checkTokenCaps, issueApiToken } from '../services/tokens.js';
 import { recordAudit } from '../services/audit.js';
+import { dashboardStats } from '../services/stats.js';
 import {
   OK_RESPONSE,
   PUBLIC_MEMBER_WITH_PHOTO,
@@ -2003,6 +2004,55 @@ export async function buildApp(
           });
           reply.status(201);
           return { transaction };
+        },
+      );
+
+      // Dashboard stats (plan.md): balance distribution, monthly trade flow,
+      // velocity and dormancy for one currency; the UI draws the graphs.
+      scope.get(
+        '/admin/stats',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            querystring: {
+              type: 'object',
+              required: ['currencyId'],
+              properties: { currencyId: { type: 'string' } },
+            },
+            response: respond(200, body({
+              balances: {
+                type: 'array',
+                items: body({
+                  memberId: { type: 'string' },
+                  displayName: { type: 'string' },
+                  balance: { type: 'integer' },
+                }),
+              },
+              flow: {
+                type: 'array',
+                items: body({
+                  month: { type: 'string' },
+                  volume: { type: 'integer' },
+                  trades: { type: 'integer' },
+                }),
+              },
+              velocity: { type: 'number' },
+              dormant: {
+                type: 'array',
+                items: body({
+                  memberId: { type: 'string' },
+                  displayName: { type: 'string' },
+                  lastTradeAt: { type: 'string' },
+                }, ['memberId', 'displayName']),
+              },
+            })),
+          },
+        },
+        async (request) => {
+          const { currencyId } = request.query as { currencyId: string };
+          return dashboardStats(
+            storage, request.group!.id, currencyId, new Date().toISOString(),
+          );
         },
       );
 

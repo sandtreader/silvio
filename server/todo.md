@@ -112,8 +112,10 @@ Remaining server-side work, grouped by area. References are to
       transitions — append-only `audit_events` (no update/delete methods),
       never-throwing `recordAudit` helper, dotted actions across admin/token/
       application routes, surfaced via `GET /admin/audit`
-- [ ] Dashboard stats endpoints (plan.md): balance distribution, currency flow
-      over time, velocity, dormancy
+- [x] Dashboard stats endpoints (plan.md): balance distribution, currency flow
+      over time, velocity, dormancy — `GET /admin/stats?currencyId=` composing
+      the `memberBalances`/`monthlyTradeFlow`/`lastTradeAt`/`tradeVolumeSince`
+      storage aggregates via `services/stats.ts`
 - [ ] Demurrage projection ("if unspent, ~X on the 1st") for member dashboard (#1)
 - [ ] Group transparency settings + `GET /balances` view (#3; CamLETS publishes
       balances/turnover)

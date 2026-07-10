@@ -3752,6 +3752,122 @@
         }
       }
     },
+    "/api/v1/admin/stats": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "currencyId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "balances",
+                    "flow",
+                    "velocity",
+                    "dormant"
+                  ],
+                  "properties": {
+                    "balances": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "memberId",
+                          "displayName",
+                          "balance"
+                        ],
+                        "properties": {
+                          "memberId": {
+                            "type": "string"
+                          },
+                          "displayName": {
+                            "type": "string"
+                          },
+                          "balance": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "flow": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "month",
+                          "volume",
+                          "trades"
+                        ],
+                        "properties": {
+                          "month": {
+                            "type": "string"
+                          },
+                          "volume": {
+                            "type": "integer"
+                          },
+                          "trades": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "velocity": {
+                      "type": "number"
+                    },
+                    "dormant": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "memberId",
+                          "displayName"
+                        ],
+                        "properties": {
+                          "memberId": {
+                            "type": "string"
+                          },
+                          "displayName": {
+                            "type": "string"
+                          },
+                          "lastTradeAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/audit": {
       "get": {
         "parameters": [
@@ -8018,6 +8134,130 @@
                   "properties": {
                     "transaction": {
                       "$ref": "#/components/schemas/Transaction"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/g/{slug}/admin/stats": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "currencyId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "balances",
+                    "flow",
+                    "velocity",
+                    "dormant"
+                  ],
+                  "properties": {
+                    "balances": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "memberId",
+                          "displayName",
+                          "balance"
+                        ],
+                        "properties": {
+                          "memberId": {
+                            "type": "string"
+                          },
+                          "displayName": {
+                            "type": "string"
+                          },
+                          "balance": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "flow": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "month",
+                          "volume",
+                          "trades"
+                        ],
+                        "properties": {
+                          "month": {
+                            "type": "string"
+                          },
+                          "volume": {
+                            "type": "integer"
+                          },
+                          "trades": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "velocity": {
+                      "type": "number"
+                    },
+                    "dormant": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "memberId",
+                          "displayName"
+                        ],
+                        "properties": {
+                          "memberId": {
+                            "type": "string"
+                          },
+                          "displayName": {
+                            "type": "string"
+                          },
+                          "lastTradeAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
                     }
                   }
                 }

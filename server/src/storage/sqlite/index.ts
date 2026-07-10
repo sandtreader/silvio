@@ -1805,6 +1805,88 @@ export class SqliteStorage implements Storage {
     return Promise.resolve(stats);
   }
 
+  memberBalances(
+    groupId: Id,
+    currencyId: Id,
+  ): Promise<{ memberId: Id; balance: number }[]> {
+    // LEFT JOIN: a member account with no committed entries still appears,
+    // with balance 0 — the distribution needs the untraded members too.
+    const rows = this.db
+      .prepare(
+        `SELECT a.member_id AS member_id,
+                COALESCE(SUM(CASE WHEN t.state = 'committed' THEN e.amount END), 0)
+                  AS balance
+         FROM accounts a
+         LEFT JOIN entries e ON e.account_id = a.id
+         LEFT JOIN transactions t ON t.id = e.transaction_id
+         WHERE a.group_id = ? AND a.currency_id = ?
+           AND a.type = 'member' AND a.closed_at IS NULL
+         GROUP BY a.member_id`,
+      )
+      .all(groupId, currencyId) as { member_id: string; balance: number }[];
+    return Promise.resolve(
+      rows.map((row) => ({ memberId: row.member_id, balance: row.balance })),
+    );
+  }
+
+  monthlyTradeFlow(
+    groupId: Id,
+    currencyId: Id,
+    months: number,
+  ): Promise<{ month: string; volume: number; trades: number }[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT substr(t.committed_at, 1, 7) AS month,
+                SUM(CASE WHEN e.amount > 0 THEN e.amount ELSE 0 END) AS volume,
+                COUNT(DISTINCT t.id) AS trades
+         FROM transactions t
+         JOIN entries e ON e.transaction_id = t.id
+         JOIN accounts a ON a.id = e.account_id
+         WHERE t.group_id = ? AND t.type = 'trade' AND t.state = 'committed'
+           AND a.currency_id = ?
+         GROUP BY month
+         ORDER BY month DESC
+         LIMIT ?`,
+      )
+      .all(groupId, currencyId, months) as {
+      month: string;
+      volume: number;
+      trades: number;
+    }[];
+    return Promise.resolve(rows.reverse());
+  }
+
+  lastTradeAt(groupId: Id): Promise<{ memberId: Id; lastTradeAt: string }[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT a.member_id AS member_id, MAX(t.committed_at) AS last_trade_at
+         FROM transactions t
+         JOIN entries e ON e.transaction_id = t.id
+         JOIN accounts a ON a.id = e.account_id
+         WHERE t.group_id = ? AND t.type = 'trade' AND t.state = 'committed'
+           AND a.member_id IS NOT NULL
+         GROUP BY a.member_id`,
+      )
+      .all(groupId) as { member_id: string; last_trade_at: string }[];
+    return Promise.resolve(
+      rows.map((row) => ({ memberId: row.member_id, lastTradeAt: row.last_trade_at })),
+    );
+  }
+
+  tradeVolumeSince(groupId: Id, currencyId: Id, sinceIso: string): Promise<number> {
+    const row = this.db
+      .prepare(
+        `SELECT COALESCE(SUM(e.amount), 0) AS volume
+         FROM entries e
+         JOIN transactions t ON t.id = e.transaction_id
+         JOIN accounts a ON a.id = e.account_id
+         WHERE t.group_id = ? AND t.type = 'trade' AND t.state = 'committed'
+           AND t.committed_at >= ? AND a.currency_id = ? AND e.amount > 0`,
+      )
+      .get(groupId, sinceIso, currencyId) as { volume: number };
+    return Promise.resolve(row.volume);
+  }
+
   createCategory(input: { groupId: Id; name: string; parentId?: Id }): Promise<Category> {
     try {
       const category: Category = {
