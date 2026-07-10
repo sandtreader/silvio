@@ -733,3 +733,21 @@ than heuristics about its owner).
 - **Purge 90 days after expiry** (constant): the sweep hard-deletes the
   listing row and its photos — expired listings are clutter, not ledger
   history; nothing references them.
+
+## 19. Transparency: the group balances view — DECIDED 2026-07-10
+
+The #3 transparency principle, mechanised (CamLETS publishes balances and
+turnover to members; social credit control needs the information to be
+social).
+
+- **Group setting** `transparency: 'none' | 'balances'`, default `'none'`
+  — publishing member balances is the group's explicit cultural choice,
+  never a platform default.
+- **`GET /balances`** (member session required; 404 when the setting is
+  off, exactly like a feature that doesn't exist): every active member's
+  display name, current balance, and 12-month turnover (committed trade
+  income) per currency. Members only — never the public brochure.
+- Surfaced in the member app (More → Group balances) only when enabled;
+  admins toggle it on the Settings page next to the other group knobs.
+- Flag visibility (#3's other transparency lever) stays future work with
+  the credit-control flags themselves.
