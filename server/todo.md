@@ -33,7 +33,10 @@ Remaining server-side work, grouped by area. References are to
       (newsletter/digest/git/peer-group); `verify` extension
 - [x] Scheduled `verify()` job with loud alerting (#6 — every tick verifies
       every group; failures alert via console.error by default)
-- [ ] Statement pagination + CSV export
+- [x] Statement pagination + CSV export (newest-first pages with a total,
+      window-function running balances; `GET /me/statement.csv` downloads
+      the whole history oldest-first at the currency's scale; Activity page
+      pages and links the download)
 - [ ] Income ties (% of income to a chosen account — legacy feature, multi-leg
       support already in the ledger)
 - [ ] Same-instance intertrading via paired gateway accounts (#4 first milestone)
