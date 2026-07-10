@@ -22,7 +22,9 @@ discourage hoarding and keep the currency moving.
 
 Each package has its own README with dependencies and build
 instructions; the server's [architecture.md](server/architecture.md)
-describes the internal structure with diagrams.
+describes the internal structure with diagrams. New maintainers should
+start with [MAINTAINERS.md](MAINTAINERS.md); working conventions are in
+[CLAUDE.md](CLAUDE.md).
 
 ## Design in one paragraph
 

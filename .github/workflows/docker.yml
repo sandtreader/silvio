@@ -3,6 +3,7 @@ name: docker
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -10,7 +11,71 @@ permissions:
   packages: write
 
 jobs:
+  # Every package's tests and typechecks, in dependency order (ui/shared's
+  # built dist is consumed by the three apps via file:../shared). The image
+  # is only published when this passes.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            cli/package-lock.json
+            ui/shared/package-lock.json
+            ui/member/package-lock.json
+            ui/admin/package-lock.json
+            ui/operator/package-lock.json
+
+      - name: ui/shared
+        working-directory: ui/shared
+        run: |
+          npm ci
+          npm run build
+          npm test
+
+      - name: server
+        working-directory: server
+        run: |
+          npm ci
+          npm run build
+          npm test
+
+      - name: cli
+        working-directory: cli
+        run: |
+          npm ci
+          npm run --if-present build
+          npm test
+
+      - name: ui/member
+        working-directory: ui/member
+        run: |
+          npm ci
+          npm run build
+          npm test
+
+      - name: ui/admin
+        working-directory: ui/admin
+        run: |
+          npm ci
+          npm run build
+          npm test
+
+      - name: ui/operator
+        working-directory: ui/operator
+        run: |
+          npm ci
+          npm run build
+          npm test
+
   build-and-push:
+    if: github.event_name != 'pull_request'
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
