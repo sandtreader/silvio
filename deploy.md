@@ -4,6 +4,10 @@ Silvio's deployment target is a minimal VPS: one Docker container, one
 volume. Images are published to GHCR by CI on every push to `main`
 (`.github/workflows/docker.yml`).
 
+This is the reference for the container itself. For a complete worked
+example on a single VPS behind Apache — TLS, a group hostname, the CLI and
+seeded demo data — see [deploy-runbook.md](deploy-runbook.md).
+
 ## What you get
 
 - One container running the server, which serves the REST API, the
