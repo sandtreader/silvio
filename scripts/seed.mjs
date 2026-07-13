@@ -5,10 +5,23 @@
 // demurrage, pending trades, and CMS content — by driving the built server
 // code directly. Build first: (cd server && npm run build).
 //
-// Usage: node scripts/seed.mjs [--db path] [--members 50] [--months 12] [--seed 42]
+// Usage: node scripts/seed.mjs [--db path] [--group slug] [--members 50] [--months 12] [--seed 42] [--force]
 // Deterministic for a given seed (timestamps derive from the run date).
+//
+// Two modes:
+//   fresh (default)  builds a throwaway database from nothing (provisions the
+//                    operator, a 'demo' group and admin Grace), refusing to
+//                    overwrite an existing file.
+//   existing (--group slug)  seeds members, listings, a year of backdated
+//                    history and content into a group already provisioned
+//                    elsewhere — e.g. via the operator console on a live
+//                    instance. Needs the database to exist; leaves the
+//                    operator, group identity and admin untouched. Backdated
+//                    history is why this must run against storage directly:
+//                    the REST API / CLI always stamp 'now'.
 
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { deflateSync } from 'node:zlib';
 
 import { SqliteStorage } from '../server/dist/src/storage/sqlite/index.js';
@@ -157,16 +170,37 @@ const randPng = (w = 64, h = 64) => makePng(w, h, randColour(), randColour(), ch
 // ---------- arguments ----------
 
 function parseArgs(argv) {
-  const opts = { db: './demo-seed.sqlite', members: 50, months: 12, seed: 42 };
-  for (let i = 2; i < argv.length; i += 2) {
-    const key = argv[i].replace(/^--/, '');
-    if (!(key in opts) || argv[i + 1] === undefined) {
-      console.error('usage: node scripts/seed.mjs [--db path] [--members 50] [--months 12] [--seed 42]');
+  const opts = { db: './demo-seed.sqlite', group: '', members: 50, months: 12, seed: 42, force: false };
+  const strings = new Set(['db', 'group']);
+  const args = argv.slice(2).filter((a) => {
+    if (a === '--force') { opts.force = true; return false; }
+    return true;
+  });
+  for (let i = 0; i < args.length; i += 2) {
+    const key = args[i].replace(/^--/, '');
+    if (!(key in opts) || key === 'force' || args[i + 1] === undefined) {
+      console.error('usage: node scripts/seed.mjs [--db path] [--group slug] [--members 50] [--months 12] [--seed 42] [--force]');
       process.exit(1);
     }
-    opts[key] = key === 'db' ? argv[i + 1] : Number(argv[i + 1]);
+    opts[key] = strings.has(key) ? args[i + 1] : Number(args[i + 1]);
   }
   return opts;
+}
+
+/** Neutralise still-pending email_events after seeding a live database, so
+ *  the running server doesn't try to deliver notifications to fake demo
+ *  addresses (and bounce them) when it next sweeps the queue. */
+function suppressPendingEmails(dbPath) {
+  const require = createRequire(
+    new URL('../server/dist/src/storage/sqlite/index.js', import.meta.url),
+  );
+  const Database = require('better-sqlite3');
+  const db = new Database(dbPath);
+  const info = db
+    .prepare('UPDATE email_events SET sent_at = ?, last_error = ? WHERE sent_at IS NULL')
+    .run(new Date().toISOString(), 'suppressed: demo seed');
+  db.close();
+  return info.changes;
 }
 
 // ---------- seeding steps ----------
@@ -296,31 +330,75 @@ async function postHistory(storage, group, currency, members, months) {
 async function main() {
   const opts = parseArgs(process.argv);
   rand = mulberry32(opts.seed);
-  if (existsSync(opts.db)) {
+  const existing = opts.group !== '';
+
+  if (existing) {
+    if (!existsSync(opts.db)) {
+      console.error(`database ${opts.db} not found (existing-group mode needs it)`);
+      process.exit(1);
+    }
+  } else if (existsSync(opts.db)) {
     console.error(`refusing to overwrite existing database ${opts.db}`);
     process.exit(1);
   }
+
   const storage = new SqliteStorage(opts.db);
-  console.log('seeding...');
-  await bootstrapOperator(storage, { email: 'op@demo.org', password: 'operator-pass' });
-  const { group, currency } = await provisionGroup(storage, {
-    slug: 'demo', name: 'Demo LETS', hostname: 'localhost',
-    currency: { code: 'DEM', name: 'Demos', scale: 2, demurrageDay: 1 },
-    admin: {
-      displayName: 'Grace', personName: 'Grace Founder',
-      email: 'grace@demo.org', password: 'password-grace',
-    },
-  });
+  let group, currency;
+  if (existing) {
+    group = (await storage.listGroups()).find((g) => g.slug === opts.group);
+    if (!group) {
+      console.error(`no group with slug '${opts.group}' in ${opts.db}`);
+      process.exit(1);
+    }
+    currency = (await storage.listCurrencies(group.id))[0];
+    if (!currency) {
+      console.error(`group '${opts.group}' has no currency`);
+      process.exit(1);
+    }
+    // Member emails are unique, so re-running against a populated group would
+    // collide half-way. A bare, just-provisioned group has only its admin.
+    const present = await storage.listMembers(group.id);
+    if (present.length > 3 && !opts.force) {
+      console.error(`group '${opts.group}' already has ${present.length} members; `
+        + 'pass --force to add more (new member emails must not collide)');
+      process.exit(1);
+    }
+    console.log(`seeding into existing group '${group.slug}' / ${currency.code} `
+      + `(${present.length} member(s) present)...`);
+  } else {
+    console.log('seeding...');
+    await bootstrapOperator(storage, { email: 'op@demo.org', password: 'operator-pass' });
+    ({ group, currency } = await provisionGroup(storage, {
+      slug: 'demo', name: 'Demo LETS', hostname: 'localhost',
+      currency: { code: 'DEM', name: 'Demos', scale: 2, demurrageDay: 1 },
+      admin: {
+        displayName: 'Grace', personName: 'Grace Founder',
+        email: 'grace@demo.org', password: 'password-grace',
+      },
+    }));
+  }
+
+  // Bands make the monthly demurrage runs bite; transparency publishes
+  // balances. In existing mode we merge, never clobber, the operator's settings.
   await storage.setDemurrageBands(currency.id, [
     { fromAmount: 0, ratePpmPerMonth: 0 },
     { fromAmount: 10000, ratePpmPerMonth: 10000 }, // 1%/mo above 100.00
   ]);
-  await storage.updateGroup(group.id, { settings: { transparency: 'balances' } });
+  await storage.updateGroup(group.id, {
+    settings: { ...(group.settings ?? {}), transparency: 'balances' },
+  });
 
   const members = await makeMembers(storage, group, currency, opts.members);
+  // Reuse categories already present (idempotent); keep CATEGORIES order so
+  // makeListings' category indices still line up.
+  const haveCats = new Map(
+    (await storage.listCategories(group.id)).map((c) => [c.name, c.id]),
+  );
   const categoryIds = [];
   for (const name of CATEGORIES) {
-    categoryIds.push((await storage.createCategory({ groupId: group.id, name })).id);
+    categoryIds.push(
+      haveCats.get(name) ?? (await storage.createCategory({ groupId: group.id, name })).id,
+    );
   }
 
   console.log('images, listings...');
@@ -382,6 +460,10 @@ async function main() {
   }
 
   console.log('cms...');
+  // Create content only if the group has none yet — so a live group whose
+  // pages were set up by hand keeps them, and re-runs don't duplicate.
+  const seedCms = (await storage.listPages(group.id)).length === 0;
+  if (seedCms) {
   await storage.createPage({
     groupId: group.id, slug: 'home', title: 'Welcome to Demo LETS',
     body: 'Trade skills, produce and tool loans without sterling changing hands. '
@@ -429,21 +511,28 @@ async function main() {
     publishedAt: new Date(now - 60 * 86_400_000).toISOString(),
     expiresAt: new Date(now - 30 * 86_400_000).toISOString(),
   });
+  }
 
   const report = await storage.verify(group.id);
   console.log(`ledger verify: ${report.ok ? 'OK' : 'FAILED'}`
     + (report.errors.length ? `\n${report.errors.join('\n')}` : ''));
+  storage.close();
+
+  // Live-instance safety: seeding enqueues verification/notification emails to
+  // fake demo addresses; stop the running server delivering (bouncing) them.
+  const suppressed = existing ? suppressPendingEmails(opts.db) : 0;
+
   console.log(`
-seeded ${opts.db}:
-  members       ${members.length + 1} (incl. admin Grace, grace@demo.org / password-grace)
+seeded ${opts.db}${existing ? ` (group '${group.slug}')` : ''}:
+  members       ${existing ? `+${members.length}` : `${members.length + 1} (incl. admin Grace, grace@demo.org / password-grace)`}
   listings      ${listings.length}
   transactions  ${trades + current} trades over ${opts.months} months + current
   demurrage     ${opts.months} monthly runs
   images        ${photos} (profile/listing photos, logo, header)
-  cms           4 pages, 4 news items; transparency: balances
-
-boot it: SILVIO_DB=${opts.db} node server/dist/src/index.js`);
-  storage.close();
+  cms           ${seedCms ? '4 pages, 4 news items; ' : '(left as-is); '}transparency: balances`
+    + (existing
+      ? `\n  emails        ${suppressed} pending suppressed`
+      : `\n\nboot it: SILVIO_DB=${opts.db} node server/dist/src/index.js`));
   if (!report.ok) process.exit(1);
 }
 
