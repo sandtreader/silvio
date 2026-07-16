@@ -43,7 +43,11 @@ export default defineConfig({
     }),
   ],
   server: {
-    proxy: { '/api': 'http://localhost:1862' },
+    // Object form: the string shorthand implies changeOrigin: true, which
+    // rewrites Host to localhost:1862 and trips the server's Origin==Host
+    // CSRF check. The browser's Host must pass through (tenancy only reads
+    // the hostname, so 'localhost:5173' still resolves the dev group).
+    proxy: { '/api': { target: 'http://localhost:1862' } },
   },
   test: {
     environment: 'jsdom',
