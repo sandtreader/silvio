@@ -141,6 +141,11 @@ export type DecodedPaymentRequest =
  * member.approve), the entity it touched, and a small free-form detail. */
 export type AuditEvent = Schemas['AuditEvent'];
 
+/** Labelled admin variant of AuditEvent (GET /admin/audit): events carry,
+ * where known, the actor's display name and a human label for the entity. */
+export type AdminAuditEvent =
+  paths['/api/v1/admin/audit']['get']['responses']['200']['content']['application/json']['events'][number];
+
 // --- Demurrage (decision #1) -------------------------------------------------
 
 export type DemurrageBand = Schemas['DemurrageBand'];

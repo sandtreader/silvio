@@ -4,11 +4,11 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { AuditEvent } from '@silvio/ui-shared';
+import type { AdminAuditEvent } from '@silvio/ui-shared';
 import { AuditPage } from '../src/pages/AuditPage';
 import { makeMockApi } from './mockApi';
 
-function makeEvent(overrides: Partial<AuditEvent> = {}): AuditEvent {
+function makeEvent(overrides: Partial<AdminAuditEvent> = {}): AdminAuditEvent {
   return {
     id: 'ev-1',
     groupId: 'g-1',
@@ -46,6 +46,35 @@ describe('AuditPage', () => {
     expect(screen.getByText('reason: runaway balance')).toBeInTheDocument();
     expect(screen.getAllByText('m-111111').length).toBe(2);
     expect(api.adminAudit).toHaveBeenCalled();
+  });
+
+  it('shows names and labels when present, ids only as fallback', async () => {
+    const api = makeMockApi();
+    api.adminAudit.mockResolvedValue({
+      events: [
+        makeEvent({
+          actorName: 'Grace',
+          entityLabel: 'Bob Jones',
+          action: 'member.suspend',
+        }),
+        makeEvent({
+          id: 'ev-2',
+          action: 'page.delete',
+          entityType: 'page',
+          entityId: 'p-33333333-4444',
+        }),
+      ],
+      total: 2,
+    });
+
+    render(<AuditPage api={api} />);
+    // Labelled event: names shown, raw ids not in the cell text.
+    expect(await screen.findByText(/Bob Jones/)).toBeInTheDocument();
+    expect(screen.getByText('Grace')).toBeInTheDocument();
+    expect(screen.queryByText('m-111111')).not.toBeInTheDocument();
+    // Unlabelled event falls back to the short id.
+    expect(screen.getByText('p-333333')).toBeInTheDocument();
+    expect(screen.getByText('u-admin-')).toBeInTheDocument();
   });
 
   it('passes the action filter through and refetches', async () => {

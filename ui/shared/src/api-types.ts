@@ -3159,7 +3159,21 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            events: components["schemas"]["AuditEvent"][];
+                            events: {
+                                id: string;
+                                groupId?: string;
+                                actorUserId?: string;
+                                actingForMemberId?: string;
+                                action: string;
+                                entityType: string;
+                                entityId: string;
+                                detail?: {
+                                    [key: string]: unknown;
+                                };
+                                at: string;
+                                actorName?: string;
+                                entityLabel?: string;
+                            }[];
                             total: number;
                         };
                     };
@@ -7366,7 +7380,21 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            events: components["schemas"]["AuditEvent"][];
+                            events: {
+                                id: string;
+                                groupId?: string;
+                                actorUserId?: string;
+                                actingForMemberId?: string;
+                                action: string;
+                                entityType: string;
+                                entityId: string;
+                                detail?: {
+                                    [key: string]: unknown;
+                                };
+                                at: string;
+                                actorName?: string;
+                                entityLabel?: string;
+                            }[];
                             total: number;
                         };
                     };

@@ -6,11 +6,11 @@
 // anything else.
 
 import type {
+  AdminAuditEvent,
   AdminStats,
   AdminTransaction,
   ApiScope,
   ApiToken,
-  AuditEvent,
   BrandSlot,
   Category,
   Currency,
@@ -586,7 +586,7 @@ export class ApiClient {
   }
 
   /** Audit log, newest first; the server defaults limit to 50. */
-  adminAudit(filter: AuditFilter = {}): Promise<{ events: AuditEvent[]; total: number }> {
+  adminAudit(filter: AuditFilter = {}): Promise<{ events: AdminAuditEvent[]; total: number }> {
     const params = new URLSearchParams();
     if (filter.action !== undefined) params.set('action', filter.action);
     if (filter.entityType !== undefined) params.set('entityType', filter.entityType);

@@ -193,5 +193,50 @@ describe('audit trail (§8)', () => {
       expect(body.total).toBe(1);
       expect(body.events[0]!.entityId).toBe(bob.id);
     });
+
+    // The log shows people what happened without pasting UUIDs around:
+    // events carry the actor's member name and a human entity label,
+    // resolved best-effort at read time (absent when the entity is gone).
+    it('labels events with actor and entity names', async () => {
+      await admin('POST', `/admin/members/${bob.id}/suspend`);
+      await admin('POST', '/admin/pages', {
+        slug: 'about', title: 'About us', body: 'Hello', visibility: 'public',
+      });
+
+      type Labelled = AuditEvent & { actorName?: string; entityLabel?: string };
+      const res = await app.inject({
+        method: 'GET', url: '/api/v1/g/cam/admin/audit',
+        headers: { cookie: adminCookie },
+      });
+      const { events } = res.json() as { events: Labelled[] };
+
+      const suspend = events.find((e) => e.action === 'member.suspend')!;
+      expect(suspend.actorName).toBe('Alice');
+      expect(suspend.entityLabel).toBe('Bob');
+
+      const page = events.find((e) => e.entityType === 'page')!;
+      expect(page.actorName).toBe('Alice');
+      expect(page.entityLabel).toBe('About us');
+    });
+
+    it('omits the entity label once the entity is gone', async () => {
+      const created = await admin('POST', '/admin/pages', {
+        slug: 'temp', title: 'Temporary', body: 'x', visibility: 'public',
+      });
+      const pageId = (created.json() as { page: { id: string } }).page.id;
+      await admin('DELETE', `/admin/pages/${pageId}`);
+
+      type Labelled = AuditEvent & { actorName?: string; entityLabel?: string };
+      const res = await app.inject({
+        method: 'GET', url: `/api/v1/g/cam/admin/audit?entityId=${pageId}`,
+        headers: { cookie: adminCookie },
+      });
+      const { events } = res.json() as { events: Labelled[] };
+      expect(events.length).toBeGreaterThanOrEqual(2); // create + delete
+      for (const event of events) {
+        expect(event).not.toHaveProperty('entityLabel');
+        expect(event.actorName).toBe('Alice'); // actor still resolves
+      }
+    });
   });
 });

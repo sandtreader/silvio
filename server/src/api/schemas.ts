@@ -593,6 +593,21 @@ const AUDIT_EVENT = {
   },
 } as const;
 
+// Admin audit list variant: the actor's member name and a human entity
+// label, resolved best-effort at read time (app.ts labelAuditEvents) —
+// absent when the entity is gone, so no drift guard against a domain
+// shape. Separate schema, used inline by the admin route only, so the
+// pinned AuditEvent component above stays raw. Same pattern as
+// GROUP_WITH_NOTES.
+export const AUDIT_EVENT_WITH_LABELS = {
+  ...AUDIT_EVENT,
+  properties: {
+    ...AUDIT_EVENT.properties,
+    actorName: { type: 'string' },
+    entityLabel: { type: 'string' },
+  },
+} as const;
+
 // One generic search hit (data-model Search interface): enough to render a
 // result line and link to the entity; snippet is a short match highlight.
 const SEARCH_RESULT = {

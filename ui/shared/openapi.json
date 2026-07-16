@@ -4931,7 +4931,51 @@
                     "events": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/AuditEvent"
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "action",
+                          "entityType",
+                          "entityId",
+                          "at"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "groupId": {
+                            "type": "string"
+                          },
+                          "actorUserId": {
+                            "type": "string"
+                          },
+                          "actingForMemberId": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "entityType": {
+                            "type": "string"
+                          },
+                          "entityId": {
+                            "type": "string"
+                          },
+                          "detail": {
+                            "type": "object",
+                            "additionalProperties": true
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "actorName": {
+                            "type": "string"
+                          },
+                          "entityLabel": {
+                            "type": "string"
+                          }
+                        }
                       }
                     },
                     "total": {
@@ -10392,7 +10436,51 @@
                     "events": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/AuditEvent"
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "action",
+                          "entityType",
+                          "entityId",
+                          "at"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "groupId": {
+                            "type": "string"
+                          },
+                          "actorUserId": {
+                            "type": "string"
+                          },
+                          "actingForMemberId": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "entityType": {
+                            "type": "string"
+                          },
+                          "entityId": {
+                            "type": "string"
+                          },
+                          "detail": {
+                            "type": "object",
+                            "additionalProperties": true
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "actorName": {
+                            "type": "string"
+                          },
+                          "entityLabel": {
+                            "type": "string"
+                          }
+                        }
                       }
                     },
                     "total": {

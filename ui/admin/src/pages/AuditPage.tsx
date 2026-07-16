@@ -17,7 +17,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import type { AuditEvent } from '@silvio/ui-shared';
+import type { AdminAuditEvent } from '@silvio/ui-shared';
 import { api as realApi, type AdminApi } from '../api';
 
 const LIMIT = 50;
@@ -34,7 +34,7 @@ function ShortId({ id }: { id: string }) {
 }
 
 /** The detail object as a compact "key: value" line; empty when absent. */
-function detailLine(detail: AuditEvent['detail']): string {
+function detailLine(detail: AdminAuditEvent['detail']): string {
   if (detail === undefined) return '';
   return Object.entries(detail)
     .map(([key, value]) =>
@@ -46,7 +46,7 @@ function detailLine(detail: AuditEvent['detail']): string {
 export function AuditPage({ api = realApi }: { api?: AdminApi }) {
   const [action, setAction] = useState('');
   const [entityId, setEntityId] = useState('');
-  const [events, setEvents] = useState<AuditEvent[]>();
+  const [events, setEvents] = useState<AdminAuditEvent[]>();
   const [total, setTotal] = useState(0);
 
   const search = useCallback(
@@ -111,11 +111,29 @@ export function AuditPage({ api = realApi }: { api?: AdminApi }) {
                   <TableCell>{new Date(event.at).toLocaleString()}</TableCell>
                   <TableCell>{event.action}</TableCell>
                   <TableCell>
-                    {event.entityType} <ShortId id={event.entityId} />
+                    {event.entityLabel !== undefined ? (
+                      <Tooltip title={event.entityId}>
+                        <Typography component="span" variant="body2">
+                          {event.entityType} {event.entityLabel}
+                        </Typography>
+                      </Tooltip>
+                    ) : (
+                      <>
+                        {event.entityType} <ShortId id={event.entityId} />
+                      </>
+                    )}
                   </TableCell>
                   <TableCell>
-                    {event.actorUserId !== undefined && (
-                      <ShortId id={event.actorUserId} />
+                    {event.actorName !== undefined ? (
+                      <Tooltip title={event.actorUserId ?? ''}>
+                        <Typography component="span" variant="body2">
+                          {event.actorName}
+                        </Typography>
+                      </Tooltip>
+                    ) : (
+                      event.actorUserId !== undefined && (
+                        <ShortId id={event.actorUserId} />
+                      )
                     )}
                   </TableCell>
                   <TableCell>{detailLine(event.detail)}</TableCell>

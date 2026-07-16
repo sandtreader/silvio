@@ -29,11 +29,13 @@ import type {
   ApiScope,
   Account,
   ApiToken,
+  AuditEvent,
   Category,
   EnrichedEntry,
   BrandSlot,
   CreditPolicyConfig,
   CreditPolicyType,
+  Currency,
   DemurrageBand,
   DigestFrequency,
   Group,
@@ -87,6 +89,7 @@ import {
 import { recordAudit } from '../services/audit.js';
 import { dashboardStats } from '../services/stats.js';
 import {
+  AUDIT_EVENT_WITH_LABELS,
   GROUP_STATUS,
   GROUP_WITH_NOTES_AND_DOMAINS,
   TRANSACTION_WITH_ENRICHED_ENTRIES,
@@ -257,6 +260,104 @@ async function enrichEntries(
     enriched.push({ ...tx, entries });
   }
   return enriched;
+}
+
+/** Admin audit list labelling (§8): attach the actor's member name and a
+ * human entity label so the log reads without pasting UUIDs around. Both
+ * are resolved best-effort at read time — audit rows outlive their
+ * entities by design, so every lookup tolerates NOT_FOUND and the label
+ * is simply absent once the entity is gone. Lookups are memoised per
+ * request, like enrichEntries: a page is ≤ a few hundred events. */
+async function labelAuditEvents(
+  storage: Storage,
+  group: Group,
+  events: AuditEvent[],
+): Promise<(AuditEvent & { actorName?: string; entityLabel?: string })[]> {
+  const actorMembers = new Map<Id, Member | undefined>();
+  const entityLabels = new Map<string, string | undefined>();
+  let currencies: Currency[] | undefined;
+
+  async function tryGet<T>(get: () => Promise<T>): Promise<T | undefined> {
+    try {
+      return await get();
+    } catch {
+      return undefined; // deleted entity (or unknown user): no label
+    }
+  }
+
+  /** The acting user's membership in this group. */
+  async function actorMember(userId: Id): Promise<Member | undefined> {
+    if (!actorMembers.has(userId)) {
+      const memberships = await tryGet(() => storage.membersForUser(userId));
+      actorMembers.set(userId, memberships?.find((m) => m.groupId === group.id));
+    }
+    return actorMembers.get(userId);
+  }
+
+  async function resolveLabel(event: AuditEvent): Promise<string | undefined> {
+    const { entityId } = event;
+    switch (event.entityType) {
+      case 'member':
+        return (await tryGet(() => storage.getMember(entityId)))?.displayName;
+      case 'page':
+        return (await tryGet(() => storage.getPage(entityId)))?.title;
+      case 'news_item':
+        return (await tryGet(() => storage.getNewsItem(entityId)))?.title;
+      case 'category':
+        return (await tryGet(() => storage.getCategory(entityId)))?.name;
+      case 'listing':
+        return (await tryGet(() => storage.getListing(entityId)))?.title;
+      case 'group':
+        return entityId === group.id ? group.name : undefined;
+      case 'currency': {
+        currencies ??= await storage.listCurrencies(group.id);
+        return currencies.find((c) => c.id === entityId)?.code;
+      }
+      case 'transaction': {
+        const tx = await tryGet(() => storage.getTransaction(entityId));
+        if (tx?.seq === undefined) return tx?.description;
+        return `#${tx.seq}${tx.description === undefined ? '' : ` ${tx.description}`}`;
+      }
+      // Persons and API tokens have no by-id getter; both are managed via
+      // /me by their own member (refuseWhileActing), so the actor's
+      // membership is the owning member.
+      case 'person': {
+        if (event.actorUserId === undefined) return undefined;
+        const owner = await actorMember(event.actorUserId);
+        if (!owner) return undefined;
+        const persons = await tryGet(() => storage.personsForMember(owner.id));
+        return persons?.find((p) => p.id === entityId)?.name;
+      }
+      case 'api_token': {
+        if (event.actorUserId === undefined) return undefined;
+        const owner = await actorMember(event.actorUserId);
+        if (!owner) return undefined;
+        const tokens = await tryGet(() => storage.listApiTokens(owner.id));
+        return tokens?.find((t) => t.id === entityId)?.label;
+      }
+      // image/broadcast/domain/email_template/credit_policy: entityId or
+      // detail is already the readable handle — nothing better to show.
+      default:
+        return undefined;
+    }
+  }
+
+  const labelled = [];
+  for (const event of events) {
+    const actorName =
+      event.actorUserId === undefined
+        ? undefined
+        : (await actorMember(event.actorUserId))?.displayName;
+    const key = `${event.entityType}:${event.entityId}`;
+    if (!entityLabels.has(key)) entityLabels.set(key, await resolveLabel(event));
+    const entityLabel = entityLabels.get(key);
+    labelled.push({
+      ...event,
+      ...(actorName === undefined ? {} : { actorName }),
+      ...(entityLabel === undefined ? {} : { entityLabel }),
+    });
+  }
+  return labelled;
 }
 
 // --- statement CSV export --------------------------------------------------
@@ -2737,7 +2838,10 @@ export async function buildApp(
             },
             response: respond(
               200,
-              body({ events: arrayOf('AuditEvent'), total: { type: 'integer' } }),
+              body({
+                events: { type: 'array', items: AUDIT_EVENT_WITH_LABELS },
+                total: { type: 'integer' },
+              }),
             ),
           },
         },
@@ -2754,7 +2858,13 @@ export async function buildApp(
           if (query.entityType !== undefined) filter.entityType = query.entityType;
           if (query.entityId !== undefined) filter.entityId = query.entityId;
           if (query.offset !== undefined) filter.offset = query.offset;
-          return storage.listAuditEvents(request.group!.id, filter);
+          const { events, total } = await storage.listAuditEvents(
+            request.group!.id, filter,
+          );
+          return {
+            events: await labelAuditEvents(storage, request.group!, events),
+            total,
+          };
         },
       );
 

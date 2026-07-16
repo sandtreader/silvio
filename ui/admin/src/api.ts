@@ -6,9 +6,9 @@
 import {
   ApiClient,
   ApiError,
+  type AdminAuditEvent,
   type AdminStats,
   type AdminTransaction,
-  type AuditEvent,
   type AuditFilter,
   type BrandSlot,
   type Category,
@@ -108,7 +108,7 @@ export interface AdminApi {
   adminReverse(id: string): Promise<Transaction | undefined>;
   adminAudit(
     filter?: AuditFilter,
-  ): Promise<{ events: AuditEvent[]; total: number } | undefined>;
+  ): Promise<{ events: AdminAuditEvent[]; total: number } | undefined>;
   categories(): Promise<Category[] | undefined>;
   currencies(): Promise<Currency[] | undefined>;
   adminCreateCategory(input: {
