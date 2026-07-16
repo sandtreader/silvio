@@ -1530,6 +1530,14 @@ export class SqliteStorage implements Storage {
     }
   }
 
+  deleteCreditPolicy(id: Id): Promise<void> {
+    const result = this.db.prepare('DELETE FROM credit_policies WHERE id = ?').run(id);
+    if (result.changes === 0) {
+      return Promise.reject(new StorageError('NOT_FOUND', `credit policy ${id} not found`));
+    }
+    return Promise.resolve();
+  }
+
   imposeRestriction(memberId: Id, reason: string, imposedBy: Id): Promise<Restriction> {
     try {
       this.loadMember(memberId);

@@ -519,6 +519,10 @@ export class ApiClient {
     return this.tenant('PATCH', `/admin/policies/${encodeURIComponent(id)}`, patch);
   }
 
+  adminDeletePolicy(id: string): Promise<{ ok: boolean }> {
+    return this.tenant('DELETE', `/admin/policies/${encodeURIComponent(id)}`);
+  }
+
   adminGetBands(currencyId: string): Promise<{ bands: DemurrageBand[] }> {
     return this.tenant(
       'GET',

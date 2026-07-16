@@ -163,6 +163,7 @@ export function makeMockApi(): MockAdminApi {
     adminPolicies: vi.fn().mockResolvedValue([]),
     adminAddPolicy: vi.fn().mockResolvedValue(undefined),
     adminPatchPolicy: vi.fn().mockResolvedValue(undefined),
+    adminDeletePolicy: vi.fn().mockResolvedValue(false),
     adminGetBands: vi.fn().mockResolvedValue([]),
     adminSetBands: vi.fn().mockResolvedValue([]),
     adminRuns: vi.fn().mockResolvedValue([]),

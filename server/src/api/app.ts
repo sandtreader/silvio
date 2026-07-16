@@ -2490,6 +2490,15 @@ export async function buildApp(
         },
       );
 
+      /** Assert the policy exists in the request's group (tenancy isolation) —
+       *  unknown and other-group ids both 404, never revealing existence. */
+      async function targetPolicy(request: FastifyRequest, id: string): Promise<void> {
+        const policies = await storage.listCreditPolicies(request.group!.id);
+        if (!policies.some((p) => p.id === id)) {
+          throw new DomainError('NOT_FOUND', `credit policy ${id} not found in this group`);
+        }
+      }
+
       scope.patch(
         '/admin/policies/:id',
         {
@@ -2508,6 +2517,7 @@ export async function buildApp(
         },
         async (request) => {
           const { id } = request.params as { id: string };
+          await targetPolicy(request, id);
           const body = request.body as { enabled?: boolean; config?: CreditPolicyConfig };
           const patch: Parameters<typeof storage.updateCreditPolicy>[1] = {};
           if (body.enabled !== undefined) patch.enabled = body.enabled;
@@ -2518,6 +2528,27 @@ export async function buildApp(
             action: 'policy.update', entityType: 'credit_policy', entityId: id,
           });
           return { policy };
+        },
+      );
+
+      scope.delete(
+        '/admin/policies/:id',
+        {
+          preHandler: [requireMember, requireAdmin],
+          schema: {
+            params: ID_PARAM_SCHEMA,
+            response: respond(200, OK_RESPONSE),
+          },
+        },
+        async (request) => {
+          const { id } = request.params as { id: string };
+          await targetPolicy(request, id);
+          await storage.deleteCreditPolicy(id);
+          await recordAudit(storage, {
+            groupId: request.group!.id, actorUserId: request.auth!.user.id,
+            action: 'policy.delete', entityType: 'credit_policy', entityId: id,
+          });
+          return { ok: true };
         },
       );
 

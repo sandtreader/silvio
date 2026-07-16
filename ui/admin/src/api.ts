@@ -93,6 +93,7 @@ export interface AdminApi {
     id: string,
     patch: { enabled?: boolean; config?: CreditPolicyConfig },
   ): Promise<Policy | undefined>;
+  adminDeletePolicy(id: string): Promise<boolean>;
   adminGetBands(currencyId: string): Promise<DemurrageBand[] | undefined>;
   adminSetBands(
     currencyId: string,
@@ -177,6 +178,8 @@ export const api: AdminApi = {
   adminAddPolicy: async (input) => (await call(client.adminAddPolicy(input)))?.policy,
   adminPatchPolicy: async (id, patch) =>
     (await call(client.adminPatchPolicy(id, patch)))?.policy,
+  adminDeletePolicy: async (id) =>
+    (await call(client.adminDeletePolicy(id)))?.ok ?? false,
   adminGetBands: async (currencyId) =>
     (await call(client.adminGetBands(currencyId)))?.bands,
   adminSetBands: async (currencyId, bands) =>

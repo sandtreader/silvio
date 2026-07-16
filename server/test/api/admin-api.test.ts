@@ -163,6 +163,80 @@ describe('admin API', () => {
     expect(list.json().policies[0].enabled).toBe(false);
   });
 
+  it('deletes a credit policy, with the deletion audited', async () => {
+    const created = await app.inject({
+      method: 'POST', url: '/api/v1/admin/policies',
+      headers: { host: HOST, cookie: adminCookie },
+      payload: { currencyId: cams.id, type: 'hard_limit', config: { minBalance: -400 } },
+    });
+    const policyId = created.json().policy.id;
+
+    const gone = await app.inject({
+      method: 'DELETE', url: `/api/v1/admin/policies/${policyId}`,
+      headers: { host: HOST, cookie: adminCookie },
+    });
+    expect(gone.statusCode).toBe(200);
+
+    const list = await app.inject({
+      method: 'GET', url: '/api/v1/admin/policies', headers: { host: HOST, cookie: adminCookie },
+    });
+    expect(list.json().policies).toHaveLength(0);
+    // no longer enforced
+    const allowed = await app.inject({
+      method: 'POST', url: '/api/v1/payments', headers: { host: HOST, cookie: aliceCookie },
+      payload: { payeeMemberId: bob.id, currencyId: cams.id, amount: 500 },
+    });
+    expect(allowed.statusCode).toBe(201);
+
+    const { events } = await storage.listAuditEvents(group.id, { action: 'policy.delete' });
+    expect(events).toHaveLength(1);
+    expect(events[0]!.entityId).toBe(policyId);
+  });
+
+  it("policies are group-scoped: another group's admin gets 404, not access", async () => {
+    const created = await app.inject({
+      method: 'POST', url: '/api/v1/admin/policies',
+      headers: { host: HOST, cookie: adminCookie },
+      payload: { currencyId: cams.id, type: 'hard_limit', config: { minBalance: -400 } },
+    });
+    const policyId = created.json().policy.id;
+
+    // An admin of a different group, addressing our policy by its uuid.
+    const other = await storage.createGroup({ slug: 'other', name: 'Other LETS' });
+    const user = await register(storage, { email: 'eve@example.com', password: 'password-Eve' });
+    const applied = await apply(storage, {
+      groupId: other.id, displayName: 'Eve', personName: 'Eve', email: 'eve@example.com',
+      userId: user.id,
+    });
+    await approve(storage, applied.member.id);
+    await storage.updateMember(applied.member.id, { role: 'admin' });
+    const login = await app.inject({
+      method: 'POST', url: '/api/v1/g/other/auth/login',
+      payload: { email: 'eve@example.com', password: 'password-Eve' },
+    });
+    const eveCookie = `silvio_session=${login.cookies.find((c) => c.name === 'silvio_session')!.value}`;
+
+    const patched = await app.inject({
+      method: 'PATCH', url: `/api/v1/g/other/admin/policies/${policyId}`,
+      headers: { cookie: eveCookie },
+      payload: { enabled: false },
+    });
+    expect(patched.statusCode).toBe(404); // unknown and forbidden look identical
+
+    const deleted = await app.inject({
+      method: 'DELETE', url: `/api/v1/g/other/admin/policies/${policyId}`,
+      headers: { cookie: eveCookie },
+    });
+    expect(deleted.statusCode).toBe(404);
+
+    // Untouched: still enabled, still present.
+    const list = await app.inject({
+      method: 'GET', url: '/api/v1/admin/policies', headers: { host: HOST, cookie: adminCookie },
+    });
+    expect(list.json().policies).toHaveLength(1);
+    expect(list.json().policies[0].enabled).toBe(true);
+  });
+
   it('max_payment policies create and enforce a per-transaction cap (#26)', async () => {
     const created = await app.inject({
       method: 'POST', url: '/api/v1/admin/policies',

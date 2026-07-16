@@ -366,6 +366,7 @@ export interface Storage extends Ledger {
     id: Id,
     patch: { enabled?: boolean; config?: CreditPolicyConfig },
   ): Promise<CreditPolicy>;
+  deleteCreditPolicy(id: Id): Promise<void>; // NOT_FOUND if unknown
   imposeRestriction(memberId: Id, reason: string, imposedBy: Id): Promise<Restriction>;
   liftRestriction(memberId: Id, liftedBy: Id): Promise<void>;
   activeRestriction(memberId: Id): Promise<Restriction | undefined>;

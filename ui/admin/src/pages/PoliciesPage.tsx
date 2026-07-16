@@ -63,6 +63,9 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
   ]);
   const [formError, setFormError] = useState<string>();
 
+  // Delete confirmation state
+  const [deleting, setDeleting] = useState<Policy>();
+
   const refresh = useCallback(async () => {
     const listed = await api.adminPolicies();
     if (listed !== undefined) setPolicies(listed);
@@ -83,6 +86,13 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
     const updated = await api.adminPatchPolicy(policy.id, { enabled });
     if (updated !== undefined)
       setPolicies((list) => list?.map((p) => (p.id === policy.id ? updated : p)));
+  };
+
+  const submitDelete = async () => {
+    if (deleting === undefined) return;
+    const target = deleting;
+    setDeleting(undefined);
+    if (await api.adminDeletePolicy(target.id)) await refresh();
   };
 
   const openAdd = () => {
@@ -189,6 +199,7 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
                 <TableCell>Currency</TableCell>
                 <TableCell>Configuration</TableCell>
                 <TableCell>Enabled</TableCell>
+                <TableCell align="right" />
               </TableRow>
             </TableHead>
             <TableBody>
@@ -207,6 +218,14 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
                       }}
                       onChange={(e) => void setEnabled(policy, e.target.checked)}
                     />
+                  </TableCell>
+                  <TableCell align="right">
+                    <IconButton
+                      aria-label={`delete ${policy.type}`}
+                      onClick={() => setDeleting(policy)}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))}
@@ -349,6 +368,25 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
         </DialogActions>
       </Dialog>
 
+      {/* Delete confirmation */}
+      <Dialog open={deleting !== undefined} onClose={() => setDeleting(undefined)}>
+        <DialogTitle>Delete policy?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            This permanently deletes the{' '}
+            <strong>
+              {deleting?.type} {deleting !== undefined && currencyCode(deleting.currencyId)}
+            </strong>{' '}
+            policy.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleting(undefined)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={() => void submitDelete()}>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

@@ -104,6 +104,22 @@ describe('PoliciesPage', () => {
     );
   });
 
+  it('deletes a policy behind a confirmation', async () => {
+    const api = makeMockApi();
+    api.adminPolicies.mockResolvedValue([policy]);
+    api.adminDeletePolicy.mockResolvedValue(true);
+
+    render(<PoliciesPage api={api} />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: /delete hard_limit/i }),
+    );
+    // Nothing deleted before the confirmation.
+    expect(api.adminDeletePolicy).not.toHaveBeenCalled();
+
+    await userEvent.click(await screen.findByRole('button', { name: /^delete$/i }));
+    await waitFor(() => expect(api.adminDeletePolicy).toHaveBeenCalledWith('p-1'));
+  });
+
   it('explains blocking vs flagging and that min balance is usually negative (#26)', async () => {
     const api = makeMockApi();
     render(<PoliciesPage api={api} />);
