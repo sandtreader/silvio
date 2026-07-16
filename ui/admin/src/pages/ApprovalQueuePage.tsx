@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
+import { FilteredView } from '@sandtreader/rafiki';
 import type { Member } from '@silvio/ui-shared';
 import { api as realApi, type AdminApi } from '../api';
 
@@ -48,52 +49,62 @@ export function ApprovalQueuePage({ api = realApi }: { api?: AdminApi }) {
           No applications waiting for approval.
         </Typography>
       )}
+      {/* FilteredView only when the queue is non-empty, so the friendly
+          empty message above shows instead of its "Nothing found" alert. */}
       {applicants !== undefined && applicants.length > 0 && (
-        <TableContainer component={Paper}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>No.</TableCell>
-                <TableCell>Name</TableCell>
-                <TableCell>Applied</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {applicants.map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell>{member.memberNo}</TableCell>
-                  <TableCell>{member.displayName}</TableCell>
-                  <TableCell>
-                    {new Date(member.appliedAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <Button
-                        size="small"
-                        variant="contained"
-                        startIcon={<CheckIcon />}
-                        disabled={busyId === member.id}
-                        onClick={() => void act(member.id, 'approve')}
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        size="small"
-                        color="error"
-                        startIcon={<CloseIcon />}
-                        disabled={busyId === member.id}
-                        onClick={() => void act(member.id, 'remove')}
-                      >
-                        Reject
-                      </Button>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <FilteredView items={applicants} searchColumns={['memberNo', 'displayName']}>
+          {(filtered) => (
+            <TableContainer component={Paper}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>No.</TableCell>
+                    <TableCell>Name</TableCell>
+                    <TableCell>Applied</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filtered.map((member) => (
+                    <TableRow key={member.id}>
+                      <TableCell>{member.memberNo}</TableCell>
+                      <TableCell>{member.displayName}</TableCell>
+                      <TableCell>
+                        {new Date(member.appliedAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          justifyContent="flex-end"
+                        >
+                          <Button
+                            size="small"
+                            variant="contained"
+                            startIcon={<CheckIcon />}
+                            disabled={busyId === member.id}
+                            onClick={() => void act(member.id, 'approve')}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="small"
+                            color="error"
+                            startIcon={<CloseIcon />}
+                            disabled={busyId === member.id}
+                            onClick={() => void act(member.id, 'remove')}
+                          >
+                            Reject
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </FilteredView>
       )}
     </Stack>
   );

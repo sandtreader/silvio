@@ -17,6 +17,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { FilteredView } from '@sandtreader/rafiki';
 import type { Flag, Member } from '@silvio/ui-shared';
 import { api as realApi, type AdminApi } from '../api';
 import { useCurrencies } from '../currencies';
@@ -66,50 +67,77 @@ export function FlagsPage({ api = realApi }: { api?: AdminApi }) {
     };
   }, [members]);
 
+  // Flags carry no id of their own, and the table shows the resolved member
+  // label — enrich into rows FilteredView can key and search over.
+  const rows = useMemo(
+    () =>
+      (flags ?? []).map((flag) => ({
+        id: flag.accountId + flag.level,
+        member: memberName(flag.memberId),
+        level: flag.level,
+        reason: flag.reason,
+      })),
+    [flags, memberName],
+  );
+
+  const currencySelect = (
+    <TextField
+      select
+      label="Currency"
+      value={currencyId}
+      onChange={(e) => setCurrencyId(e.target.value)}
+      sx={{ width: 200 }}
+    >
+      {currencies.map((c) => (
+        <MenuItem key={c.id} value={c.id}>
+          {c.code}
+        </MenuItem>
+      ))}
+    </TextField>
+  );
+
   return (
     <Stack spacing={2} sx={{ marginTop: 2 }}>
       <Typography variant="h5">Flags</Typography>
-      <TextField
-        select
-        label="Currency"
-        value={currencyId}
-        onChange={(e) => setCurrencyId(e.target.value)}
-        sx={{ width: 200 }}
-      >
-        {currencies.map((c) => (
-          <MenuItem key={c.id} value={c.id}>
-            {c.code}
-          </MenuItem>
-        ))}
-      </TextField>
+      {(flags === undefined || flags.length === 0) && currencySelect}
       {flags !== undefined && flags.length === 0 && (
         <Typography color="text.secondary">
           No flags for this currency — nothing needs review.
         </Typography>
       )}
+      {/* FilteredView only when there are flags, so the friendly empty
+          message above shows instead of its "Nothing found" alert. */}
       {flags !== undefined && flags.length > 0 && (
-        <TableContainer component={Paper}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Member</TableCell>
-                <TableCell>Level</TableCell>
-                <TableCell>Reason</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {flags.map((flag) => (
-                <TableRow key={flag.accountId + flag.level}>
-                  <TableCell>{memberName(flag.memberId)}</TableCell>
-                  <TableCell>
-                    <Chip label={flag.level} size="small" color="warning" />
-                  </TableCell>
-                  <TableCell>{flag.reason}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <FilteredView
+          items={rows}
+          searchColumns={['member', 'level', 'reason']}
+          headerExtras={[currencySelect]}
+        >
+          {(filtered) => (
+            <TableContainer component={Paper}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Member</TableCell>
+                    <TableCell>Level</TableCell>
+                    <TableCell>Reason</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filtered.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.member}</TableCell>
+                      <TableCell>
+                        <Chip label={row.level} size="small" color="warning" />
+                      </TableCell>
+                      <TableCell>{row.reason}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </FilteredView>
       )}
     </Stack>
   );

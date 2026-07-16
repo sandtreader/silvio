@@ -48,4 +48,19 @@ describe('ApprovalQueuePage', () => {
       expect(api.adminMemberAction).toHaveBeenCalledWith('m-3', 'remove'),
     );
   });
+
+  it('filters the queue live from the search box', async () => {
+    const api = makeMockApi();
+    api.adminMembers.mockResolvedValue([
+      makeMember({ id: 'm-1', memberNo: 5, displayName: 'Carol New', status: 'applied' }),
+      makeMember({ id: 'm-2', memberNo: 7, displayName: 'Bob Jones', status: 'applied' }),
+    ]);
+
+    render(<ApprovalQueuePage api={api} />);
+    await screen.findByText('Carol New');
+
+    await userEvent.type(screen.getByLabelText(/search/i), 'carol');
+    expect(screen.getByText('Carol New')).toBeInTheDocument();
+    expect(screen.queryByText('Bob Jones')).not.toBeInTheDocument();
+  });
 });
