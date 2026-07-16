@@ -18,7 +18,7 @@
     "@emotion/styled": "^11.10.5",
     "@mui/icons-material": "^5.15.0",
     "@mui/material": "^5.15.0",
-    "@sandtreader/rafiki": "^0.2.0",
+    "@sandtreader/rafiki": "^0.3.0",
     "@silvio/ui-shared": "file:../shared",
     "markdown-it": "^14.3.0",
     "react": "^18.2.0",
