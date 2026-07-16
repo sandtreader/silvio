@@ -29,11 +29,17 @@ describe('BrandingPage', () => {
     expect(screen.getByText('Header background image')).toBeInTheDocument();
     expect(screen.getByText(/no image/i)).toBeInTheDocument();
     // A filled slot offers Replace and Remove; an empty one only Upload.
-    expect(screen.getByRole('button', { name: /replace logo/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /remove logo/i })).toBeInTheDocument();
+    // Accessible names carry the slot; visible text stays one word so the
+    // buttons never wrap.
+    expect(screen.getByRole('button', { name: /replace logo/i })).toHaveTextContent(
+      /^Replace$/,
+    );
+    expect(screen.getByRole('button', { name: /remove logo/i })).toHaveTextContent(
+      /^Remove$/,
+    );
     expect(
       screen.getByRole('button', { name: /upload header background image/i }),
-    ).toBeInTheDocument();
+    ).toHaveTextContent(/^Upload$/);
     expect(
       screen.queryByRole('button', { name: /remove header/i }),
     ).not.toBeInTheDocument();

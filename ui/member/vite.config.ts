@@ -47,7 +47,12 @@ export default defineConfig({
     // rewrites Host to localhost:1862 and trips the server's Origin==Host
     // CSRF check. The browser's Host must pass through (tenancy only reads
     // the hostname, so 'localhost:5173' still resolves the dev group).
-    proxy: { '/api': { target: 'http://localhost:1862' } },
+    // /i is the image store (#14) — member/listing photos and brand chrome
+    // load from it directly, so dev must proxy it alongside the API.
+    proxy: {
+      '/api': { target: 'http://localhost:1862' },
+      '/i': { target: 'http://localhost:1862' },
+    },
   },
   test: {
     environment: 'jsdom',

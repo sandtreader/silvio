@@ -66,16 +66,24 @@ function SlotCard({
           />
         )}
         <Stack direction="row" spacing={1}>
+          {/* One-word visible labels (the card names the slot); the slot
+              stays in the aria-label so the two cards' buttons differ. */}
           <Button
             variant="contained"
             startIcon={<UploadIcon />}
+            aria-label={image === undefined ? `Upload ${name}` : `Replace ${name}`}
             onClick={() => fileInput.current?.click()}
           >
-            {image === undefined ? `Upload ${name}` : `Replace ${name}`}
+            {image === undefined ? 'Upload' : 'Replace'}
           </Button>
           {image !== undefined && (
-            <Button color="error" startIcon={<DeleteIcon />} onClick={onRemove}>
-              Remove {name}
+            <Button
+              color="error"
+              startIcon={<DeleteIcon />}
+              aria-label={`Remove ${name}`}
+              onClick={onRemove}
+            >
+              Remove
             </Button>
           )}
         </Stack>
