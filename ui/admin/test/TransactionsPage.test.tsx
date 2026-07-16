@@ -61,6 +61,28 @@ describe('TransactionsPage', () => {
     );
   });
 
+  it('debounces typing into a single server-side query', async () => {
+    const api = makeMockApi();
+    api.adminTransactions.mockResolvedValue({ transactions: [makeTx()], total: 1 });
+
+    render(<TransactionsPage api={api} />);
+    await screen.findByText(/veg box/);
+
+    await userEvent.type(screen.getByLabelText(/search/i), 'veg');
+    await waitFor(() =>
+      expect(api.adminTransactions).toHaveBeenCalledWith(
+        expect.objectContaining({ q: 'veg' }),
+      ),
+    );
+    // Intermediate keystrokes never reach the server.
+    expect(api.adminTransactions).not.toHaveBeenCalledWith(
+      expect.objectContaining({ q: 'v' }),
+    );
+    expect(api.adminTransactions).not.toHaveBeenCalledWith(
+      expect.objectContaining({ q: 've' }),
+    );
+  });
+
   it('reverses a committed transaction from its row after confirmation', async () => {
     const api = makeMockApi();
     const tx = makeTx();

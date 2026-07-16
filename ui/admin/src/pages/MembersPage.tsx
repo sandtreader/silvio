@@ -34,6 +34,7 @@ import {
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import { FilteredView } from '@sandtreader/rafiki';
 import type { Member, MemberRole, MemberStatus, Restriction } from '@silvio/ui-shared';
 import { api as realApi, type AdminApi } from '../api';
 
@@ -98,58 +99,64 @@ export function MembersPage({ api = realApi }: { api?: AdminApi }) {
   return (
     <Stack spacing={2} sx={{ marginTop: 2 }}>
       <Typography variant="h5">Members</Typography>
-      {members !== undefined && members.length === 0 && (
-        <Typography color="text.secondary">No members in this group.</Typography>
-      )}
-      {members !== undefined && members.length > 0 && (
-        <TableContainer component={Paper}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>No.</TableCell>
-                <TableCell>Name</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Role</TableCell>
-                <TableCell align="right" />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {members.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell>{row.memberNo}</TableCell>
-                  <TableCell>{row.displayName}</TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={1}>
-                      <Chip
-                        label={row.status}
-                        size="small"
-                        color={STATUS_COLOURS[row.status]}
-                      />
-                      {restrictionFor(row.id) !== undefined && (
-                        <Tooltip title={restrictionFor(row.id)!.reason}>
-                          <Chip label="restricted" size="small" color="error" />
-                        </Tooltip>
-                      )}
-                    </Stack>
-                  </TableCell>
-                  <TableCell>{row.role}</TableCell>
-                  <TableCell align="right">
-                    <IconButton
-                      size="small"
-                      aria-label={`actions for ${row.displayName}`}
-                      onClick={(e) => {
-                        setMenuAnchor(e.currentTarget);
-                        setMenuMember(row);
-                      }}
-                    >
-                      <MoreVertIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+      {/* FilteredView filters client-side over these columns; only mounted
+          once members load so its empty-list alert can't flash first. */}
+      {members !== undefined && (
+        <FilteredView
+          items={members}
+          searchColumns={['memberNo', 'displayName', 'status', 'role']}
+        >
+          {(filtered) => (
+            <TableContainer component={Paper}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>No.</TableCell>
+                    <TableCell>Name</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Role</TableCell>
+                    <TableCell align="right" />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filtered.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.memberNo}</TableCell>
+                      <TableCell>{row.displayName}</TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1}>
+                          <Chip
+                            label={row.status}
+                            size="small"
+                            color={STATUS_COLOURS[row.status]}
+                          />
+                          {restrictionFor(row.id) !== undefined && (
+                            <Tooltip title={restrictionFor(row.id)!.reason}>
+                              <Chip label="restricted" size="small" color="error" />
+                            </Tooltip>
+                          )}
+                        </Stack>
+                      </TableCell>
+                      <TableCell>{row.role}</TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          size="small"
+                          aria-label={`actions for ${row.displayName}`}
+                          onClick={(e) => {
+                            setMenuAnchor(e.currentTarget);
+                            setMenuMember(row);
+                          }}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </FilteredView>
       )}
 
       {/* Row action menu */}

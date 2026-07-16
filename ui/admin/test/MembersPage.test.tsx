@@ -135,4 +135,29 @@ describe('MembersPage', () => {
       expect(screen.queryByText('restricted')).not.toBeInTheDocument(),
     );
   });
+
+  it('filters the table live from the search box (name, status...)', async () => {
+    const api = makeMockApi();
+    api.adminMembers.mockResolvedValue([
+      makeMember({ id: 'm-1', memberNo: 1, displayName: 'Alice Smith' }),
+      makeMember({
+        id: 'm-2',
+        memberNo: 2,
+        displayName: 'Bob Jones',
+        status: 'suspended',
+      }),
+    ]);
+
+    render(<MembersPage api={api} />);
+    await screen.findByText('Alice Smith');
+
+    await userEvent.type(screen.getByLabelText(/search/i), 'alice');
+    expect(screen.getByText('Alice Smith')).toBeInTheDocument();
+    expect(screen.queryByText('Bob Jones')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText(/clear search/i));
+    await userEvent.type(screen.getByLabelText(/search/i), 'suspended');
+    expect(screen.getByText('Bob Jones')).toBeInTheDocument();
+    expect(screen.queryByText('Alice Smith')).not.toBeInTheDocument();
+  });
 });

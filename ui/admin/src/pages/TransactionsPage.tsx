@@ -20,10 +20,10 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material';
 import UndoIcon from '@mui/icons-material/Undo';
+import { FilteredView } from '@sandtreader/rafiki';
 import type { Transaction, TxState } from '@silvio/ui-shared';
 import { api as realApi, type AdminApi } from '../api';
 
@@ -85,58 +85,60 @@ export function TransactionsPage({ api = realApi }: { api?: AdminApi }) {
   return (
     <Stack spacing={2} sx={{ marginTop: 2 }}>
       <Typography variant="h5">Transactions</Typography>
-      <TextField
-        label="Search"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Description or reference"
-        sx={{ maxWidth: 480 }}
-      />
-      {transactions !== undefined && shown.length === 0 && (
-        <Typography color="text.secondary">No matching transactions.</Typography>
-      )}
-      {shown.length > 0 && (
-        <TableContainer component={Paper}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Seq</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>State</TableCell>
-                <TableCell>Description</TableCell>
-                <TableCell align="right">Amount (minor units)</TableCell>
-                <TableCell align="right" />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {shown.map((tx) => (
-                <TableRow key={tx.id}>
-                  <TableCell>{tx.seq ?? '—'}</TableCell>
-                  <TableCell>{tx.createdAt.slice(0, 10)}</TableCell>
-                  <TableCell>{tx.type}</TableCell>
-                  <TableCell>
-                    <Chip label={tx.state} size="small" color={STATE_COLOURS[tx.state]} />
-                  </TableCell>
-                  <TableCell>{tx.description}</TableCell>
-                  <TableCell align="right">{amountOf(tx)}</TableCell>
-                  <TableCell align="right">
-                    {tx.state === 'committed' && (
-                      <Button
-                        size="small"
-                        color="error"
-                        startIcon={<UndoIcon />}
-                        onClick={() => setConfirming(tx)}
-                      >
-                        Reverse
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+      {/* Server mode (onFilterChange): FilteredView debounces the typed
+          filter into q, and the q effect above re-queries from offset 0 —
+          no client-side filtering. Only mounted once the first page loads
+          so its empty-list alert can't flash while loading. */}
+      {transactions !== undefined && (
+        <FilteredView items={shown} onFilterChange={(filter) => setQ(filter)}>
+          {(filtered) => (
+            <TableContainer component={Paper}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Seq</TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Type</TableCell>
+                    <TableCell>State</TableCell>
+                    <TableCell>Description</TableCell>
+                    <TableCell align="right">Amount (minor units)</TableCell>
+                    <TableCell align="right" />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filtered.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell>{tx.seq ?? '—'}</TableCell>
+                      <TableCell>{tx.createdAt.slice(0, 10)}</TableCell>
+                      <TableCell>{tx.type}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={tx.state}
+                          size="small"
+                          color={STATE_COLOURS[tx.state]}
+                        />
+                      </TableCell>
+                      <TableCell>{tx.description}</TableCell>
+                      <TableCell align="right">{amountOf(tx)}</TableCell>
+                      <TableCell align="right">
+                        {tx.state === 'committed' && (
+                          <Button
+                            size="small"
+                            color="error"
+                            startIcon={<UndoIcon />}
+                            onClick={() => setConfirming(tx)}
+                          >
+                            Reverse
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </FilteredView>
       )}
       {total > shown.length && (
         <Stack direction="row">
