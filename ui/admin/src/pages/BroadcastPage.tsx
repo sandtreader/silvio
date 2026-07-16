@@ -14,8 +14,15 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Paper,
   Snackbar,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
@@ -68,6 +75,39 @@ export function BroadcastPage({ api = realApi }: { api?: AdminApi }) {
           Send
         </Button>
       </Stack>
+
+      {/* Subject and body substitute these per recipient; unknown
+          {{placeholders}} pass through untouched. */}
+      <TableContainer component={Paper}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Placeholder</TableCell>
+              <TableCell>Meaning</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRow>
+              <TableCell>{'{{personName}}'}</TableCell>
+              <TableCell>
+                The individual recipient — each person on a membership gets
+                their own email
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>{'{{memberName}}'}</TableCell>
+              <TableCell>
+                The membership&apos;s display name, e.g. a joint
+                membership&apos;s household name
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>{'{{groupName}}'}</TableCell>
+              <TableCell>The group&apos;s name</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       {/* Send confirmation: there is no undo */}
       <Dialog open={confirming} onClose={() => setConfirming(false)}>

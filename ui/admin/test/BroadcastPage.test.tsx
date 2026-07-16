@@ -61,6 +61,16 @@ describe('BroadcastPage', () => {
     expect(screen.getByLabelText('Subject')).toHaveValue('Oops');
   });
 
+  it('lists the available placeholders with distinguishing descriptions', () => {
+    render(<BroadcastPage api={makeMockApi()} />);
+    expect(screen.getByText('{{memberName}}')).toBeInTheDocument();
+    expect(screen.getByText('{{personName}}')).toBeInTheDocument();
+    expect(screen.getByText('{{groupName}}')).toBeInTheDocument();
+    // The descriptions carry the member-vs-person distinction.
+    expect(screen.getByText(/membership's display name/i)).toBeInTheDocument();
+    expect(screen.getByText(/individual recipient/i)).toBeInTheDocument();
+  });
+
   it('live-previews the markdown body', async () => {
     const api = makeMockApi();
     render(<BroadcastPage api={api} />);

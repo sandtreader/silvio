@@ -110,6 +110,7 @@ import {
 import {
   DEFAULT_EMAIL_TEMPLATES,
   EMAIL_TEMPLATE_KINDS,
+  renderTemplate,
   type EmailTemplateKind,
 } from '../services/emailtemplates.js';
 import { browse, postListing, renewListing } from '../services/marketplace.js';
@@ -2409,14 +2410,21 @@ export async function buildApp(
           for (const member of await storage.listMembers(group.id, 'active')) {
             for (const person of await storage.personsForMember(member.id)) {
               if (person.email === undefined) continue;
+              // Per-recipient {{placeholder}} substitution, same engine and
+              // pass-through-unknowns behaviour as the #16 templates.
+              const vars = {
+                groupName: group.name,
+                memberName: member.displayName,
+                personName: person.name,
+              };
               const event = await storage.enqueueEmail({
                 groupId: group.id,
                 personId: person.id,
                 kind: 'broadcast',
                 dedupKey: `broadcast:${broadcastId}:${person.id}`,
                 toEmail: person.email,
-                subject,
-                body,
+                subject: renderTemplate(subject, vars),
+                body: renderTemplate(body, vars),
                 // Snapshot the group sender (#16); absent falls back at delivery.
                 ...(group.emailFrom !== undefined ? { fromEmail: group.emailFrom } : {}),
                 createdAt: nowIso,

@@ -84,6 +84,31 @@ describe('admin broadcast & digest preference (#17)', () => {
     expect(events[0]!.body).toBe('Come to the **AGM**.'); // markdown source, as sent
   });
 
+  it('substitutes member/person/group placeholders per recipient', async () => {
+    // A household-style member: membership name and person name differ.
+    const email = 'dan@example.com';
+    const user = await register(storage, { email, password: 'password-Dan' });
+    const applied = await apply(storage, {
+      groupId: group.id, displayName: 'Smith Household', personName: 'Dan Smith',
+      email, userId: user.id,
+    });
+    await approve(storage, applied.member.id);
+
+    const res = await broadcast({
+      subject: 'Hello {{personName}}',
+      body: 'Dear {{personName}} of {{memberName}} at {{groupName}} — {{unknown}} passes.',
+    });
+    expect(res.statusCode).toBe(200);
+
+    const dan = (await broadcasts()).find((e) => e.toEmail === email)!;
+    expect(dan.subject).toBe('Hello Dan Smith');
+    expect(dan.body).toBe(
+      'Dear Dan Smith of Smith Household at CamLETS — {{unknown}} passes.',
+    );
+    const alice = (await broadcasts()).find((e) => e.toEmail === 'alice@example.com')!;
+    expect(alice.subject).toBe('Hello Alice');
+  });
+
   it('a second broadcast is not deduped away', async () => {
     await broadcast({ subject: 'One', body: 'x' });
     await broadcast({ subject: 'Two', body: 'y' });
