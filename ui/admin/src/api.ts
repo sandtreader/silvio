@@ -33,6 +33,7 @@ import {
   type Policy,
   type PolicyInput,
   type Restriction,
+  type ShellInfo,
   type Transaction,
   type TransactionFilter,
 } from '@silvio/ui-shared';
@@ -75,6 +76,8 @@ async function call<T>(promise: Promise<T>): Promise<T | undefined> {
 /** Everything the admin pages need; resolves undefined on failure. */
 export interface AdminApi {
   me(): Promise<Me | undefined>;
+  /** Public session-aware shell info (#15): group identity for the chrome. */
+  shellInfo(): Promise<ShellInfo | undefined>;
   adminMembers(status?: MemberStatus): Promise<Member[] | undefined>;
   adminMemberAction(id: string, action: MemberAction): Promise<Member | undefined>;
   adminSetRole(id: string, role: MemberRole): Promise<Member | undefined>;
@@ -156,6 +159,7 @@ export interface AdminApi {
 /** The real implementation over the shared ApiClient. */
 export const api: AdminApi = {
   me: async () => call(client.me()),
+  shellInfo: async () => call(client.shellInfo()),
   adminMembers: async (status) =>
     (await call(client.adminMembers(status)))?.members,
   adminMemberAction: async (id, action) =>

@@ -13,6 +13,7 @@ import type {
   NewsItem,
   Page,
   Restriction,
+  ShellInfo,
 } from '@silvio/ui-shared';
 import type { AdminApi } from '../src/api';
 
@@ -138,11 +139,20 @@ export function makeGroup(overrides: Partial<Group> = {}): Group {
   };
 }
 
+export function makeShellInfo(): ShellInfo {
+  return {
+    group: { name: 'Demo LETS', slug: 'demo' },
+    branding: {},
+    navPages: [],
+  };
+}
+
 export type MockAdminApi = { [K in keyof AdminApi]: ReturnType<typeof vi.fn> };
 
 export function makeMockApi(): MockAdminApi {
   return {
     me: vi.fn().mockResolvedValue(makeMe()),
+    shellInfo: vi.fn().mockResolvedValue(makeShellInfo()),
     adminMembers: vi.fn().mockResolvedValue([]),
     adminMemberAction: vi.fn().mockResolvedValue(makeMember()),
     adminSetRole: vi.fn().mockResolvedValue(makeMember()),
