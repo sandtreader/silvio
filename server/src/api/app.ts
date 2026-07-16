@@ -103,6 +103,7 @@ import {
 import { effectiveSettings } from '../services/settings.js';
 import { evaluateFlags } from '../services/creditcontrol.js';
 import {
+  formatAmount,
   notifyRestrictionImposed,
   notifyRestrictionLifted,
 } from '../services/notifications.js';
@@ -2761,9 +2762,24 @@ export async function buildApp(
             throw new DomainError('NOT_FOUND', `transaction ${id} not found in this group`);
           }
           const transaction = await reverse(storage, id, request.auth!.user.id);
+          // Amount goes into detail now, while it's in hand — the audit row
+          // must stay useful even if the transaction were ever unreachable.
+          const credit = original.entries.filter((entry) => entry.amount > 0);
+          const magnitude = credit.reduce((sum, entry) => sum + entry.amount, 0);
+          const account =
+            credit[0] === undefined ? undefined : await storage.getAccount(credit[0].accountId);
+          const currency =
+            account === undefined
+              ? undefined
+              : (await storage.listCurrencies(original.groupId)).find(
+                  (c) => c.id === account.currencyId,
+                );
           await recordAudit(storage, {
             groupId: request.group!.id, actorUserId: request.auth!.user.id,
             action: 'transaction.reverse', entityType: 'transaction', entityId: id,
+            detail: {
+              amount: currency === undefined ? String(magnitude) : formatAmount(magnitude, currency),
+            },
           });
           reply.status(201);
           return { transaction };

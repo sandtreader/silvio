@@ -14,7 +14,7 @@ import {
 } from './emailtemplates.js';
 
 /** Minor units -> human amount at the currency's scale, e.g. 500 -> "5.00 CAM". */
-function formatAmount(amount: number, currency: Currency): string {
+export function formatAmount(amount: number, currency: Currency): string {
   return `${(amount / 10 ** currency.scale).toFixed(currency.scale)} ${currency.code}`;
 }
 

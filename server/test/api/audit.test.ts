@@ -7,13 +7,15 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/api/app.js';
 import { register, login } from '../../src/services/auth.js';
 import { apply, approve } from '../../src/services/membership.js';
+import { sendPayment } from '../../src/services/trading.js';
 import { SqliteStorage } from '../../src/storage/sqlite/index.js';
-import type { AuditEvent, Group, Member } from '../../src/types.js';
+import type { AuditEvent, Currency, Group, Member } from '../../src/types.js';
 
 describe('audit trail (§8)', () => {
   let storage: SqliteStorage;
   let app: FastifyInstance;
   let group: Group;
+  let cams: Currency;
   let alice: Member; // admin
   let bob: Member;
   let adminCookie: string;
@@ -40,7 +42,7 @@ describe('audit trail (§8)', () => {
   beforeEach(async () => {
     storage = new SqliteStorage(':memory:');
     group = await storage.createGroup({ slug: 'cam', name: 'CamLETS' });
-    const cams = await storage.createCurrency({
+    cams = await storage.createCurrency({
       groupId: group.id, code: 'CAM', name: 'Cams', scale: 2,
     });
     await storage.createAccount({ groupId: group.id, currencyId: cams.id, type: 'community' });
@@ -217,6 +219,28 @@ describe('audit trail (§8)', () => {
       const page = events.find((e) => e.entityType === 'page')!;
       expect(page.actorName).toBe('Alice');
       expect(page.entityLabel).toBe('About us');
+    });
+
+    it('labels transaction events with seq, description and amount', async () => {
+      await sendPayment(storage, {
+        groupId: group.id, payerMemberId: alice.id, payeeMemberId: bob.id,
+        currencyId: cams.id, amount: 500, description: 'veg box',
+        actorPersonId: 'p', channel: 'web',
+      });
+      const { transactions } = await storage.listTransactions(group.id, { text: 'veg' });
+      const tx = transactions[0]!;
+      await admin('POST', `/admin/transactions/${tx.id}/reverse`);
+
+      type Labelled = AuditEvent & { entityLabel?: string };
+      const res = await app.inject({
+        method: 'GET', url: '/api/v1/g/cam/admin/audit?action=transaction.reverse',
+        headers: { cookie: adminCookie },
+      });
+      const { events } = res.json() as { events: Labelled[] };
+      expect(events[0]!.entityLabel).toBe(`#${tx.seq} veg box`);
+      // Amount is snapshotted into detail at reversal time (it's in hand),
+      // not derived at read time.
+      expect(events[0]!.detail).toMatchObject({ amount: '5.00 CAM' });
     });
 
     it('omits the entity label once the entity is gone', async () => {
