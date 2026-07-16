@@ -320,18 +320,43 @@ export async function cancel(storage: Storage, txId: Id, actorMemberId: Id): Pro
   return storage.transition(txId, 'cancelled', { personId: actorMemberId });
 }
 
+/** Human reversal description (#25): the reversed transaction's seq, its
+ * parties resolved to display names (counterparty ref or account type where
+ * memberless), and its description elided to 40 characters. */
+async function reversalDescription(storage: Storage, tx: Transaction): Promise<string> {
+  async function label(accountId: Id): Promise<string> {
+    const account = await storage.getAccount(accountId);
+    if (account.memberId !== undefined) {
+      return (await storage.getMember(account.memberId)).displayName;
+    }
+    return account.counterpartyRef ?? account.type;
+  }
+  const from = await Promise.all(
+    tx.entries.filter((e) => e.amount < 0).map((e) => label(e.accountId)),
+  );
+  const to = await Promise.all(
+    tx.entries.filter((e) => e.amount > 0).map((e) => label(e.accountId)),
+  );
+  const base = `Reversal of #${tx.seq}: ${from.join(', ')} → ${to.join(', ')}`;
+  if (tx.description === undefined) return base;
+  const elided =
+    tx.description.length <= 40 ? tx.description : `${tx.description.slice(0, 39)}…`;
+  return `${base}, ${elided}`;
+}
+
 /**
  * Admin reversal (decisions #5, #6): post a committed compensating
- * transaction linked via reversesId, with every leg negated. Only committed
- * transactions can be reversed, and a reversal cannot itself be reversed.
+ * transaction linked via reversesId, with every leg negated. Any committed
+ * transaction — reversals included — is reversible exactly once (#25); the
+ * guard is a data lookup, never a state on the reversed row.
  */
 export async function reverse(storage: Storage, txId: Id, actorPersonId: Id): Promise<Transaction> {
   const tx = await storage.getTransaction(txId);
   if (tx.state !== 'committed') {
     throw new DomainError('WRONG_STATE', `transaction is ${tx.state}, not committed`);
   }
-  if (tx.type === 'reversal') {
-    throw new DomainError('WRONG_STATE', 'a reversal cannot itself be reversed');
+  if ((await storage.reversalsOf([txId]))[txId] !== undefined) {
+    throw new DomainError('WRONG_STATE', 'transaction has already been reversed');
   }
   return storage.post({
     groupId: tx.groupId,
@@ -339,7 +364,7 @@ export async function reverse(storage: Storage, txId: Id, actorPersonId: Id): Pr
     state: 'committed',
     createdBy: actorPersonId,
     channel: 'admin',
-    description: `Reversal of ${txId}`,
+    description: await reversalDescription(storage, tx),
     reversesId: txId,
     entries: tx.entries.map((entry) => ({
       accountId: entry.accountId,

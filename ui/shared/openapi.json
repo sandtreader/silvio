@@ -4682,6 +4682,9 @@
                                 }
                               }
                             }
+                          },
+                          "reversedById": {
+                            "type": "string"
                           }
                         }
                       }
@@ -10124,6 +10127,9 @@
                                 }
                               }
                             }
+                          },
+                          "reversedById": {
+                            "type": "string"
                           }
                         }
                       }

@@ -208,6 +208,9 @@ export const TRANSACTION_WITH_ENRICHED_ENTRIES = {
   properties: {
     ...TRANSACTION.properties,
     entries: { type: 'array', items: ENRICHED_ENTRY },
+    // "Reversed" is a derived relationship, never a state (#25): the id of
+    // this transaction's committed reversal, present only when one exists.
+    reversedById: { type: 'string' },
   },
 } as const;
 

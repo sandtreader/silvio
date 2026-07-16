@@ -407,6 +407,13 @@ export interface Storage extends Ledger {
     filter?: TransactionFilter,
   ): Promise<{ transactions: Transaction[]; total: number }>;
 
+  /**
+   * Committed reversals of the given transactions (#25): each input id maps
+   * to the id of the committed `reversal` transaction whose reversesId
+   * points at it; ids without one are absent.
+   */
+  reversalsOf(txIds: Id[]): Promise<Record<Id, Id>>;
+
   // Outbound email log (data-model §6). Composition is the notification
   // service's job; storage only queues, lists and stamps events.
   /** Insert an email event; a duplicate dedupKey is a silent no-op returning undefined. */

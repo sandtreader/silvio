@@ -1878,11 +1878,16 @@ export class SqliteStorage implements Storage {
     }
     if (filter?.text !== undefined) {
       const needle = `%${filter.text.toLowerCase().replace(/[\\%_]/g, '\\$&')}%`;
+      // Party display names count as text matches too (#25).
       clauses.push(
         `(lower(COALESCE(t.description, '')) LIKE ? ESCAPE '\\'
-          OR lower(COALESCE(t.reference, '')) LIKE ? ESCAPE '\\')`,
+          OR lower(COALESCE(t.reference, '')) LIKE ? ESCAPE '\\'
+          OR EXISTS (SELECT 1 FROM entries e JOIN accounts a ON a.id = e.account_id
+                     JOIN members m ON m.id = a.member_id
+                     WHERE e.transaction_id = t.id
+                       AND lower(m.display_name) LIKE ? ESCAPE '\\'))`,
       );
-      values.push(needle, needle);
+      values.push(needle, needle, needle);
     }
     const where = clauses.join(' AND ');
     const { total } = this.db
@@ -1901,6 +1906,19 @@ export class SqliteStorage implements Storage {
       transactions: rows.map((row) => this.loadTransaction(row.id)),
       total,
     });
+  }
+
+  reversalsOf(txIds: Id[]): Promise<Record<Id, Id>> {
+    if (txIds.length === 0) return Promise.resolve({});
+    const placeholders = txIds.map(() => '?').join(', ');
+    const rows = this.db
+      .prepare(
+        `SELECT reverses_id, id FROM transactions
+         WHERE type = 'reversal' AND state = 'committed'
+           AND reverses_id IN (${placeholders})`,
+      )
+      .all(...txIds) as { reverses_id: string; id: string }[];
+    return Promise.resolve(Object.fromEntries(rows.map((row) => [row.reverses_id, row.id])));
   }
 
   pendingForMember(memberId: Id): Promise<Transaction[]> {

@@ -157,6 +157,108 @@ describe('GET /admin/transactions', () => {
     });
   });
 
+  // Reversal semantics (#25): any committed transaction is reversible exactly
+  // once — including reversals themselves, so a mistaken reversal is undone by
+  // reversing it (and reapplied by reversing THAT). Only the chain tip is
+  // ever reversible; nothing becomes re-reversible.
+  it('reverses only once; the reversal itself is reversible, tip-only', async () => {
+    async function reverseOf(id: string) {
+      return app.inject({
+        method: 'POST', url: `/api/v1/g/cam/admin/transactions/${id}/reverse`,
+        headers: { cookie: adminCookie },
+      });
+    }
+    const list = await app.inject({
+      method: 'GET', url: '/api/v1/g/cam/admin/transactions?q=veg',
+      headers: { cookie: adminCookie },
+    });
+    const veg = (list.json() as { transactions: Transaction[] }).transactions[0]!;
+
+    const first = await reverseOf(veg.id);
+    expect(first.statusCode).toBe(201);
+    const r1 = (first.json() as { transaction: Transaction }).transaction;
+
+    expect((await reverseOf(veg.id)).statusCode).toBe(409); // already reversed
+
+    const second = await reverseOf(r1.id); // undoing the reversal is allowed
+    expect(second.statusCode).toBe(201);
+
+    expect((await reverseOf(r1.id)).statusCode).toBe(409); // r1 now reversed too
+    expect((await reverseOf(veg.id)).statusCode).toBe(409); // original stays done
+
+    expect((await storage.verify(group.id)).ok).toBe(true);
+  });
+
+  it('reversal descriptions carry seq, from -> to and the description (#25)', async () => {
+    const list = await app.inject({
+      method: 'GET', url: '/api/v1/g/cam/admin/transactions?q=veg',
+      headers: { cookie: adminCookie },
+    });
+    const veg = (list.json() as { transactions: Transaction[] }).transactions[0]!;
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/g/cam/admin/transactions/${veg.id}/reverse`,
+      headers: { cookie: adminCookie },
+    });
+    expect(res.statusCode).toBe(201);
+    const r1 = (res.json() as { transaction: Transaction }).transaction;
+    expect(r1.description).toBe(`Reversal of #${veg.seq}: Alice → Bob, veg box`);
+
+    // Reversing the reversal names the reversal (its own legs run Bob → Alice).
+    const res2 = await app.inject({
+      method: 'POST', url: `/api/v1/g/cam/admin/transactions/${r1.id}/reverse`,
+      headers: { cookie: adminCookie },
+    });
+    const r2 = (res2.json() as { transaction: Transaction }).transaction;
+    expect(r2.description).toMatch(new RegExp(`^Reversal of #${r1.seq}: Bob → Alice, `));
+  });
+
+  it('elides a long original description in the reversal', async () => {
+    const long = 'hedge trimming and general garden tidy-up including the back passage';
+    await sendPayment(storage, {
+      groupId: group.id, payerMemberId: alice.id, payeeMemberId: bob.id,
+      currencyId: cams.id, amount: 300, description: long,
+      actorPersonId: 'p', channel: 'web',
+    });
+    const list = await app.inject({
+      method: 'GET', url: '/api/v1/g/cam/admin/transactions?q=tidy-up',
+      headers: { cookie: adminCookie },
+    });
+    const tx = (list.json() as { transactions: Transaction[] }).transactions[0]!;
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/g/cam/admin/transactions/${tx.id}/reverse`,
+      headers: { cookie: adminCookie },
+    });
+    const description = (res.json() as { transaction: Transaction }).transaction
+      .description!;
+    expect(description).toContain('hedge trimming');
+    expect(description).not.toContain(long);
+    expect(description.endsWith('…')).toBe(true);
+  });
+
+  it('marks reversed transactions with reversedById in the listing (#25)', async () => {
+    const before = await app.inject({
+      method: 'GET', url: '/api/v1/g/cam/admin/transactions?q=veg',
+      headers: { cookie: adminCookie },
+    });
+    const veg = (before.json() as { transactions: Transaction[] }).transactions[0]!;
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/g/cam/admin/transactions/${veg.id}/reverse`,
+      headers: { cookie: adminCookie },
+    });
+    const r1 = (res.json() as { transaction: Transaction }).transaction;
+
+    const after = await app.inject({
+      method: 'GET', url: '/api/v1/g/cam/admin/transactions',
+      headers: { cookie: adminCookie },
+    });
+    type Listed = Transaction & { reversedById?: string };
+    const listed = (after.json() as { transactions: Listed[] }).transactions;
+    expect(listed.find((t) => t.id === veg.id)?.reversedById).toBe(r1.id);
+    const bike = listed.find((t) => t.description === 'bike repair');
+    expect(bike).toBeDefined();
+    expect(bike).not.toHaveProperty('reversedById');
+  });
+
   // The shared Entry schema stays name-free: a member-facing route returning
   // a Transaction must not gain the enrichment (response schemas are the
   // leak guard).

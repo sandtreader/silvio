@@ -2631,7 +2631,16 @@ export async function buildApp(
             request.group!.id,
             filter,
           );
-          return { transactions: await enrichEntries(storage, transactions), total };
+          // One lookup for the page (#25); the property must be absent, not
+          // undefined, on unreversed rows (exactOptionalPropertyTypes).
+          const reversals = await storage.reversalsOf(transactions.map((t) => t.id));
+          const enriched = await enrichEntries(storage, transactions);
+          return {
+            transactions: enriched.map((tx) =>
+              reversals[tx.id] !== undefined ? { ...tx, reversedById: reversals[tx.id] } : tx,
+            ),
+            total,
+          };
         },
       );
 

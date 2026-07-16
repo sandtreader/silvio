@@ -139,16 +139,22 @@ export function TransactionsPage({ api = realApi }: { api?: AdminApi }) {
                       <TableCell>{tx.description}</TableCell>
                       <TableCell align="right">{amountOf(tx)}</TableCell>
                       <TableCell align="right">
-                        {tx.state === 'committed' && (
-                          <Button
-                            size="small"
-                            color="error"
-                            startIcon={<UndoIcon />}
-                            onClick={() => setConfirming(tx)}
-                          >
-                            Reverse
-                          </Button>
-                        )}
+                        {/* Already-reversed rows show a chip, not the action:
+                            reversing twice is legal on the ledger but never
+                            what an admin means from here (#25). */}
+                        {tx.state === 'committed' &&
+                          (tx.reversedById !== undefined ? (
+                            <Chip label="reversed" size="small" color="default" />
+                          ) : (
+                            <Button
+                              size="small"
+                              color="error"
+                              startIcon={<UndoIcon />}
+                              onClick={() => setConfirming(tx)}
+                            >
+                              Reverse
+                            </Button>
+                          ))}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -2994,6 +2994,7 @@ export interface paths {
                                     displayName?: string;
                                     counterpartyRef?: string;
                                 }[];
+                                reversedById?: string;
                             }[];
                             total: number;
                         };
@@ -7196,6 +7197,7 @@ export interface paths {
                                     displayName?: string;
                                     counterpartyRef?: string;
                                 }[];
+                                reversedById?: string;
                             }[];
                             total: number;
                         };

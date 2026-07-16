@@ -536,6 +536,44 @@ export function storageContractTests(createStorage: () => Promise<Storage>): voi
       expect(byRef.transactions.map((t) => t.id)).toEqual([ids.veg]);
     });
 
+    it('text search also covers party display names (#25)', async () => {
+      await seed();
+      const zeb = await f.storage.createMember({
+        groupId: f.group.id, displayName: 'Zebedee Moss',
+      });
+      const zebAcc = await f.storage.createAccount({
+        groupId: f.group.id, currencyId: f.cams.id, type: 'member', memberId: zeb.id,
+      });
+      const paid = await f.storage.post(
+        trade(f, {
+          description: 'unrelated words',
+          entries: [
+            { accountId: f.alice.id, amount: -40 },
+            { accountId: zebAcc.id, amount: 40 },
+          ],
+        }),
+      );
+      const hits = await f.storage.listTransactions(f.group.id, { text: 'zebedee' });
+      expect(hits.transactions.map((t) => t.id)).toEqual([paid.id]);
+    });
+
+    it('reversalsOf maps reversed transaction ids to their committed reversal (#25)', async () => {
+      const t1 = await f.storage.post(trade(f));
+      const t2 = await f.storage.post(trade(f, { description: 'unreversed' }));
+      const r1 = await f.storage.post(
+        trade(f, {
+          type: 'reversal',
+          reversesId: t1.id,
+          entries: [
+            { accountId: f.alice.id, amount: 100 },
+            { accountId: f.bob.id, amount: -100 },
+          ],
+        }),
+      );
+      expect(await f.storage.reversalsOf([t1.id, t2.id])).toEqual({ [t1.id]: r1.id });
+      expect(await f.storage.reversalsOf([])).toEqual({});
+    });
+
     it('filters compose', async () => {
       const ids = await seed();
       const { transactions, total } = await f.storage.listTransactions(f.group.id, {

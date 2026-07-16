@@ -138,6 +138,24 @@ describe('TransactionsPage', () => {
     await waitFor(() => expect(api.adminReverse).toHaveBeenCalledWith('tx-1'));
   });
 
+  it('shows a reversed chip instead of the reverse button once reversed (#25)', async () => {
+    const api = makeMockApi();
+    api.adminTransactions.mockResolvedValue({
+      transactions: [
+        makeTx({ reversedById: 'tx-r' }),
+        makeTx({ id: 'tx-2', seq: 8, description: 'bike repair' }),
+      ],
+      total: 2,
+    });
+
+    render(<TransactionsPage api={api} />);
+    await screen.findByText(/veg box/);
+
+    expect(screen.getByText('reversed')).toBeInTheDocument();
+    // Only the unreversed row keeps its reverse action.
+    expect(screen.getAllByRole('button', { name: /reverse/i })).toHaveLength(1);
+  });
+
   it('offers no reverse action on a pending transaction', async () => {
     const api = makeMockApi();
     api.adminTransactions.mockResolvedValue({

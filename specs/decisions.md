@@ -871,3 +871,31 @@ buddies wait for a real group to shape the grant model.
   an admin). Acting is confined to the admin's own group.
 - Surfaced honestly: `/me` and `/shell` carry the acting state; the
   member app shows a persistent "Acting for {name} — stop" banner.
+
+## 25. Reversal semantics: reversible exactly once, tip-only — DECIDED 2026-07-16
+
+Reversals (#5/#6 compensating transactions) get firm rules, replacing the
+provisional "a reversal cannot itself be reversed":
+
+- **Any committed transaction is reversible exactly once** — including
+  reversals. A committed reversal pointing at a transaction (via
+  `reversesId`) makes it permanently un-reversible; the guard is a data
+  lookup, not a state.
+- **Chains extend at the tip only.** A mistaken reversal is undone by
+  reversing the reversal; reapplying the original means reversing *that*
+  (the chain grows: tx ← r1 ← r2 ← r3…). Reversing a reversal never
+  makes the original reversible again — its one reversal exists.
+- **No `reversed` lifecycle state.** A reversed transaction committed and
+  moved money; it must keep appearing in every `state = 'committed'`
+  surface (statements, balances, stats, verify). "Reversed" is a
+  relationship in the data, surfaced on the admin listing as a derived
+  `reversedById` (API-layer join, like the entry enrichment) — never a
+  mutation of a committed row.
+- **Reversal descriptions are human**: `Reversal of #seq: From → To,
+  description` — the reversed transaction's seq, its parties resolved to
+  display names (account type or counterparty ref where memberless), and
+  its description elided to 40 characters. Snapshotted at reversal time
+  like any other description.
+- **Admin text search covers parties**: the `q` filter matches member
+  display names on either side of a transaction as well as
+  description/reference.

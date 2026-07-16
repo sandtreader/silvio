@@ -333,11 +333,12 @@ describe('admin API', () => {
     expect(await storage.balance(aliceAcc.id)).toBe(0);
     expect((await storage.verify(group.id)).ok).toBe(true);
 
-    // a pending transaction cannot be reversed
+    // a reversal is itself reversible (#25: reversible exactly once, tip-only)
     const again = await app.inject({
       method: 'POST', url: `/api/v1/admin/transactions/${reversal.id}/reverse`,
       headers: { host: HOST, cookie: adminCookie },
     });
-    expect(again.statusCode).toBe(409); // reversing a reversal -> WRONG_STATE
+    expect(again.statusCode).toBe(201);
+    expect(again.json().transaction.reversesId).toBe(reversal.id);
   });
 });
