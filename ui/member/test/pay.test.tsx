@@ -3,6 +3,7 @@
 // verified confirm screen (trusted payee name) and pays via /payments/scan.
 // jsdom has no BarcodeDetector, so Scan exercises the paste fallback.
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@silvio/ui-shared';
 import QRCode from 'qrcode';
@@ -156,5 +157,45 @@ describe('Pay: Scan tab', () => {
     // No confirm sheet, nothing paid.
     expect(screen.queryByText('Confirm payment')).toBeNull();
     expect(client.scanPayment).not.toHaveBeenCalled();
+  });
+});
+
+describe('Pay: Manual tab', () => {
+  const directory = {
+    members: [
+      { id: 'm1', memberNo: 7, displayName: 'Alice' }, // the payer: excluded
+      { id: 'm2', memberNo: 2, displayName: 'Bob Jones' },
+      { id: 'm3', memberNo: 3, displayName: 'Kavita Baker' },
+      { id: 'm4', memberNo: 4, displayName: 'Zoe Ward' },
+    ],
+  };
+
+  it('filters the pay-to picker live by typing, then pays the choice', async () => {
+    const client = {
+      me: vi.fn().mockResolvedValue(testMe),
+      members: vi.fn().mockResolvedValue(directory),
+      pay: vi.fn().mockResolvedValue({ transaction: { id: 't1' } }),
+    };
+    renderWithClient(<Pay />, client);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Manual' }));
+
+    // Typing filters the member list live (fireEvent.change can't drive an
+    // MUI Autocomplete — it needs real keystrokes).
+    const input = await screen.findByLabelText(/Pay to/);
+    await userEvent.type(input, 'kav');
+    expect(await screen.findByText('#3 Kavita Baker')).toBeTruthy();
+    expect(screen.queryByText('#2 Bob Jones')).toBeNull();
+
+    await userEvent.click(screen.getByText('#3 Kavita Baker'));
+    fireEvent.change(screen.getByLabelText(/Amount/), { target: { value: '5.00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Pay' }));
+
+    await waitFor(() =>
+      expect(client.pay).toHaveBeenCalledWith({
+        payeeMemberId: 'm3',
+        currencyId: 'c1',
+        amount: 500,
+      }),
+    );
   });
 });

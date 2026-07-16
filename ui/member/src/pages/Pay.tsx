@@ -7,7 +7,7 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
-import MenuItem from '@mui/material/MenuItem';
+import Autocomplete from '@mui/material/Autocomplete';
 import Stack from '@mui/material/Stack';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
@@ -449,18 +449,15 @@ function ManualTab() {
 
   return (
     <Stack spacing={2}>
-      <TextField
-        select
-        label="Pay to"
-        value={payeeId}
-        onChange={(event) => setPayeeId(event.target.value)}
-      >
-        {choices.map((member) => (
-          <MenuItem key={member.id} value={member.id}>
-            #{member.memberNo} {member.displayName}
-          </MenuItem>
-        ))}
-      </TextField>
+      {/* Autocomplete, not a select: the whole directory is loaded, so the
+          picker must filter as you type rather than scroll hundreds. */}
+      <Autocomplete
+        options={choices}
+        getOptionLabel={(member) => `#${member.memberNo} ${member.displayName}`}
+        value={choices.find((member) => member.id === payeeId) ?? null}
+        onChange={(_, chosen) => setPayeeId(chosen?.id ?? '')}
+        renderInput={(params) => <TextField {...params} label="Pay to" />}
+      />
       <TextField
         label="Amount"
         value={amountText}
