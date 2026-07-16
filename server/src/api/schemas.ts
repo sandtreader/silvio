@@ -20,6 +20,7 @@ import type {
   Currency,
   DemurrageBand,
   DemurrageRun,
+  EnrichedEntry,
   Entry,
   Group,
   Image,
@@ -42,6 +43,7 @@ const TX_TYPE = ['trade', 'demurrage', 'fee', 'settlement', 'reversal', 'adjustm
 const TX_STATE = ['pending', 'committed', 'declined', 'cancelled', 'expired'] as const;
 const TX_FLOW = ['payment', 'invoice'] as const;
 const CHANNEL = ['web', 'mcp', 'admin', 'system'] as const;
+const ACCOUNT_TYPE = ['member', 'community', 'system', 'gateway'] as const;
 const MEMBER_STATUS = ['applied', 'active', 'away', 'suspended', 'closed'] as const;
 const MEMBER_TYPE = ['individual', 'joint', 'organisation'] as const;
 const MEMBER_ROLE = ['member', 'committee', 'admin'] as const;
@@ -150,6 +152,25 @@ const ENTRY = {
   },
 } as const;
 
+// Admin transaction list variant: entries carry account/member identity
+// resolved at the API layer. Separate schemas, used inline by the admin
+// route only, so the pinned Entry/Transaction components above stay raw —
+// every member-facing route keeps serializing without the enrichment (the
+// serializer drops anything undeclared). Same pattern as GROUP_WITH_NOTES.
+export const ENRICHED_ENTRY = {
+  ...ENTRY,
+  required: [...ENTRY.required, 'accountType', 'currencyId'],
+  properties: {
+    ...ENTRY.properties,
+    accountType: { type: 'string', enum: ACCOUNT_TYPE },
+    currencyId: { type: 'string' },
+    memberId: { type: 'string' },
+    memberNo: { type: 'integer' },
+    displayName: { type: 'string' },
+    counterpartyRef: { type: 'string' },
+  },
+} as const;
+
 const TRANSACTION = {
   type: 'object',
   additionalProperties: false,
@@ -176,6 +197,17 @@ const TRANSACTION = {
     committedAt: { type: 'string' },
     expiresAt: { type: 'string' },
     entries: { type: 'array', items: ENTRY },
+  },
+} as const;
+
+// Transaction with enriched entries, for the admin list only. An API-layer
+// join, not a domain shape, so like GROUP_WITH_NOTES_AND_DOMAINS there is no
+// drift guard against Transaction; ENRICHED_ENTRY carries the entry guard.
+export const TRANSACTION_WITH_ENRICHED_ENTRIES = {
+  ...TRANSACTION,
+  properties: {
+    ...TRANSACTION.properties,
+    entries: { type: 'array', items: ENRICHED_ENTRY },
   },
 } as const;
 
@@ -659,6 +691,7 @@ type _DriftGuards = [
   Expect<Equal<FromSchema<typeof GROUP_WITH_NOTES>, Group>>,
   Expect<Equal<FromSchema<typeof CURRENCY>, Currency>>,
   Expect<Equal<FromSchema<typeof ENTRY>, Entry>>,
+  Expect<Equal<FromSchema<typeof ENRICHED_ENTRY>, EnrichedEntry>>,
   Expect<Equal<FromSchema<typeof TRANSACTION>, Transaction>>,
   Expect<Equal<FromSchema<typeof MEMBER>, Member>>,
   Expect<Equal<FromSchema<typeof PERSON>, Person>>,

@@ -33,6 +33,13 @@ export type TradeStats = Schemas['TradeStats'];
 export type Entry = Schemas['Entry'];
 export type Transaction = Schemas['Transaction'];
 
+/** Enriched admin variant of Transaction (GET /admin/transactions): entries
+ * carry accountType/currencyId and, where known, member identity or the
+ * gateway counterpartyRef. Member routes keep the raw Transaction. */
+export type AdminTransaction =
+  paths['/api/v1/admin/transactions']['get']['responses']['200']['content']['application/json']['transactions'][number];
+export type AdminEntry = AdminTransaction['entries'][number];
+
 /** A pending transaction from this member's point of view (decision #5). */
 export type PendingItem = Schemas['PendingItem'];
 

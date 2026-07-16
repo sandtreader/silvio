@@ -27,8 +27,10 @@ import type {
 } from '../storage/interface.js';
 import type {
   ApiScope,
+  Account,
   ApiToken,
   Category,
+  EnrichedEntry,
   BrandSlot,
   CreditPolicyConfig,
   CreditPolicyType,
@@ -50,6 +52,7 @@ import type {
   PageVisibility,
   SearchDomain,
   Session,
+  Transaction,
   TxFlow,
   TxType,
   User,
@@ -86,6 +89,7 @@ import { dashboardStats } from '../services/stats.js';
 import {
   GROUP_STATUS,
   GROUP_WITH_NOTES_AND_DOMAINS,
+  TRANSACTION_WITH_ENRICHED_ENTRIES,
   LISTING_BADGE,
   OK_RESPONSE,
   PUBLIC_MEMBER_WITH_PHOTO,
@@ -211,6 +215,48 @@ function body(
 /** The `response` section for a route: one success status + shared errors. */
 function respond(status: number, schema: object): Record<string, object> {
   return { [status]: schema, '4XX': ERROR_REF };
+}
+
+/** Admin transaction list enrichment: attach each entry's account type,
+ * currency and (for member accounts) owner identity. Accounts and members
+ * are resolved once per page via memoised getters — a page is ≤200
+ * transactions, so no dedicated storage join is warranted. The domain
+ * Transaction stays raw: entries feed the journal hash chain (#10). */
+async function enrichEntries(
+  storage: Storage,
+  transactions: Transaction[],
+): Promise<(Omit<Transaction, 'entries'> & { entries: EnrichedEntry[] })[]> {
+  const accounts = new Map<Id, Account>();
+  const members = new Map<Id, Member>();
+  const enriched = [];
+  for (const tx of transactions) {
+    const entries: EnrichedEntry[] = [];
+    for (const entry of tx.entries) {
+      let account = accounts.get(entry.accountId);
+      if (!account) {
+        account = await storage.getAccount(entry.accountId);
+        accounts.set(entry.accountId, account);
+      }
+      let member = account.memberId === undefined ? undefined : members.get(account.memberId);
+      if (account.memberId !== undefined && !member) {
+        member = await storage.getMember(account.memberId);
+        members.set(account.memberId, member);
+      }
+      entries.push({
+        ...entry,
+        accountType: account.type,
+        currencyId: account.currencyId,
+        ...(account.counterpartyRef !== undefined
+          ? { counterpartyRef: account.counterpartyRef }
+          : {}),
+        ...(member
+          ? { memberId: member.id, memberNo: member.memberNo, displayName: member.displayName }
+          : {}),
+      });
+    }
+    enriched.push({ ...tx, entries });
+  }
+  return enriched;
 }
 
 // --- statement CSV export --------------------------------------------------
@@ -2556,7 +2602,10 @@ export async function buildApp(
             },
             response: respond(
               200,
-              body({ transactions: arrayOf('Transaction'), total: { type: 'integer' } }),
+              body({
+                transactions: { type: 'array', items: TRANSACTION_WITH_ENRICHED_ENTRIES },
+                total: { type: 'integer' },
+              }),
             ),
           },
         },
@@ -2578,7 +2627,11 @@ export async function buildApp(
           if (query.q !== undefined) filter.text = query.q;
           if (query.limit !== undefined) filter.limit = query.limit;
           if (query.offset !== undefined) filter.offset = query.offset;
-          return storage.listTransactions(request.group!.id, filter);
+          const { transactions, total } = await storage.listTransactions(
+            request.group!.id,
+            filter,
+          );
+          return { transactions: await enrichEntries(storage, transactions), total };
         },
       );
 

@@ -7,6 +7,7 @@ import {
   ApiClient,
   ApiError,
   type AdminStats,
+  type AdminTransaction,
   type AuditEvent,
   type AuditFilter,
   type BrandSlot,
@@ -103,7 +104,7 @@ export interface AdminApi {
   adminStats(currencyId: string): Promise<AdminStats | undefined>;
   adminTransactions(
     filter?: TransactionFilter,
-  ): Promise<{ transactions: Transaction[]; total: number } | undefined>;
+  ): Promise<{ transactions: AdminTransaction[]; total: number } | undefined>;
   adminReverse(id: string): Promise<Transaction | undefined>;
   adminAudit(
     filter?: AuditFilter,

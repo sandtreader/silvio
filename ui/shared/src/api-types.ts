@@ -2956,7 +2956,45 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            transactions: components["schemas"]["Transaction"][];
+                            transactions: {
+                                id: string;
+                                groupId: string;
+                                /** @enum {string} */
+                                type: "trade" | "demurrage" | "fee" | "settlement" | "reversal" | "adjustment";
+                                /** @enum {string} */
+                                flow?: "payment" | "invoice";
+                                /** @enum {string} */
+                                state: "pending" | "committed" | "declined" | "cancelled" | "expired";
+                                seq?: number;
+                                hash?: string;
+                                hashVersion?: number;
+                                description?: string;
+                                reference?: string;
+                                createdBy: string;
+                                /** @enum {string} */
+                                channel: "web" | "mcp" | "admin" | "system";
+                                reversesId?: string;
+                                demurrageRunId?: string;
+                                remoteRef?: string;
+                                apiTokenId?: string;
+                                idempotencyKey?: string;
+                                createdAt: string;
+                                committedAt?: string;
+                                expiresAt?: string;
+                                entries: {
+                                    id: string;
+                                    transactionId: string;
+                                    accountId: string;
+                                    amount: number;
+                                    /** @enum {string} */
+                                    accountType: "member" | "community" | "system" | "gateway";
+                                    currencyId: string;
+                                    memberId?: string;
+                                    memberNo?: number;
+                                    displayName?: string;
+                                    counterpartyRef?: string;
+                                }[];
+                            }[];
                             total: number;
                         };
                     };
@@ -7120,7 +7158,45 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            transactions: components["schemas"]["Transaction"][];
+                            transactions: {
+                                id: string;
+                                groupId: string;
+                                /** @enum {string} */
+                                type: "trade" | "demurrage" | "fee" | "settlement" | "reversal" | "adjustment";
+                                /** @enum {string} */
+                                flow?: "payment" | "invoice";
+                                /** @enum {string} */
+                                state: "pending" | "committed" | "declined" | "cancelled" | "expired";
+                                seq?: number;
+                                hash?: string;
+                                hashVersion?: number;
+                                description?: string;
+                                reference?: string;
+                                createdBy: string;
+                                /** @enum {string} */
+                                channel: "web" | "mcp" | "admin" | "system";
+                                reversesId?: string;
+                                demurrageRunId?: string;
+                                remoteRef?: string;
+                                apiTokenId?: string;
+                                idempotencyKey?: string;
+                                createdAt: string;
+                                committedAt?: string;
+                                expiresAt?: string;
+                                entries: {
+                                    id: string;
+                                    transactionId: string;
+                                    accountId: string;
+                                    amount: number;
+                                    /** @enum {string} */
+                                    accountType: "member" | "community" | "system" | "gateway";
+                                    currencyId: string;
+                                    memberId?: string;
+                                    memberNo?: number;
+                                    displayName?: string;
+                                    counterpartyRef?: string;
+                                }[];
+                            }[];
                             total: number;
                         };
                     };

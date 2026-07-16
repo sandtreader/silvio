@@ -119,4 +119,60 @@ describe('GET /admin/transactions', () => {
     });
     expect(res.statusCode).toBe(403);
   });
+
+  // Entries name their account's owner so the UI can derive source ->
+  // destination without an extra lookup; system-side accounts carry the
+  // account type instead of a member.
+  it('enriches entries with account type, currency and member identity', async () => {
+    const res = await app.inject({
+      method: 'GET', url: '/api/v1/g/cam/admin/transactions?q=veg',
+      headers: { cookie: adminCookie },
+    });
+    expect(res.statusCode).toBe(200);
+    type EnrichedEntry = {
+      amount: number;
+      accountType: string;
+      currencyId: string;
+      memberId?: string;
+      memberNo?: number;
+      displayName?: string;
+    };
+    const [tx] = (res.json() as { transactions: { entries: EnrichedEntry[] }[] })
+      .transactions;
+    const payer = tx!.entries.find((e) => e.amount < 0);
+    const payee = tx!.entries.find((e) => e.amount > 0);
+    expect(payer).toMatchObject({
+      accountType: 'member',
+      currencyId: cams.id,
+      memberId: alice.id,
+      memberNo: alice.memberNo,
+      displayName: 'Alice',
+    });
+    expect(payee).toMatchObject({
+      accountType: 'member',
+      currencyId: cams.id,
+      memberId: bob.id,
+      memberNo: bob.memberNo,
+      displayName: 'Bob',
+    });
+  });
+
+  // The shared Entry schema stays name-free: a member-facing route returning
+  // a Transaction must not gain the enrichment (response schemas are the
+  // leak guard).
+  it('does not leak enrichment through member-facing transaction routes', async () => {
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/g/cam/payments',
+      headers: { cookie: memberCookie },
+      payload: { payeeMemberId: alice.id, currencyId: cams.id, amount: 100 },
+    });
+    expect(res.statusCode).toBe(201);
+    const { transaction } = res.json() as { transaction: { entries: object[] } };
+    expect(transaction.entries.length).toBeGreaterThan(0);
+    for (const entry of transaction.entries) {
+      expect(entry).not.toHaveProperty('displayName');
+      expect(entry).not.toHaveProperty('memberId');
+      expect(entry).not.toHaveProperty('accountType');
+    }
+  });
 });

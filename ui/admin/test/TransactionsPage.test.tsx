@@ -4,11 +4,11 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { Transaction } from '@silvio/ui-shared';
+import type { AdminTransaction } from '@silvio/ui-shared';
 import { TransactionsPage } from '../src/pages/TransactionsPage';
 import { makeMockApi } from './mockApi';
 
-function makeTx(overrides: Partial<Transaction> = {}): Transaction {
+function makeTx(overrides: Partial<AdminTransaction> = {}): AdminTransaction {
   return {
     id: 'tx-1',
     groupId: 'g-1',
@@ -21,8 +21,12 @@ function makeTx(overrides: Partial<Transaction> = {}): Transaction {
     createdAt: '2026-07-01T12:00:00Z',
     committedAt: '2026-07-01T12:00:00Z',
     entries: [
-      { id: 'e-1', transactionId: 'tx-1', accountId: 'a-1', amount: -500 },
-      { id: 'e-2', transactionId: 'tx-1', accountId: 'a-2', amount: 500 },
+      { id: 'e-1', transactionId: 'tx-1', accountId: 'a-1', amount: -500,
+        accountType: 'member', currencyId: 'c-1',
+        memberId: 'm-1', memberNo: 1, displayName: 'Alice Smith' },
+      { id: 'e-2', transactionId: 'tx-1', accountId: 'a-2', amount: 500,
+        accountType: 'member', currencyId: 'c-1',
+        memberId: 'm-2', memberNo: 2, displayName: 'Bob Jones' },
     ],
     ...overrides,
   };
@@ -59,6 +63,39 @@ describe('TransactionsPage', () => {
         expect.objectContaining({ q: 'veg' }),
       ),
     );
+  });
+
+  it('derives From/To from enriched entries, naming system accounts by type', async () => {
+    const api = makeMockApi();
+    api.adminTransactions.mockResolvedValue({
+      transactions: [
+        makeTx(),
+        makeTx({
+          id: 'tx-2',
+          seq: 8,
+          type: 'demurrage',
+          description: 'Demurrage 2026-07',
+          entries: [
+            { id: 'e-3', transactionId: 'tx-2', accountId: 'a-1', amount: -3,
+              accountType: 'member', currencyId: 'c-1',
+              memberId: 'm-1', memberNo: 1, displayName: 'Alice Smith' },
+            { id: 'e-4', transactionId: 'tx-2', accountId: 'a-sys', amount: 3,
+              accountType: 'system', currencyId: 'c-1' },
+          ],
+        }),
+      ],
+      total: 2,
+    });
+
+    render(<TransactionsPage api={api} />);
+    await screen.findByText(/veg box/);
+
+    expect(screen.getByText('From')).toBeInTheDocument();
+    expect(screen.getByText('To')).toBeInTheDocument();
+    // Alice pays Bob; Alice also pays demurrage into the system account.
+    expect(screen.getAllByText('Alice Smith')).toHaveLength(2);
+    expect(screen.getByText('Bob Jones')).toBeInTheDocument();
+    expect(screen.getByText('system')).toBeInTheDocument();
   });
 
   it('debounces typing into a single server-side query', async () => {

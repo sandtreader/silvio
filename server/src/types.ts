@@ -90,6 +90,20 @@ export interface Entry extends NewEntry {
   transactionId: Id;
 }
 
+// Admin transaction list only: entry plus account/member identity resolved at
+// the API layer, so the UI can show source → destination without lookups.
+// Never part of the domain Transaction — entries feed the journal hash chain
+// (#10) and must stay raw. Member fields absent for system-side accounts;
+// counterpartyRef present only on gateway accounts.
+export interface EnrichedEntry extends Entry {
+  accountType: AccountType;
+  currencyId: Id;
+  memberId?: Id;
+  memberNo?: number;
+  displayName?: string;
+  counterpartyRef?: string;
+}
+
 export interface NewTransaction {
   groupId: Id;
   type: TxType;

@@ -4532,7 +4532,158 @@
                     "transactions": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/Transaction"
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "groupId",
+                          "type",
+                          "state",
+                          "createdBy",
+                          "channel",
+                          "createdAt",
+                          "entries"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "groupId": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "trade",
+                              "demurrage",
+                              "fee",
+                              "settlement",
+                              "reversal",
+                              "adjustment"
+                            ]
+                          },
+                          "flow": {
+                            "type": "string",
+                            "enum": [
+                              "payment",
+                              "invoice"
+                            ]
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "committed",
+                              "declined",
+                              "cancelled",
+                              "expired"
+                            ]
+                          },
+                          "seq": {
+                            "type": "integer"
+                          },
+                          "hash": {
+                            "type": "string"
+                          },
+                          "hashVersion": {
+                            "type": "integer"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "reference": {
+                            "type": "string"
+                          },
+                          "createdBy": {
+                            "type": "string"
+                          },
+                          "channel": {
+                            "type": "string",
+                            "enum": [
+                              "web",
+                              "mcp",
+                              "admin",
+                              "system"
+                            ]
+                          },
+                          "reversesId": {
+                            "type": "string"
+                          },
+                          "demurrageRunId": {
+                            "type": "string"
+                          },
+                          "remoteRef": {
+                            "type": "string"
+                          },
+                          "apiTokenId": {
+                            "type": "string"
+                          },
+                          "idempotencyKey": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "committedAt": {
+                            "type": "string"
+                          },
+                          "expiresAt": {
+                            "type": "string"
+                          },
+                          "entries": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "id",
+                                "transactionId",
+                                "accountId",
+                                "amount",
+                                "accountType",
+                                "currencyId"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "transactionId": {
+                                  "type": "string"
+                                },
+                                "accountId": {
+                                  "type": "string"
+                                },
+                                "amount": {
+                                  "type": "integer"
+                                },
+                                "accountType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "member",
+                                    "community",
+                                    "system",
+                                    "gateway"
+                                  ]
+                                },
+                                "currencyId": {
+                                  "type": "string"
+                                },
+                                "memberId": {
+                                  "type": "string"
+                                },
+                                "memberNo": {
+                                  "type": "integer"
+                                },
+                                "displayName": {
+                                  "type": "string"
+                                },
+                                "counterpartyRef": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
                       }
                     },
                     "total": {
@@ -9823,7 +9974,158 @@
                     "transactions": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/Transaction"
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "groupId",
+                          "type",
+                          "state",
+                          "createdBy",
+                          "channel",
+                          "createdAt",
+                          "entries"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "groupId": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "trade",
+                              "demurrage",
+                              "fee",
+                              "settlement",
+                              "reversal",
+                              "adjustment"
+                            ]
+                          },
+                          "flow": {
+                            "type": "string",
+                            "enum": [
+                              "payment",
+                              "invoice"
+                            ]
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "committed",
+                              "declined",
+                              "cancelled",
+                              "expired"
+                            ]
+                          },
+                          "seq": {
+                            "type": "integer"
+                          },
+                          "hash": {
+                            "type": "string"
+                          },
+                          "hashVersion": {
+                            "type": "integer"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "reference": {
+                            "type": "string"
+                          },
+                          "createdBy": {
+                            "type": "string"
+                          },
+                          "channel": {
+                            "type": "string",
+                            "enum": [
+                              "web",
+                              "mcp",
+                              "admin",
+                              "system"
+                            ]
+                          },
+                          "reversesId": {
+                            "type": "string"
+                          },
+                          "demurrageRunId": {
+                            "type": "string"
+                          },
+                          "remoteRef": {
+                            "type": "string"
+                          },
+                          "apiTokenId": {
+                            "type": "string"
+                          },
+                          "idempotencyKey": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "committedAt": {
+                            "type": "string"
+                          },
+                          "expiresAt": {
+                            "type": "string"
+                          },
+                          "entries": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "id",
+                                "transactionId",
+                                "accountId",
+                                "amount",
+                                "accountType",
+                                "currencyId"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "transactionId": {
+                                  "type": "string"
+                                },
+                                "accountId": {
+                                  "type": "string"
+                                },
+                                "amount": {
+                                  "type": "integer"
+                                },
+                                "accountType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "member",
+                                    "community",
+                                    "system",
+                                    "gateway"
+                                  ]
+                                },
+                                "currencyId": {
+                                  "type": "string"
+                                },
+                                "memberId": {
+                                  "type": "string"
+                                },
+                                "memberNo": {
+                                  "type": "integer"
+                                },
+                                "displayName": {
+                                  "type": "string"
+                                },
+                                "counterpartyRef": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
                       }
                     },
                     "total": {

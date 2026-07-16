@@ -7,6 +7,7 @@
 
 import type {
   AdminStats,
+  AdminTransaction,
   ApiScope,
   ApiToken,
   AuditEvent,
@@ -562,7 +563,7 @@ export class ApiClient {
   }
 
   adminTransactions(filter: TransactionFilter = {}): Promise<{
-    transactions: Transaction[];
+    transactions: AdminTransaction[];
     total: number;
   }> {
     const params = new URLSearchParams();

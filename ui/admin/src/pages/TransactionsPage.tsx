@@ -24,7 +24,7 @@ import {
 } from '@mui/material';
 import UndoIcon from '@mui/icons-material/Undo';
 import { FilteredView } from '@sandtreader/rafiki';
-import type { Transaction, TxState } from '@silvio/ui-shared';
+import type { AdminEntry, AdminTransaction, TxState } from '@silvio/ui-shared';
 import { api as realApi, type AdminApi } from '../api';
 
 const LIMIT = 50;
@@ -38,17 +38,31 @@ const STATE_COLOURS: Record<TxState, 'default' | 'success' | 'warning' | 'error'
 };
 
 /** The transaction's magnitude: the sum of its positive legs, minor units. */
-function amountOf(tx: Transaction): number {
+function amountOf(tx: AdminTransaction): number {
   return (tx.entries ?? [])
     .filter((entry) => entry.amount > 0)
     .reduce((sum, entry) => sum + entry.amount, 0);
 }
 
+/** Human label for one enriched leg: member name when known, gateway
+ * counterparty ref otherwise, else the bare account type (e.g. 'system'). */
+function entryLabel(entry: AdminEntry): string {
+  return entry.displayName ?? entry.counterpartyRef ?? entry.accountType;
+}
+
+/** From = debited legs (amount < 0), To = credited legs, joined for display. */
+function legsOf(tx: AdminTransaction, sign: 1 | -1): string {
+  return (tx.entries ?? [])
+    .filter((entry) => Math.sign(entry.amount) === sign)
+    .map(entryLabel)
+    .join(', ');
+}
+
 export function TransactionsPage({ api = realApi }: { api?: AdminApi }) {
   const [q, setQ] = useState('');
-  const [transactions, setTransactions] = useState<Transaction[]>();
+  const [transactions, setTransactions] = useState<AdminTransaction[]>();
   const [total, setTotal] = useState(0);
-  const [confirming, setConfirming] = useState<Transaction>();
+  const [confirming, setConfirming] = useState<AdminTransaction>();
 
   const search = useCallback(
     async (offset = 0) => {
@@ -100,6 +114,8 @@ export function TransactionsPage({ api = realApi }: { api?: AdminApi }) {
                     <TableCell>Date</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>State</TableCell>
+                    <TableCell>From</TableCell>
+                    <TableCell>To</TableCell>
                     <TableCell>Description</TableCell>
                     <TableCell align="right">Amount (minor units)</TableCell>
                     <TableCell align="right" />
@@ -118,6 +134,8 @@ export function TransactionsPage({ api = realApi }: { api?: AdminApi }) {
                           color={STATE_COLOURS[tx.state]}
                         />
                       </TableCell>
+                      <TableCell>{legsOf(tx, -1)}</TableCell>
+                      <TableCell>{legsOf(tx, 1)}</TableCell>
                       <TableCell>{tx.description}</TableCell>
                       <TableCell align="right">{amountOf(tx)}</TableCell>
                       <TableCell align="right">
