@@ -159,8 +159,7 @@ export function EmailTemplatesPage({ api = realApi }: { api?: AdminApi }) {
 
       <Typography color="text.secondary">
         Each notification has a built-in template; edit one to override it for
-        this group. Subjects and bodies substitute these placeholders where the
-        notification provides them: {ALL_PLACEHOLDERS}.
+        this group.
       </Typography>
       {templates !== undefined && (
         <TableContainer component={Paper}>
