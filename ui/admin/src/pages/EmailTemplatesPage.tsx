@@ -157,10 +157,6 @@ export function EmailTemplatesPage({ api = realApi }: { api?: AdminApi }) {
         </Stack>
       </Paper>
 
-      <Typography color="text.secondary">
-        Each notification has a built-in template; edit one to override it for
-        this group.
-      </Typography>
       {templates !== undefined && (
         <TableContainer component={Paper}>
           <Table size="small">
