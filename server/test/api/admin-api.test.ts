@@ -163,6 +163,30 @@ describe('admin API', () => {
     expect(list.json().policies[0].enabled).toBe(false);
   });
 
+  it('max_payment policies create and enforce a per-transaction cap (#26)', async () => {
+    const created = await app.inject({
+      method: 'POST', url: '/api/v1/admin/policies',
+      headers: { host: HOST, cookie: adminCookie },
+      payload: {
+        currencyId: cams.id, type: 'max_payment', config: { maxAmount: 400 },
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().policy.type).toBe('max_payment');
+
+    const denied = await app.inject({
+      method: 'POST', url: '/api/v1/payments', headers: { host: HOST, cookie: aliceCookie },
+      payload: { payeeMemberId: bob.id, currencyId: cams.id, amount: 401 },
+    });
+    expect(denied.statusCode).toBe(422);
+
+    const allowed = await app.inject({
+      method: 'POST', url: '/api/v1/payments', headers: { host: HOST, cookie: aliceCookie },
+      payload: { payeeMemberId: bob.id, currencyId: cams.id, amount: 400 },
+    });
+    expect(allowed.statusCode).toBe(201);
+  });
+
   it('demurrage bands: replace and read back', async () => {
     const put = await app.inject({
       method: 'PUT', url: `/api/v1/admin/demurrage/${cams.id}/bands`,

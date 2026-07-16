@@ -15,13 +15,26 @@ const policy: Policy = {
 };
 
 describe('PoliciesPage', () => {
-  it('lists policies with pretty-printed config', async () => {
+  it('lists policies with config rendered at the currency scale (#26)', async () => {
     const api = makeMockApi();
-    api.adminPolicies.mockResolvedValue([policy]);
+    api.adminPolicies.mockResolvedValue([
+      policy,
+      {
+        ...policy,
+        id: 'p-2',
+        type: 'soft_threshold',
+        config: { thresholds: [{ balance: -25000, level: 'review' }] },
+      },
+      { ...policy, id: 'p-3', type: 'max_payment', config: { maxAmount: 50000 } },
+    ]);
 
     render(<PoliciesPage api={api} />);
     expect(await screen.findByText('hard_limit')).toBeInTheDocument();
-    expect(screen.getByText(/-40000/)).toBeInTheDocument();
+    // Human amounts, not raw minor-unit JSON.
+    expect(screen.getByText(/min -400\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/-250\.00 → review/)).toBeInTheDocument();
+    expect(screen.getByText(/max payment 500\.00/)).toBeInTheDocument();
+    expect(screen.queryByText(/-40000/)).not.toBeInTheDocument();
   });
 
   it('disables a policy via the switch', async () => {
@@ -60,5 +73,47 @@ describe('PoliciesPage', () => {
         config: { minBalance: -40000 },
       }),
     );
+  });
+
+  it('adds a max_payment policy with a parsed cap (#26)', async () => {
+    const api = makeMockApi();
+    api.adminAddPolicy.mockResolvedValue({
+      ...policy,
+      id: 'p-3',
+      type: 'max_payment',
+      config: { maxAmount: 50000 },
+    });
+
+    render(<PoliciesPage api={api} />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: /add policy/i }),
+    );
+    await userEvent.click(screen.getByLabelText(/type/i));
+    await userEvent.click(await screen.findByRole('option', { name: /max payment/i }));
+    await userEvent.type(
+      await screen.findByLabelText(/max payment/i),
+      '500.00',
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^add$/i }));
+    await waitFor(() =>
+      expect(api.adminAddPolicy).toHaveBeenCalledWith({
+        currencyId: 'c-1',
+        type: 'max_payment',
+        config: { maxAmount: 50000 },
+      }),
+    );
+  });
+
+  it('explains blocking vs flagging and that min balance is usually negative (#26)', async () => {
+    const api = makeMockApi();
+    render(<PoliciesPage api={api} />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: /add policy/i }),
+    );
+    // Which types block and which only flag.
+    expect(screen.getByText(/block/i)).toBeInTheDocument();
+    expect(screen.getByText(/only raise flags/i)).toBeInTheDocument();
+    // The debit floor is a negative number for a normal debit allowance.
+    expect(screen.getByText(/usually negative/i)).toBeInTheDocument();
   });
 });

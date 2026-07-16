@@ -2462,7 +2462,7 @@ export async function buildApp(
               required: ['currencyId', 'type', 'config'],
               properties: {
                 currencyId: { type: 'string' },
-                type: { type: 'string', enum: ['soft_threshold', 'hard_limit'] },
+                type: { type: 'string', enum: ['soft_threshold', 'hard_limit', 'max_payment'] },
                 config: { type: 'object' },
               },
             },

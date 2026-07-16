@@ -263,6 +263,36 @@ describe('trading service (#5, #3)', () => {
       expect((await storage.getTransaction(invoice.id)).state).toBe('pending'); // still actionable
     });
 
+    it('a max_payment policy caps any single payment (#26)', async () => {
+      await storage.setCreditPolicy({
+        groupId: group.id, currencyId: cams.id, type: 'max_payment',
+        config: { maxAmount: 500 },
+      });
+      const base = {
+        groupId: group.id, payerMemberId: alice.id, payeeMemberId: bob.id,
+        currencyId: cams.id, actorPersonId: 'p', channel: 'web' as const,
+      };
+      await sendPayment(storage, { ...base, amount: 500 }); // at the cap: fine
+      await expect(sendPayment(storage, { ...base, amount: 501 })).rejects.toSatisfy(
+        (e: unknown) =>
+          e instanceof DomainError && e.code === 'LIMIT_BREACHED' && /500/.test(e.message),
+      );
+      expect(await balanceOf(alice)).toBe(-500); // denied payment left no trace
+    });
+
+    it('max_payment applies when a pending invoice is accepted (#26)', async () => {
+      const invoice = await requestPayment(storage, {
+        groupId: group.id, payeeMemberId: bob.id, payerMemberId: alice.id,
+        currencyId: cams.id, amount: 600, actorPersonId: 'p', channel: 'web',
+      });
+      await storage.setCreditPolicy({
+        groupId: group.id, currencyId: cams.id, type: 'max_payment',
+        config: { maxAmount: 500 },
+      });
+      await expectDomainError(accept(storage, invoice.id, alice.id), 'LIMIT_BREACHED');
+      expect((await storage.getTransaction(invoice.id)).state).toBe('pending');
+    });
+
     it('a restricted member cannot make outward payments but can still earn', async () => {
       await storage.imposeRestriction(alice.id, 'persistent taker', 'admin-1');
       const base = {

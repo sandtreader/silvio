@@ -899,3 +899,22 @@ provisional "a reversal cannot itself be reversed":
 - **Admin text search covers parties**: the `q` filter matches member
   display names on either side of a transaction as well as
   description/reference.
+
+## 26. Credit control: max_payment policy type — DECIDED 2026-07-16
+
+A third policy type joins soft_threshold and hard_limit (#3):
+`max_payment`, config `{ maxAmount }` (integer minor units) — no single
+transaction in the currency may exceed it. Enforced in the same
+commit-time authorisation path as hard limits (both immediate payments
+and pending-acceptance), refusing with LIMIT_BREACHED (422). It guards
+against fat-fingered amounts even when both parties' balances stay
+within limits — a trillion-unit typo sails through balance limits that
+were set after the fact, but never through a payment cap.
+
+With it, Policies page usability fixes: the configuration column renders
+amounts at the currency's scale instead of raw minor-unit JSON, the
+create form says which types block and which only flag (hard limits
+block silently; only soft thresholds feed the Flags page), and the
+hard-limit min-balance field points out it is normally negative
+(a positive floor blocks everyone below it — the mistake that motivated
+this entry).

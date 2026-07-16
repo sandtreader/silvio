@@ -778,7 +778,8 @@
             "type": "string",
             "enum": [
               "soft_threshold",
-              "hard_limit"
+              "hard_limit",
+              "max_payment"
             ]
           },
           "config": {
@@ -808,6 +809,9 @@
                 "type": "integer"
               },
               "maxBalance": {
+                "type": "integer"
+              },
+              "maxAmount": {
                 "type": "integer"
               }
             }
@@ -3983,7 +3987,8 @@
                     "type": "string",
                     "enum": [
                       "soft_threshold",
-                      "hard_limit"
+                      "hard_limit",
+                      "max_payment"
                     ]
                   },
                   "config": {
@@ -4071,6 +4076,49 @@
                   "properties": {
                     "policy": {
                       "$ref": "#/components/schemas/CreditPolicy"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
                     }
                   }
                 }
@@ -9416,7 +9464,8 @@
                     "type": "string",
                     "enum": [
                       "soft_threshold",
-                      "hard_limit"
+                      "hard_limit",
+                      "max_payment"
                     ]
                   },
                   "config": {
@@ -9514,6 +9563,49 @@
                   "properties": {
                     "policy": {
                       "$ref": "#/components/schemas/CreditPolicy"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
                     }
                   }
                 }

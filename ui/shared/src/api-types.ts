@@ -2522,7 +2522,7 @@ export interface paths {
                     "application/json": {
                         currencyId: string;
                         /** @enum {string} */
-                        type: "soft_threshold" | "hard_limit";
+                        type: "soft_threshold" | "hard_limit" | "max_payment";
                         config: Record<string, never>;
                     };
                 };
@@ -2566,7 +2566,39 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch: {
@@ -6729,7 +6761,7 @@ export interface paths {
                     "application/json": {
                         currencyId: string;
                         /** @enum {string} */
-                        type: "soft_threshold" | "hard_limit";
+                        type: "soft_threshold" | "hard_limit" | "max_payment";
                         config: Record<string, never>;
                     };
                 };
@@ -6773,7 +6805,39 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch: {
@@ -8961,7 +9025,7 @@ export interface components {
             groupId: string;
             currencyId: string;
             /** @enum {string} */
-            type: "soft_threshold" | "hard_limit";
+            type: "soft_threshold" | "hard_limit" | "max_payment";
             config: {
                 thresholds?: {
                     balance: number;
@@ -8969,6 +9033,7 @@ export interface components {
                 }[];
                 minBalance?: number;
                 maxBalance?: number;
+                maxAmount?: number;
             };
             enabled: boolean;
         };

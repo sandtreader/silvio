@@ -219,8 +219,8 @@ export interface Person {
   email?: string;
 }
 
-// Credit control (decision #3).
-export type CreditPolicyType = 'soft_threshold' | 'hard_limit';
+// Credit control (decision #3; max_payment #26).
+export type CreditPolicyType = 'soft_threshold' | 'hard_limit' | 'max_payment';
 
 export interface SoftThreshold {
   balance: number; // flag when balance passes this (sign gives direction)
@@ -231,6 +231,7 @@ export interface CreditPolicyConfig {
   thresholds?: SoftThreshold[]; // soft_threshold
   minBalance?: number; // hard_limit (max debit)
   maxBalance?: number; // hard_limit (max credit)
+  maxAmount?: number; // max_payment (per-transaction cap, #26)
 }
 
 export interface CreditPolicy {

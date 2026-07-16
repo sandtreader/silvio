@@ -54,7 +54,7 @@ const LISTING_TYPE = ['offer', 'want'] as const;
 const PAGE_VISIBILITY = ['public', 'members', 'admin'] as const;
 const LISTING_STATUS = ['active', 'hidden', 'expired'] as const;
 export const LISTING_BADGE = ['professional', 'qualified'] as const; // #8
-const CREDIT_POLICY_TYPE = ['soft_threshold', 'hard_limit'] as const;
+const CREDIT_POLICY_TYPE = ['soft_threshold', 'hard_limit', 'max_payment'] as const;
 const RUN_STATUS = ['running', 'completed'] as const;
 export const SEARCH_DOMAIN = ['listings', 'directory', 'pages', 'news'] as const;
 const IMAGE_OWNER_KIND = ['cms', 'member', 'listing', 'brand'] as const;
@@ -460,6 +460,7 @@ const CREDIT_POLICY = {
         },
         minBalance: { type: 'integer' },
         maxBalance: { type: 'integer' },
+        maxAmount: { type: 'integer' },
       },
     },
     enabled: { type: 'boolean' },

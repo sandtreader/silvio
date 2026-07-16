@@ -27,6 +27,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
+  formatAmount,
   parseAmount,
   type CreditPolicyConfig,
   type CreditPolicyType,
@@ -56,6 +57,7 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
   const [type, setType] = useState<CreditPolicyType>('hard_limit');
   const [minBalance, setMinBalance] = useState('');
   const [maxBalance, setMaxBalance] = useState('');
+  const [maxPayment, setMaxPayment] = useState('');
   const [thresholds, setThresholds] = useState<ThresholdRow[]>([
     { balance: '', level: '' },
   ]);
@@ -88,14 +90,43 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
     setType('hard_limit');
     setMinBalance('');
     setMaxBalance('');
+    setMaxPayment('');
     setThresholds([{ balance: '', level: '' }]);
     setFormError(undefined);
     setAdding(true);
   };
 
+  /** Configuration column: amounts at the currency's scale, not raw JSON (#26). */
+  const describeConfig = (policy: Policy): string => {
+    const scale = scaleFor(currencies, policy.currencyId);
+    const fmt = (minor: number) => formatAmount(minor, scale);
+    if (policy.type === 'hard_limit') {
+      const parts: string[] = [];
+      if (policy.config.minBalance !== undefined)
+        parts.push(`min ${fmt(policy.config.minBalance)}`);
+      if (policy.config.maxBalance !== undefined)
+        parts.push(`max ${fmt(policy.config.maxBalance)}`);
+      return parts.join(', ');
+    }
+    if (policy.type === 'soft_threshold') {
+      return (policy.config.thresholds ?? [])
+        .map((t) => `${fmt(t.balance)} → ${t.level}`)
+        .join(', ');
+    }
+    return policy.config.maxAmount !== undefined
+      ? `max payment ${fmt(policy.config.maxAmount)}`
+      : '';
+  };
+
   /** Build the config from the form; throws RangeError on bad amounts. */
   const buildConfig = (): CreditPolicyConfig => {
     const scale = scaleFor(currencies, currencyId);
+    if (type === 'max_payment') {
+      if (maxPayment.trim() === '') {
+        throw new RangeError('a payment cap needs a max payment amount');
+      }
+      return { maxAmount: parseAmount(maxPayment, scale) };
+    }
     if (type === 'hard_limit') {
       const config: CreditPolicyConfig = {};
       if (minBalance.trim() !== '')
@@ -166,13 +197,7 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
                   <TableCell>{policy.type}</TableCell>
                   <TableCell>{currencyCode(policy.currencyId)}</TableCell>
                   <TableCell>
-                    <Typography
-                      component="pre"
-                      variant="body2"
-                      sx={{ fontFamily: 'monospace', margin: 0 }}
-                    >
-                      {JSON.stringify(policy.config, null, 2)}
-                    </Typography>
+                    <Typography variant="body2">{describeConfig(policy)}</Typography>
                   </TableCell>
                   <TableCell>
                     <Switch
@@ -210,14 +235,27 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
             </TextField>
             <TextField
               select
+              id="add-policy-type"
               label="Type"
               value={type}
               onChange={(e) => setType(e.target.value as CreditPolicyType)}
+              // Label the combobox by the "Type" label alone; by default MUI
+              // includes the selected value, so a "Max payment" selection
+              // would collide with the Max payment amount field's label.
+              SelectProps={{
+                SelectDisplayProps: { 'aria-labelledby': 'add-policy-type-label' },
+              }}
               fullWidth
             >
               <MenuItem value="hard_limit">Hard limit</MenuItem>
               <MenuItem value="soft_threshold">Soft thresholds</MenuItem>
+              <MenuItem value="max_payment">Max payment</MenuItem>
             </TextField>
+
+            <Typography variant="body2" color="text.secondary">
+              Hard limits and payment caps block payments; soft thresholds
+              only raise flags on the Flags page.
+            </Typography>
 
             {type === 'hard_limit' && (
               <Stack direction="row" spacing={2}>
@@ -226,6 +264,7 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
                   value={minBalance}
                   onChange={(e) => setMinBalance(e.target.value)}
                   placeholder="-400.00"
+                  helperText="Usually negative — the debit allowance"
                   fullWidth
                 />
                 <TextField
@@ -278,6 +317,16 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
                   </IconButton>
                 </Stack>
               ))}
+            {type === 'max_payment' && (
+              <TextField
+                label="Max payment"
+                value={maxPayment}
+                onChange={(e) => setMaxPayment(e.target.value)}
+                placeholder="500.00"
+                fullWidth
+              />
+            )}
+
             {type === 'soft_threshold' && (
               <Button
                 startIcon={<AddIcon />}
@@ -299,6 +348,7 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
           </Button>
         </DialogActions>
       </Dialog>
+
     </Stack>
   );
 }

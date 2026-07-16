@@ -82,8 +82,8 @@ async function checkRestriction(storage: Storage, payerMemberId: Id): Promise<vo
   }
 }
 
-/** Enabled hard limits deny at commit; soft thresholds never block (#3). */
-async function checkHardLimits(
+/** Hard limits and payment caps deny at commit; soft thresholds never block (#3, #26). */
+async function checkBlockingPolicies(
   storage: Storage,
   groupId: Id,
   currencyId: Id,
@@ -92,6 +92,16 @@ async function checkHardLimits(
   amount: number,
 ): Promise<void> {
   for (const policy of await storage.creditPolicies(groupId, currencyId)) {
+    if (policy.type === 'max_payment') {
+      const { maxAmount } = policy.config;
+      if (maxAmount !== undefined && amount > maxAmount) {
+        throw new DomainError(
+          'LIMIT_BREACHED',
+          `this payment of ${amount} exceeds the group's per-transaction cap of ${maxAmount}`,
+        );
+      }
+      continue;
+    }
     if (policy.type !== 'hard_limit') continue;
     const { minBalance, maxBalance } = policy.config;
     if (minBalance !== undefined) {
@@ -126,7 +136,7 @@ async function authoriseCommit(
   if (payerAccount.memberId !== undefined) {
     await checkRestriction(storage, payerAccount.memberId);
   }
-  await checkHardLimits(
+  await checkBlockingPolicies(
     storage,
     groupId,
     payerAccount.currencyId,
@@ -192,7 +202,7 @@ export async function sendPayment(storage: Storage, input: SendPaymentInput): Pr
 
   const hold = payee.confirmIncoming && input.bypassHold !== true;
   if (!hold) {
-    await checkHardLimits(
+    await checkBlockingPolicies(
       storage,
       input.groupId,
       input.currencyId,
