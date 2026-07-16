@@ -152,9 +152,17 @@ share the same directory and naming).
 ```sh
 docker pull ghcr.io/sandtreader/silvio:latest
 docker exec silvio npm run backup   # pre-upgrade snapshot
+docker inspect silvio --format '{{range .Config.Env}}{{println .}}{{end}}'   # note the env vars
 docker stop silvio && docker rm silvio
 docker run -d --name silvio ...     # same flags as before, new image
 ```
+
+`docker rm` discards the container's flags, so recreate with the
+complete original command — port binding, volume **and every `-e`**
+(check with the `docker inspect` above before removing; a forgotten
+`SILVIO_SMTP_URL` silently stops outbound email). The worked example in
+[deploy-runbook.md](deploy-runbook.md#1-run-the-container) keeps a full
+copy of the command.
 
 Schema migrations run automatically on boot. To pin a version, use the
 commit-SHA tag CI pushes alongside `latest`.
