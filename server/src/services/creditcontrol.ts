@@ -3,7 +3,8 @@
 // deepest crossed threshold per sign is reported per account.
 
 import type { Storage } from '../storage/interface.js';
-import type { AccountFlag, Id, SoftThreshold } from '../types.js';
+import type { AccountFlag, Currency, Id, SoftThreshold } from '../types.js';
+import { formatAmount } from './notifications.js';
 
 export async function evaluateFlags(
   storage: Storage,
@@ -14,6 +15,14 @@ export async function evaluateFlags(
     (policy) => policy.type === 'soft_threshold',
   );
   if (policies.length === 0) return [];
+
+  // Reasons are display text: amounts at the currency's scale, minor units
+  // never leak to the review surface.
+  const currency: Currency | undefined = (await storage.listCurrencies(groupId)).find(
+    (c) => c.id === currencyId,
+  );
+  const fmt = (minor: number): string =>
+    currency === undefined ? String(minor) : formatAmount(minor, currency);
 
   const accounts = (await storage.listAccounts(groupId, currencyId)).filter(
     (account) => account.type === 'member' && account.memberId !== undefined,
@@ -38,7 +47,7 @@ export async function evaluateFlags(
           accountId: account.id,
           memberId: account.memberId!,
           level: crossed.level,
-          reason: `balance ${balance} has crossed the ${crossed.balance} threshold`,
+          reason: `balance ${fmt(balance)} has crossed the ${fmt(crossed.balance)} threshold`,
         });
       }
     }

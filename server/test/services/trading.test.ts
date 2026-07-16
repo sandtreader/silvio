@@ -337,6 +337,10 @@ describe('trading service (#5, #3)', () => {
       const aliceFlags = flags.filter((fl) => fl.memberId === alice.id);
       expect(aliceFlags).toHaveLength(1); // deepest crossed threshold only
       expect(aliceFlags[0]!.level).toBe('review');
+      // Reasons carry amounts at the currency's scale, not raw minor units.
+      expect(aliceFlags[0]!.reason).toBe(
+        'balance -4.50 CAM has crossed the -4.00 CAM threshold',
+      );
       expect(flags.filter((fl) => fl.memberId === bob.id)).toHaveLength(0); // +450, no credit thresholds set
     });
   });

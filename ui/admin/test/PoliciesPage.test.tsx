@@ -104,6 +104,41 @@ describe('PoliciesPage', () => {
     );
   });
 
+  it('adds a soft-threshold policy choosing the level from a select', async () => {
+    const api = makeMockApi();
+    api.adminAddPolicy.mockResolvedValue({
+      ...policy,
+      id: 'p-2',
+      type: 'soft_threshold',
+      config: { thresholds: [{ balance: -20000, level: 'review' }] },
+    });
+
+    render(<PoliciesPage api={api} />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: /add policy/i }),
+    );
+    await userEvent.click(screen.getByLabelText(/type/i));
+    await userEvent.click(
+      await screen.findByRole('option', { name: /soft thresholds/i }),
+    );
+    await userEvent.type(screen.getByLabelText(/balance/i), '-200.00');
+
+    // Level offers the escalation ladder rather than free text.
+    await userEvent.click(screen.getByLabelText(/level/i));
+    const levels = screen.getAllByRole('option').map((o) => o.textContent);
+    expect(levels).toEqual(['notice', 'review', 'alert']);
+    await userEvent.click(screen.getByRole('option', { name: 'review' }));
+
+    await userEvent.click(screen.getByRole('button', { name: /^add$/i }));
+    await waitFor(() =>
+      expect(api.adminAddPolicy).toHaveBeenCalledWith({
+        currencyId: 'c-1',
+        type: 'soft_threshold',
+        config: { thresholds: [{ balance: -20000, level: 'review' }] },
+      }),
+    );
+  });
+
   it('deletes a policy behind a confirmation', async () => {
     const api = makeMockApi();
     api.adminPolicies.mockResolvedValue([policy]);

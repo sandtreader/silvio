@@ -43,6 +43,11 @@ interface ThresholdRow {
   level: string;
 }
 
+// The escalation ladder offered for soft-threshold flags. The API accepts
+// any string (#3: levels carry no machine semantics — they label rows on
+// the Flags page); the select just keeps groups to a consistent ladder.
+const FLAG_LEVELS = ['notice', 'review', 'alert'] as const;
+
 export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
   const [policies, setPolicies] = useState<Policy[]>();
   const currencies = useCurrencies(api);
@@ -59,7 +64,7 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
   const [maxBalance, setMaxBalance] = useState('');
   const [maxPayment, setMaxPayment] = useState('');
   const [thresholds, setThresholds] = useState<ThresholdRow[]>([
-    { balance: '', level: '' },
+    { balance: '', level: 'notice' },
   ]);
   const [formError, setFormError] = useState<string>();
 
@@ -101,7 +106,7 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
     setMinBalance('');
     setMaxBalance('');
     setMaxPayment('');
-    setThresholds([{ balance: '', level: '' }]);
+    setThresholds([{ balance: '', level: 'notice' }]);
     setFormError(undefined);
     setAdding(true);
   };
@@ -148,9 +153,9 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
       }
       return config;
     }
-    const rows = thresholds.filter(
-      (t) => t.balance.trim() !== '' || t.level.trim() !== '',
-    );
+    // A row is in use once it has a balance; level always has a value now
+    // that it is a select.
+    const rows = thresholds.filter((t) => t.balance.trim() !== '');
     if (rows.length === 0) {
       throw new RangeError('a soft threshold policy needs at least one threshold');
     }
@@ -313,6 +318,7 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
                     fullWidth
                   />
                   <TextField
+                    select
                     label="Level"
                     value={row.level}
                     onChange={(e) =>
@@ -322,9 +328,14 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
                         ),
                       )
                     }
-                    placeholder="notice"
                     fullWidth
-                  />
+                  >
+                    {FLAG_LEVELS.map((level) => (
+                      <MenuItem key={level} value={level}>
+                        {level}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                   <IconButton
                     aria-label="remove threshold"
                     disabled={thresholds.length === 1}
@@ -350,7 +361,7 @@ export function PoliciesPage({ api = realApi }: { api?: AdminApi }) {
               <Button
                 startIcon={<AddIcon />}
                 onClick={() =>
-                  setThresholds((rows) => [...rows, { balance: '', level: '' }])
+                  setThresholds((rows) => [...rows, { balance: '', level: 'notice' }])
                 }
               >
                 Add threshold
